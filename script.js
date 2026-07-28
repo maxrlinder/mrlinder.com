@@ -34,6 +34,33 @@ const colours = {
   brown: "#775043",
 };
 
+const siteConfig = window.MRLINDER_CONFIG || {};
+const reduceMotion = window.matchMedia(
+  "(prefers-reduced-motion: reduce)",
+).matches;
+const animationsEnabled = siteConfig.animations !== false && !reduceMotion;
+
+document.documentElement.dataset.animations = animationsEnabled ? "on" : "off";
+
+const bootScreen = document.querySelector("[data-boot-screen]");
+
+if (bootScreen) {
+  if (!animationsEnabled || siteConfig.bootAnimation === false) {
+    bootScreen.remove();
+  } else {
+    const bootDuration = Number(siteConfig.bootDurationMs) || 900;
+
+    window.requestAnimationFrame(() => {
+      bootScreen.classList.add("is-running");
+    });
+
+    window.setTimeout(() => {
+      bootScreen.classList.add("is-finished");
+      window.setTimeout(() => bootScreen.remove(), 180);
+    }, bootDuration);
+  }
+}
+
 const dialog = document.querySelector(".placeholder-dialog");
 
 if (dialog) {

@@ -6,6 +6,7 @@ const required = [
   "index.html",
   "cv/index.html",
   "styles.css",
+  "site-config.js",
   "script.js",
   "resources/me_cutout.png",
   "resources/Max_R_Linder_CV.pdf",

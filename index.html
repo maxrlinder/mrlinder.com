@@ -25,10 +25,29 @@
     <meta name="twitter:image" content="https://mrlinder.com/resources/og.png" />
     <title>Max Rehman Linder</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/site-config.js"></script>
     <script src="/script.js" defer></script>
   </head>
   <body class="home-page">
     <a class="skip-link" href="#main">Skip to content</a>
+
+    <div class="boot-screen" data-boot-screen aria-hidden="true">
+      <div class="boot-window">
+        <div class="window-titlebar">
+          <span class="window-control"></span>
+          <strong>Starting up</strong>
+          <span class="window-control window-control-double"></span>
+        </div>
+        <div class="boot-body">
+          <div class="boot-mark">M</div>
+          <div>
+            <strong>mrlinder.com</strong>
+            <p>Loading home page...</p>
+            <div class="boot-progress"><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <header class="system-bar">
       <a class="system-name" href="/" aria-label="mrlinder.com home">
@@ -50,7 +69,6 @@
 
     <main class="site-frame" id="main">
       <header class="page-heading">
-        <p class="meta-line">PERSONAL HOME PAGE // STOCKHOLM, SWEDEN</p>
         <h1>Max Rehman Linder</h1>
         <div class="spectrum-rule" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span
@@ -58,110 +76,106 @@
         </div>
       </header>
 
-      <section class="front-page" aria-labelledby="welcome-heading">
-        <div class="front-copy">
-          <p class="section-label">WELCOME</p>
-          <h2 id="welcome-heading">
-            AI researcher and applied mathematician.
-          </h2>
-          <p class="lead">
-            I work with large language models, self-distillation, and creative
-            machine learning. I’m based in Stockholm and have a long-running
-            side quest in sailing.
-          </p>
-          <p class="editor-note">
-            [This is a first-pass introduction. Better words to follow.]
-          </p>
-
-          <p class="plain-links">
-            <a href="/cv/">Curriculum vitae</a>
-            <span aria-hidden="true">|</span>
-            <a href="mailto:max.r.linder@hotmail.com">Email me</a>
-            <span aria-hidden="true">|</span>
-            <a
-              href="https://www.linkedin.com/in/max-rehman-linder-76a3b4209/"
-              target="_blank"
-              rel="noreferrer"
-              >LinkedIn</a
-            >
-          </p>
-
-          <dl class="status-table">
-            <div>
-              <dt>Currently</dt>
-              <dd>Researching language models at Ericsson.</dd>
-            </div>
-            <div>
-              <dt>Location</dt>
-              <dd>Stockholm, Sweden.</dd>
-            </div>
-            <div>
-              <dt>Website</dt>
-              <dd>Version 0.2. More sections will appear here over time.</dd>
-            </div>
-          </dl>
+      <section class="mac-window home-window">
+        <div class="window-titlebar">
+          <span class="window-control"></span>
+          <strong>Home</strong>
+          <span class="window-control window-control-double"></span>
         </div>
 
-        <figure class="portrait-figure">
-          <img
-            src="/resources/me_cutout.png"
-            alt="Max Rehman Linder smiling"
-            width="1109"
-            height="1266"
-          />
-          <figcaption>Max Rehman Linder, 2026</figcaption>
-        </figure>
+        <div class="front-page">
+          <div class="front-copy">
+            <p class="section-label">WELCOME</p>
+            <p class="lead">
+              My name is Max, and I’m an AI researcher at Ericsson, based in
+              Stockholm. I create data pipelines, fine-tune foundation models,
+              and evaluate them for a living. In my free time, I build RL
+              models, sail, hike, and enjoy coffee.
+            </p>
+
+            <p class="plain-links">
+              <a href="/cv/">Curriculum vitae</a>
+              <span aria-hidden="true">|</span>
+              <a href="mailto:max.r.linder@hotmail.com">Email me</a>
+              <span aria-hidden="true">|</span>
+              <a
+                href="https://www.linkedin.com/in/max-rehman-linder-76a3b4209/"
+                target="_blank"
+                rel="noreferrer"
+                >LinkedIn</a
+              >
+            </p>
+          </div>
+
+          <figure class="portrait-figure">
+            <img
+              src="/resources/me_cutout.png"
+              alt="Max Rehman Linder smiling"
+              width="1109"
+              height="1266"
+            />
+            <figcaption>Max Rehman Linder, 2026</figcaption>
+          </figure>
+        </div>
       </section>
 
-      <hr />
-
-      <section class="site-index" aria-labelledby="index-heading">
-        <div class="index-intro">
-          <p class="section-label">DIRECTORY</p>
-          <h2 id="index-heading">Site index</h2>
-          <p>
-            The first page is online. The remaining sections are reserved for
-            later additions.
-          </p>
+      <section class="mac-window index-window">
+        <div class="window-titlebar">
+          <span class="window-control"></span>
+          <strong>Site index</strong>
+          <span class="window-control window-control-double"></span>
         </div>
 
-        <ol class="directory-list">
-          <li>
-            <span class="directory-key key-red" aria-hidden="true"></span>
-            <a href="/cv/">Curriculum vitae</a>
-            <small>online</small>
-          </li>
-          <li>
-            <span class="directory-key key-orange" aria-hidden="true"></span>
-            <button type="button" data-panel="work">Selected work</button>
-            <small>not yet</small>
-          </li>
-          <li>
-            <span class="directory-key key-yellow" aria-hidden="true"></span>
-            <button type="button" data-panel="notes">Notes &amp; writing</button>
-            <small>not yet</small>
-          </li>
-          <li>
-            <span class="directory-key key-green" aria-hidden="true"></span>
-            <button type="button" data-panel="lab">The lab</button>
-            <small>not yet</small>
-          </li>
-          <li>
-            <span class="directory-key key-blue" aria-hidden="true"></span>
-            <button type="button" data-panel="photos">Photographs</button>
-            <small>not yet</small>
-          </li>
-          <li>
-            <span class="directory-key key-violet" aria-hidden="true"></span>
-            <button type="button" data-panel="links">Links</button>
-            <small>not yet</small>
-          </li>
-          <li>
-            <span class="directory-key key-brown" aria-hidden="true"></span>
-            <button type="button" data-panel="contact">Contact</button>
-            <small>not yet</small>
-          </li>
-        </ol>
+        <div class="site-index" aria-labelledby="index-heading">
+          <div class="index-intro">
+            <p class="section-label">DIRECTORY</p>
+            <h2 id="index-heading">Site index</h2>
+            <p>
+              The first page is online. The remaining sections are reserved for
+              later additions.
+            </p>
+          </div>
+
+          <ol class="directory-list">
+            <li>
+              <span class="directory-key key-red" aria-hidden="true"></span>
+              <a href="/cv/">Curriculum vitae</a>
+              <small>online</small>
+            </li>
+            <li>
+              <span class="directory-key key-orange" aria-hidden="true"></span>
+              <button type="button" data-panel="work">Selected work</button>
+              <small>not yet</small>
+            </li>
+            <li>
+              <span class="directory-key key-yellow" aria-hidden="true"></span>
+              <button type="button" data-panel="notes">
+                Notes &amp; writing
+              </button>
+              <small>not yet</small>
+            </li>
+            <li>
+              <span class="directory-key key-green" aria-hidden="true"></span>
+              <button type="button" data-panel="lab">The lab</button>
+              <small>not yet</small>
+            </li>
+            <li>
+              <span class="directory-key key-blue" aria-hidden="true"></span>
+              <button type="button" data-panel="photos">Photographs</button>
+              <small>not yet</small>
+            </li>
+            <li>
+              <span class="directory-key key-violet" aria-hidden="true"></span>
+              <button type="button" data-panel="links">Links</button>
+              <small>not yet</small>
+            </li>
+            <li>
+              <span class="directory-key key-brown" aria-hidden="true"></span>
+              <button type="button" data-panel="contact">Contact</button>
+              <small>not yet</small>
+            </li>
+          </ol>
+        </div>
       </section>
 
       <p class="build-note">

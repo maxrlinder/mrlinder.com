@@ -29,11 +29,22 @@ html {
 body {
   min-width: 300px;
   margin: 0;
-  background: var(--screen);
+  background: #e8e8e3;
   color: var(--ink);
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.5;
+}
+
+html[data-animations="off"] {
+  scroll-behavior: auto;
+}
+
+html[data-animations="off"] *,
+html[data-animations="off"] *::before,
+html[data-animations="off"] *::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 a {
@@ -168,7 +179,7 @@ hr {
 }
 
 .page-heading {
-  padding: 54px 0 0;
+  padding: 48px 0 0;
 }
 
 .meta-line,
@@ -186,7 +197,7 @@ hr {
 
 .spectrum-rule {
   display: grid;
-  height: 5px;
+  height: 4px;
   margin-top: 27px;
   grid-template-columns: repeat(7, 1fr);
 }
@@ -219,15 +230,78 @@ hr {
   background: var(--brown);
 }
 
+.mac-window {
+  border: 1px solid var(--ink);
+  background: var(--screen-light);
+  box-shadow:
+    1px 1px 0 #fff,
+    3px 3px 0 #8c8c86;
+}
+
+.home-window {
+  margin-top: 38px;
+}
+
+.index-window {
+  margin-top: 34px;
+}
+
+.window-titlebar {
+  display: grid;
+  min-height: 26px;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--ink);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      var(--chrome) 0,
+      var(--chrome) 2px,
+      #a9a9a3 2px,
+      #a9a9a3 3px
+    );
+  align-items: center;
+  grid-template-columns: 22px 1fr 22px;
+}
+
+.window-titlebar strong {
+  width: max-content;
+  padding: 1px 9px;
+  background: var(--chrome);
+  justify-self: center;
+  font: bold 12px/1.25 var(--sans);
+}
+
+.window-control {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #777;
+}
+
+.window-control-double {
+  position: relative;
+  justify-self: end;
+}
+
+.window-control-double::after {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--ink);
+  content: "";
+}
+
 .front-page {
   display: grid;
-  padding: 54px 0 20px;
+  padding: 36px 38px 34px;
   grid-template-columns: minmax(0, 1fr) 335px;
-  gap: 66px;
+  gap: 55px;
   align-items: start;
 }
 
-.front-copy h2,
 .site-index h2 {
   max-width: 16ch;
   margin: 0;
@@ -236,18 +310,12 @@ hr {
 
 .lead {
   max-width: 600px;
-  margin: 24px 0 0;
+  margin: 16px 0 0;
   font: 20px/1.45 var(--serif);
 }
 
-.editor-note {
-  margin: 18px 0 0;
-  color: var(--muted);
-  font: 12px/1.4 var(--mono);
-}
-
 .plain-links {
-  margin: 29px 0;
+  margin: 30px 0 0;
 }
 
 .plain-links span {
@@ -255,30 +323,14 @@ hr {
   color: var(--rule);
 }
 
-.status-table {
-  margin: 34px 0 0;
-  border-top: 1px solid var(--rule);
-}
-
-.status-table div {
-  display: grid;
-  padding: 10px 0;
-  border-bottom: 1px dotted var(--rule);
-  grid-template-columns: 100px 1fr;
-  gap: 14px;
-}
-
-.status-table dt {
-  font: bold 12px/1.5 var(--mono);
-}
-
-.status-table dd {
-  margin: 0;
-  font-size: 14px;
-}
-
 .portrait-figure {
   margin: 0;
+  padding: 6px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #777;
 }
 
 .portrait-figure img {
@@ -290,14 +342,14 @@ hr {
 }
 
 .portrait-figure figcaption {
-  padding-top: 6px;
+  padding: 7px 2px 1px;
   font: 11px/1.4 var(--mono);
   text-align: right;
 }
 
 .site-index {
   display: grid;
-  padding-bottom: 42px;
+  padding: 28px 34px 32px;
   grid-template-columns: 0.85fr 1.15fr;
   gap: 66px;
 }
@@ -389,7 +441,7 @@ hr {
 }
 
 .build-note {
-  margin: 0 0 60px;
+  margin: 38px 0 60px;
   padding-top: 12px;
   border-top: 1px solid var(--ink);
   font: 11px/1.3 var(--mono);
@@ -515,6 +567,95 @@ hr {
   color: var(--ink);
 }
 
+.boot-screen {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  background: var(--screen);
+  place-items: center;
+  opacity: 1;
+}
+
+html[data-animations="off"] .boot-screen {
+  display: none;
+}
+
+.boot-screen.is-finished {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms linear,
+    visibility 0s 160ms;
+}
+
+.boot-window {
+  width: min(340px, calc(100% - 34px));
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+  box-shadow:
+    1px 1px 0 #fff,
+    4px 4px 0 #7e7e78;
+}
+
+.boot-body {
+  display: grid;
+  padding: 25px;
+  grid-template-columns: 48px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.boot-mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--ink);
+  background: var(--screen-light);
+  place-items: center;
+  font: bold 28px/1 var(--serif);
+}
+
+.boot-body strong {
+  font: bold 14px/1.2 var(--sans);
+}
+
+.boot-body p {
+  margin: 4px 0 12px;
+  font: 11px/1.3 var(--mono);
+}
+
+.boot-progress {
+  height: 12px;
+  padding: 2px;
+  border: 1px solid var(--ink);
+  background: #fff;
+}
+
+.boot-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #000080 0,
+      #000080 7px,
+      transparent 7px,
+      transparent 9px
+    );
+}
+
+html[data-animations="on"] .boot-screen.is-running .boot-progress span {
+  animation: boot-progress 650ms steps(9, end) forwards;
+}
+
+@keyframes boot-progress {
+  to {
+    width: 100%;
+  }
+}
+
 /* CV */
 
 .cv-document {
@@ -569,8 +710,12 @@ hr {
 .resume-section {
   position: relative;
   margin: 0 0 60px;
-  padding-left: 14px;
-  border-left: 4px solid var(--section-colour);
+  border: 1px solid var(--ink);
+  border-top: 4px solid var(--section-colour);
+  background: var(--screen-light);
+  box-shadow:
+    1px 1px 0 #fff,
+    3px 3px 0 #969690;
 }
 
 .section-red {
@@ -591,14 +736,15 @@ hr {
 
 .resume-section > h2 {
   margin: 0;
-  padding: 0 0 8px;
-  border-bottom: 2px solid var(--ink);
-  font: bold 27px/1 var(--serif);
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--ink);
+  background: var(--chrome);
+  font: bold 22px/1 var(--serif);
 }
 
 .resume-row {
   display: grid;
-  padding: 18px 0;
+  padding: 18px 13px;
   border-bottom: 1px dotted var(--rule);
   grid-template-columns: 165px minmax(0, 1fr);
   gap: 26px;
@@ -702,7 +848,7 @@ hr {
   }
 
   .front-page {
-    padding-top: 38px;
+    padding: 30px 25px;
     grid-template-columns: 1fr;
     gap: 42px;
   }
@@ -713,6 +859,7 @@ hr {
   }
 
   .site-index {
+    padding: 25px;
     grid-template-columns: 1fr;
     gap: 28px;
   }
@@ -767,7 +914,6 @@ hr {
     font-size: 51px;
   }
 
-  .front-copy h2,
   .site-index h2 {
     font-size: 31px;
   }
@@ -786,17 +932,8 @@ hr {
     display: none;
   }
 
-  .status-table div {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-
   .cv-heading h1 {
     font-size: 48px;
-  }
-
-  .resume-section {
-    padding-left: 9px;
   }
 
   .dialog-body {

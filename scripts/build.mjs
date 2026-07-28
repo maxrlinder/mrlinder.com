@@ -6,7 +6,13 @@ const output = resolve(root, "dist");
 const client = resolve(output, "client");
 const server = resolve(output, "server");
 
-const files = ["index.html", "styles.css", "script.js", "CNAME"];
+const files = [
+  "index.html",
+  "styles.css",
+  "site-config.js",
+  "script.js",
+  "CNAME",
+];
 
 await rm(output, { recursive: true, force: true });
 await mkdir(resolve(client, "cv"), { recursive: true });
