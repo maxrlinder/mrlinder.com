@@ -5,6 +5,12 @@ const root = resolve(import.meta.dirname, "..");
 const required = [
   "index.html",
   "cv/index.html",
+  "work/index.html",
+  "notes/index.html",
+  "lab/index.html",
+  "photos/index.html",
+  "links/index.html",
+  "contact/index.html",
   "styles.css",
   "site-config.js",
   "site-navigation.js",

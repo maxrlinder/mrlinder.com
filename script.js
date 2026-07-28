@@ -1,51 +1,43 @@
-const sections = {
-  work: {
-    title: "Selected work is not online yet.",
-    copy: "This section has been reserved for projects, papers, and prototypes.",
-  },
-  notes: {
-    title: "Notes are not online yet.",
-    copy: "This section has been reserved for writing and shorter notes.",
-  },
-  lab: {
-    title: "The lab is not online yet.",
-    copy: "This section has been reserved for experiments and interactive work.",
-  },
-  photos: {
-    title: "Photographs are not online yet.",
-    copy: "This section has been reserved for a small photo archive.",
-  },
-  links: {
-    title: "Links are not online yet.",
-    copy: "This section has been reserved for a collection of links.",
-  },
-  contact: {
-    title: "The contact page is not online yet.",
-    copy: "For now, email max.r.linder@hotmail.com.",
-  },
-};
-
-const colours = {
-  orange: "#ef8b2c",
-  yellow: "#f2cf42",
-  green: "#51a469",
-  blue: "#4589bd",
-  violet: "#8062a7",
-  brown: "#775043",
-};
-
 const siteConfig = window.MRLINDER_CONFIG || {};
 const reduceMotion = window.matchMedia(
   "(prefers-reduced-motion: reduce)",
 ).matches;
+const mobileSidebar = window.matchMedia("(max-width: 760px)");
 const animationsEnabled = siteConfig.animations !== false && !reduceMotion;
+const skipBootKey = "mrlinder:skip-next-boot";
 
 document.documentElement.dataset.animations = animationsEnabled ? "on" : "off";
 
+let skipBoot = false;
+
+try {
+  skipBoot = window.sessionStorage.getItem(skipBootKey) === "true";
+  if (skipBoot) window.sessionStorage.removeItem(skipBootKey);
+} catch {
+  skipBoot = false;
+}
+
+document.querySelectorAll("[data-skip-boot]").forEach((link) => {
+  link.addEventListener("click", () => {
+    try {
+      window.sessionStorage.setItem(skipBootKey, "true");
+    } catch {
+      // Navigation still works when session storage is unavailable.
+    }
+  });
+});
+
 const bootScreen = document.querySelector("[data-boot-screen]");
+const skipMobileBoot =
+  mobileSidebar.matches && siteConfig.bootOnMobile === false;
 
 if (bootScreen) {
-  if (!animationsEnabled || siteConfig.bootAnimation === false) {
+  if (
+    !animationsEnabled ||
+    siteConfig.bootAnimation === false ||
+    skipBoot ||
+    skipMobileBoot
+  ) {
     bootScreen.remove();
   } else {
     const bootDuration = Number(siteConfig.bootDurationMs) || 900;
@@ -61,14 +53,37 @@ if (bootScreen) {
   }
 }
 
+document.querySelectorAll("[data-tree-toggle]").forEach((button) => {
+  const target = document.getElementById(button.getAttribute("aria-controls"));
+
+  button.addEventListener("click", () => {
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!expanded));
+    if (target) target.hidden = expanded;
+  });
+});
+
 const sidebar = document.querySelector(".site-sidebar");
 const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
 const sidebarBackdrop = document.querySelector("[data-sidebar-backdrop]");
-const mobileSidebar = window.matchMedia("(max-width: 760px)");
+
+const syncSidebarAvailability = (open) => {
+  if (!sidebar) return;
+
+  const hiddenOnMobile = mobileSidebar.matches && !open;
+  sidebar.inert = hiddenOnMobile;
+
+  if (mobileSidebar.matches) {
+    sidebar.setAttribute("aria-hidden", String(hiddenOnMobile));
+  } else {
+    sidebar.removeAttribute("aria-hidden");
+  }
+};
 
 const setSidebarOpen = (open) => {
   document.body.classList.toggle("sidebar-open", open);
   sidebarToggle?.setAttribute("aria-expanded", String(open));
+  syncSidebarAvailability(open);
 };
 
 sidebarToggle?.addEventListener("click", () => {
@@ -78,7 +93,10 @@ sidebarToggle?.addEventListener("click", () => {
 sidebarBackdrop?.addEventListener("click", () => setSidebarOpen(false));
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) {
+  if (
+    event.key === "Escape" &&
+    document.body.classList.contains("sidebar-open")
+  ) {
     setSidebarOpen(false);
     sidebarToggle?.focus();
   }
@@ -90,45 +108,11 @@ sidebar?.querySelectorAll(".tree-link").forEach((link) => {
   });
 });
 
-mobileSidebar.addEventListener("change", (event) => {
-  if (!event.matches) setSidebarOpen(false);
+mobileSidebar.addEventListener("change", () => {
+  setSidebarOpen(false);
 });
 
-const dialog = document.querySelector(".placeholder-dialog");
-
-if (dialog) {
-  const title = dialog.querySelector("#dialog-title");
-  const copy = dialog.querySelector("[data-dialog-copy]");
-  const closeButtons = dialog.querySelectorAll(".dialog-close, .dialog-ok");
-
-  document.querySelectorAll("[data-panel]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const section = sections[button.dataset.panel];
-      title.textContent = section.title;
-      copy.textContent = section.copy;
-      dialog.style.setProperty(
-        "--dialog-colour",
-        colours[button.dataset.colour],
-      );
-      dialog.showModal();
-    });
-  });
-
-  closeButtons.forEach((button) => {
-    button.addEventListener("click", () => dialog.close());
-  });
-
-  dialog.addEventListener("click", (event) => {
-    const bounds = dialog.getBoundingClientRect();
-    const isOutside =
-      event.clientX < bounds.left ||
-      event.clientX > bounds.right ||
-      event.clientY < bounds.top ||
-      event.clientY > bounds.bottom;
-
-    if (isOutside) dialog.close();
-  });
-}
+syncSidebarAvailability(false);
 
 document.querySelectorAll("[data-current-year]").forEach((node) => {
   node.textContent = new Date().getFullYear();

@@ -3,103 +3,134 @@ const navigationItems = [
     id: "home",
     label: "Home",
     href: "/",
-    kind: "file",
+    accent: "red",
+    skipBoot: true,
+    children: [],
   },
   {
     id: "cv",
     label: "Curriculum vitae",
     href: "/cv/",
-    kind: "file",
-    accent: "red",
-  },
-  {
-    label: "Work",
-    kind: "folder",
     accent: "orange",
-    children: [{ label: "Selected work", panel: "work" }],
-  },
-  {
-    label: "Notes",
-    kind: "folder",
-    accent: "yellow",
-    children: [{ label: "Notes & writing", panel: "notes" }],
-  },
-  {
-    label: "Lab",
-    kind: "folder",
-    accent: "green",
-    children: [{ label: "Experiments", panel: "lab" }],
-  },
-  {
-    label: "Photographs",
-    kind: "folder",
-    accent: "blue",
-    children: [{ label: "Photo archive", panel: "photos" }],
-  },
-  {
-    label: "Links",
-    kind: "folder",
-    accent: "violet",
-    children: [{ label: "Bookmarks", panel: "links" }],
-  },
-  {
-    label: "Contact",
-    kind: "folder",
-    accent: "brown",
     children: [
+      { label: "Experience", href: "/cv/#experience" },
+      { label: "Education", href: "/cv/#education" },
       {
-        label: "Email",
-        href: "mailto:max.r.linder@hotmail.com",
+        label: "Publications, features & awards",
+        href: "/cv/#selected",
+      },
+      {
+        label: "Download CV",
+        href: "/resources/Max_R_Linder_CV.pdf",
+        download: true,
       },
     ],
   },
+  {
+    id: "work",
+    label: "Work",
+    href: "/work/",
+    accent: "yellow",
+    children: [],
+  },
+  {
+    id: "notes",
+    label: "Notes",
+    href: "/notes/",
+    accent: "green",
+    children: [],
+  },
+  {
+    id: "lab",
+    label: "Lab",
+    href: "/lab/",
+    accent: "blue",
+    children: [],
+  },
+  {
+    id: "photos",
+    label: "Photographs",
+    href: "/photos/",
+    accent: "violet",
+    children: [],
+  },
+  {
+    id: "links",
+    label: "Links",
+    href: "/links/",
+    accent: "brown",
+    children: [],
+  },
+  {
+    id: "contact",
+    label: "Contact",
+    href: "/contact/",
+    accent: "red",
+    children: [],
+  },
 ];
 
-const fileMarkup = (item, currentPage) => {
-  const current = item.id === currentPage;
-  const classes = ["tree-link", current ? "is-current" : ""]
-    .filter(Boolean)
-    .join(" ");
-  const accent = item.accent ? ` tree-${item.accent}` : "";
-
-  if (item.panel) {
-    return `
-      <li>
-        <button class="${classes}" type="button" data-panel="${item.panel}">
-          <span class="file-icon${accent}" aria-hidden="true"></span>
-          <span>${item.label}</span>
-        </button>
-      </li>
-    `;
-  }
+const childMarkup = (child) => {
+  const download = child.download ? " download" : "";
 
   return `
     <li>
-      <a class="${classes}" href="${item.href}"${current ? ' aria-current="page"' : ""}>
-        <span class="file-icon${accent}" aria-hidden="true"></span>
-        <span>${item.label}</span>
+      <a class="tree-link tree-child-link" href="${child.href}"${download}>
+        <span class="file-icon" aria-hidden="true"></span>
+        <span>${child.label}</span>
       </a>
     </li>
   `;
 };
 
 const itemMarkup = (item, currentPage) => {
-  if (item.kind !== "folder") return fileMarkup(item, currentPage);
+  const current = item.id === currentPage;
+  const hasChildren = item.children.length > 0;
+  const submenuId = `tree-${item.id}-children`;
+  const directLinkAttributes = [
+    current ? 'aria-current="page"' : "",
+    item.skipBoot ? "data-skip-boot" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-  const children = item.children
-    .map((child) => fileMarkup(child, currentPage))
-    .join("");
+  const disclosure = hasChildren
+    ? `
+      <button
+        class="tree-expander"
+        type="button"
+        aria-label="Show ${item.label} subcategories"
+        aria-controls="${submenuId}"
+        aria-expanded="${current ? "true" : "false"}"
+        data-tree-toggle
+      >
+        <span aria-hidden="true">▸</span>
+      </button>
+    `
+    : '<span class="tree-expander-spacer" aria-hidden="true"></span>';
+
+  const children = hasChildren
+    ? `
+      <ul class="tree-children" id="${submenuId}"${current ? "" : " hidden"}>
+        ${item.children.map(childMarkup).join("")}
+      </ul>
+    `
+    : "";
 
   return `
-    <li>
-      <details class="tree-folder">
-        <summary>
-          <span class="disclosure" aria-hidden="true"></span>
+    <li class="tree-entry">
+      <div class="tree-row">
+        ${disclosure}
+        <a
+          class="tree-link tree-parent-link${current ? " is-current" : ""}"
+          href="${item.href}"
+          ${directLinkAttributes}
+        >
           <span class="folder-icon tree-${item.accent}" aria-hidden="true"></span>
           <span>${item.label}</span>
-        </summary>
-        <ul>${children}</ul>
-      </details>
+        </a>
+      </div>
+      ${children}
     </li>
   `;
 };
@@ -112,20 +143,37 @@ class SiteSidebar extends HTMLElement {
       .join("");
 
     this.innerHTML = `
-      <button
-        class="sidebar-toggle"
-        type="button"
-        aria-controls="site-directory"
-        aria-expanded="false"
-        data-sidebar-toggle
-      >
-        <span class="toggle-lines" aria-hidden="true"></span>
-        Directory
-      </button>
+      <div class="mobile-toolbar">
+        <a
+          class="mobile-home-button"
+          href="/"
+          aria-label="Go to the home page"
+          data-skip-boot
+        >
+          <span class="system-mark" aria-hidden="true"></span>
+        </a>
+        <button
+          class="sidebar-toggle"
+          type="button"
+          aria-controls="site-directory"
+          aria-expanded="false"
+          data-sidebar-toggle
+        >
+          <span class="toggle-lines" aria-hidden="true"></span>
+          Directory
+        </button>
+      </div>
       <div class="sidebar-backdrop" data-sidebar-backdrop></div>
       <aside class="site-sidebar" id="site-directory" aria-label="Site directory">
         <div class="sidebar-menubar">
-          <span class="system-mark" aria-hidden="true"></span>
+          <a
+            class="sidebar-home-link"
+            href="/"
+            aria-label="Go to the home page"
+            data-skip-boot
+          >
+            <span class="system-mark" aria-hidden="true"></span>
+          </a>
           <strong>mrlinder.com</strong>
         </div>
         <div class="window-titlebar">
@@ -134,40 +182,17 @@ class SiteSidebar extends HTMLElement {
           <span class="window-control window-control-double"></span>
         </div>
         <nav class="directory-tree" aria-label="Directory tree">
-          <ul class="tree-root">
-            <li>
-              <details class="tree-folder root-folder" open>
-                <summary>
-                  <span class="disclosure" aria-hidden="true"></span>
-                  <span class="drive-icon" aria-hidden="true"></span>
-                  <span>mrlinder.com</span>
-                </summary>
-                <ul>${items}</ul>
-              </details>
-            </li>
-          </ul>
+          <div class="tree-drive-row">
+            <span class="drive-icon" aria-hidden="true"></span>
+            <strong>mrlinder.com</strong>
+          </div>
+          <ul class="tree-root">${items}</ul>
         </nav>
         <div class="sidebar-status">
           <span><span class="status-light" aria-hidden="true"></span>online</span>
           <span data-local-time>--:--</span>
         </div>
       </aside>
-      <dialog class="placeholder-dialog" aria-labelledby="dialog-title">
-        <div class="dialog-bar">
-          <span>mrlinder.com</span>
-          <button class="dialog-close" type="button" aria-label="Close">×</button>
-        </div>
-        <div class="dialog-body">
-          <span class="dialog-icon" aria-hidden="true">i</span>
-          <div>
-            <h2 id="dialog-title">This page is not online yet.</h2>
-            <p data-dialog-copy>
-              This section is reserved for a later version of the website.
-            </p>
-            <button class="dialog-ok" type="button">OK</button>
-          </div>
-        </div>
-      </dialog>
     `;
   }
 }

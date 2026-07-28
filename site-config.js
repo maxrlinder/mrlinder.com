@@ -5,6 +5,7 @@
 window.MRLINDER_CONFIG = Object.freeze({
   animations: true,
   bootAnimation: true,
+  bootOnMobile: false,
   bootDurationMs: 900,
 });
 
