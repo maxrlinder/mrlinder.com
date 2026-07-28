@@ -7,6 +7,7 @@ const required = [
   "cv/index.html",
   "styles.css",
   "site-config.js",
+  "site-navigation.js",
   "script.js",
   "resources/me_cutout.png",
   "resources/Max_R_Linder_CV.pdf",

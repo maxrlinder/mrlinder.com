@@ -61,6 +61,39 @@ if (bootScreen) {
   }
 }
 
+const sidebar = document.querySelector(".site-sidebar");
+const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
+const sidebarBackdrop = document.querySelector("[data-sidebar-backdrop]");
+const mobileSidebar = window.matchMedia("(max-width: 760px)");
+
+const setSidebarOpen = (open) => {
+  document.body.classList.toggle("sidebar-open", open);
+  sidebarToggle?.setAttribute("aria-expanded", String(open));
+};
+
+sidebarToggle?.addEventListener("click", () => {
+  setSidebarOpen(!document.body.classList.contains("sidebar-open"));
+});
+
+sidebarBackdrop?.addEventListener("click", () => setSidebarOpen(false));
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) {
+    setSidebarOpen(false);
+    sidebarToggle?.focus();
+  }
+});
+
+sidebar?.querySelectorAll(".tree-link").forEach((link) => {
+  link.addEventListener("click", () => {
+    if (mobileSidebar.matches) setSidebarOpen(false);
+  });
+});
+
+mobileSidebar.addEventListener("change", (event) => {
+  if (!event.matches) setSidebarOpen(false);
+});
+
 const dialog = document.querySelector(".placeholder-dialog");
 
 if (dialog) {

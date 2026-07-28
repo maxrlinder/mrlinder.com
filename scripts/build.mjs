@@ -10,6 +10,7 @@ const files = [
   "index.html",
   "styles.css",
   "site-config.js",
+  "site-navigation.js",
   "script.js",
   "CNAME",
 ];

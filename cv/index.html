@@ -20,22 +20,18 @@
     <title>CV — Max Rehman Linder</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="/site-config.js"></script>
+    <script src="/site-navigation.js" defer></script>
     <script src="/script.js" defer></script>
   </head>
   <body class="cv-page">
     <a class="skip-link" href="#cv-main">Skip to CV</a>
 
-    <header class="system-bar">
-      <a class="system-name" href="/" aria-label="mrlinder.com home">
-        <span class="system-mark" aria-hidden="true"></span>
-        <strong>mrlinder.com</strong>
-      </a>
-      <nav class="system-nav" aria-label="Primary navigation">
-        <a href="/">Home</a>
-        <a href="/cv/" aria-current="page">CV</a>
+    <site-sidebar current="cv"></site-sidebar>
+    <noscript>
+      <nav class="noscript-nav" aria-label="Basic navigation">
+        <a href="/">Home</a> | <a href="/cv/">Curriculum vitae</a>
       </nav>
-      <span class="system-time"><span data-local-time>--:--</span></span>
-    </header>
+    </noscript>
 
     <main class="cv-document" id="cv-main">
       <header class="cv-heading">
