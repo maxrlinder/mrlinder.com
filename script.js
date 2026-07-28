@@ -1,27 +1,27 @@
 const sections = {
   work: {
-    title: "Selected Work is still filing itself.",
-    copy: "Projects, papers, and prototypes will live here once the folder has learned some manners.",
+    title: "Selected work is not online yet.",
+    copy: "This section has been reserved for projects, papers, and prototypes.",
   },
   notes: {
-    title: "The notebook is still blank.",
-    copy: "Short notes, longer ideas, and the occasional useful diagram will arrive in a future update.",
+    title: "Notes are not online yet.",
+    copy: "This section has been reserved for writing and shorter notes.",
   },
   lab: {
-    title: "The Lab is warming up.",
-    copy: "Small experiments and interactive oddities are being assembled behind this window.",
+    title: "The lab is not online yet.",
+    copy: "This section has been reserved for experiments and interactive work.",
   },
   photos: {
-    title: "The film is still developing.",
-    copy: "A small photo archive will appear here. For now, imagine boats, Stockholm, and questionable framing.",
+    title: "Photographs are not online yet.",
+    copy: "This section has been reserved for a small photo archive.",
   },
   links: {
-    title: "Bookmarks are being sorted.",
-    copy: "A deliberately small collection of useful and interesting corners of the web is coming soon.",
+    title: "Links are not online yet.",
+    copy: "This section has been reserved for a collection of links.",
   },
   contact: {
-    title: "The desk is open by email.",
-    copy: "A proper contact page is coming. Until then: max.r.linder@hotmail.com.",
+    title: "The contact page is not online yet.",
+    copy: "For now, email max.r.linder@hotmail.com.",
   },
 };
 
