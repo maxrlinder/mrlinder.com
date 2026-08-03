@@ -8,6 +8,7 @@ const required = [
   "work/index.html",
   "notes/index.html",
   "lab/index.html",
+  "about/index.html",
   "photos/index.html",
   "links/index.html",
   "contact/index.html",
@@ -17,12 +18,22 @@ const required = [
   "script.js",
   "resources/me_cutout.png",
   "resources/Max_R_Linder_CV.pdf",
+  "resources/about/web/portrait.jpg",
+  "resources/about/web/sailing.jpg",
+  "resources/about/web/military.jpg",
+  "resources/about/web/kusten.jpg",
+  "resources/about/web/sarek.jpg",
+  "resources/about/web/bal.jpg",
+  "resources/about/web/publicis.jpg",
+  "resources/about/web/garment.png",
+  "resources/about/web/ceremony.jpg",
+  "resources/about/web/ski.jpg",
 ];
 
 await Promise.all(required.map((file) => access(resolve(root, file))));
 
 const pages = await Promise.all(
-  ["index.html", "cv/index.html"].map((file) =>
+  ["index.html", "cv/index.html", "about/index.html"].map((file) =>
     readFile(resolve(root, file), "utf8"),
   ),
 );

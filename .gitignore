@@ -2,3 +2,6 @@
 dist/
 tmp/
 .wrangler/
+resources/about/*
+!resources/about/web/
+!resources/about/web/*

@@ -48,11 +48,15 @@ const navigationItems = [
     children: [],
   },
   {
-    id: "photos",
-    label: "Photographs",
-    href: "/photos/",
+    id: "about",
+    label: "About",
+    href: "/about/",
     accent: "violet",
-    children: [],
+    children: [
+      { label: "Background", href: "/about/#background" },
+      { label: "Studies", href: "/about/#studies" },
+      { label: "Current work", href: "/about/#current-work" },
+    ],
   },
   {
     id: "links",

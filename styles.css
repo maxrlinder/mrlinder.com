@@ -1100,6 +1100,172 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   margin: 0;
 }
 
+/* About */
+
+.about-document {
+  width: min(1000px, calc(100% - 42px));
+  margin: 0 auto;
+  padding: 52px 0 64px;
+}
+
+.about-heading {
+  overflow: hidden;
+}
+
+.about-intro {
+  display: grid;
+  padding: 36px 38px;
+  background: var(--screen-light);
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 310px);
+  gap: 52px;
+  align-items: center;
+}
+
+.about-intro h1 {
+  margin: 0;
+  font: bold clamp(54px, 8vw, 86px) / 0.88 var(--serif);
+  letter-spacing: -0.045em;
+}
+
+.about-lead {
+  max-width: 29ch;
+  margin: 24px 0 0;
+  font: 22px/1.45 var(--serif);
+}
+
+.bio-figure {
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #777;
+}
+
+.bio-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--ink);
+  background: #fff;
+}
+
+.bio-figure figcaption {
+  padding: 7px 2px 1px;
+  font: 10px/1.4 var(--mono);
+}
+
+.about-portrait {
+  transform: rotate(0.35deg);
+}
+
+.about-toc {
+  margin: 25px 0 46px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+
+.about-toc a,
+.about-toc strong {
+  margin-right: 19px;
+}
+
+.about-section {
+  margin: 0 0 60px;
+  border: 1px solid var(--ink);
+  border-top: 4px solid var(--section-colour);
+  background: var(--screen-light);
+  box-shadow:
+    1px 1px 0 #fff,
+    3px 3px 0 #969690;
+  scroll-margin-top: 24px;
+}
+
+.section-violet {
+  --section-colour: var(--violet);
+}
+
+.about-section > h2 {
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ink);
+  background: var(--chrome);
+  font: bold 24px/1 var(--serif);
+}
+
+.about-section-content {
+  padding: 34px;
+}
+
+.bio-copy p {
+  max-width: 72ch;
+  margin: 0 auto 30px;
+  font: 17px/1.62 var(--serif);
+}
+
+.bio-split {
+  display: grid;
+  margin: 0 0 38px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(230px, 0.92fr);
+  gap: 34px;
+  align-items: center;
+}
+
+.bio-split-wide {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+}
+
+.bio-split-reverse {
+  grid-template-columns: minmax(230px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.bio-split p {
+  margin-bottom: 0;
+}
+
+.bio-figure-portrait {
+  width: min(100%, 360px);
+}
+
+.bio-figure-wide {
+  width: min(100%, 820px);
+  margin: 34px auto 40px;
+}
+
+.bio-gallery {
+  display: grid;
+  margin: 34px 0 40px;
+  gap: 22px;
+  align-items: start;
+}
+
+.bio-gallery-pair {
+  grid-template-columns: 1fr 1.17fr;
+}
+
+.bio-gallery-work {
+  grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+  align-items: center;
+}
+
+.bio-figure-diagram {
+  background: #fff;
+}
+
+.bio-gallery-ending {
+  grid-template-columns: minmax(230px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+}
+
+.about-signature {
+  margin: 42px 0 0 !important;
+  font: italic 22px/1 var(--serif) !important;
+  text-align: right;
+}
+
 @media (max-width: 760px) {
   .system-bar {
     padding: 0;
@@ -1126,7 +1292,8 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   }
 
   .site-frame,
-  .cv-document {
+  .cv-document,
+  .about-document {
     width: min(100% - 28px, 600px);
   }
 
@@ -1189,6 +1356,51 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
     grid-template-columns: 1fr;
     gap: 5px;
   }
+
+  .about-intro {
+    padding: 29px 25px;
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .about-lead {
+    font-size: 20px;
+  }
+
+  .about-portrait {
+    width: min(100%, 340px);
+    margin: 0 auto;
+  }
+
+  .about-toc {
+    line-height: 2;
+  }
+
+  .about-section-content {
+    padding: 26px 23px;
+  }
+
+  .bio-copy p {
+    font-size: 16px;
+  }
+
+  .bio-split,
+  .bio-split-wide,
+  .bio-split-reverse,
+  .bio-gallery-pair,
+  .bio-gallery-work,
+  .bio-gallery-ending {
+    grid-template-columns: 1fr;
+  }
+
+  .bio-split-reverse .bio-figure {
+    order: 2;
+  }
+
+  .bio-figure-portrait {
+    width: min(100%, 390px);
+    margin: 0 auto;
+  }
 }
 
 @media (max-width: 500px) {
@@ -1235,6 +1447,14 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
   .cv-heading h1 {
     font-size: 48px;
+  }
+
+  .about-intro h1 {
+    font-size: 51px;
+  }
+
+  .about-section > h2 {
+    font-size: 21px;
   }
 
   .dialog-body {
@@ -1350,7 +1570,12 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
     padding-top: 64px;
   }
 
-  .resume-section {
+  .about-document {
+    padding-top: 58px;
+  }
+
+  .resume-section,
+  .about-section {
     scroll-margin-top: 54px;
   }
 

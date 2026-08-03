@@ -5,7 +5,16 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, "dist");
 const client = resolve(output, "client");
 const server = resolve(output, "server");
-const routes = ["cv", "work", "notes", "lab", "photos", "links", "contact"];
+const routes = [
+  "cv",
+  "work",
+  "notes",
+  "lab",
+  "about",
+  "photos",
+  "links",
+  "contact",
+];
 
 const files = [
   "index.html",
@@ -37,6 +46,15 @@ await Promise.all(
 await cp(resolve(root, "resources"), resolve(client, "resources"), {
   recursive: true,
 });
+await rm(resolve(client, "resources", "about"), {
+  recursive: true,
+  force: true,
+});
+await cp(
+  resolve(root, "resources", "about", "web"),
+  resolve(client, "resources", "about", "web"),
+  { recursive: true },
+);
 await cp(resolve(root, "worker", "index.js"), resolve(server, "index.js"));
 
 console.log("Built static site in dist/");
