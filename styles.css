@@ -1088,18 +1088,6 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   font-size: 14px;
 }
 
-.download-note {
-  margin-top: 55px;
-  padding: 12px 14px;
-  border: 1px solid var(--rule);
-  background: var(--screen-light);
-  font-size: 13px;
-}
-
-.download-note p {
-  margin: 0;
-}
-
 /* About */
 
 .about-document {

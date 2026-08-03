@@ -17,7 +17,7 @@ const required = [
   "site-navigation.js",
   "script.js",
   "resources/me_cutout.png",
-  "resources/Max_R_Linder_CV.pdf",
+  "resources/Max_R_L_CV.pdf",
   "resources/about/web/portrait.jpg",
   "resources/about/web/sailing.jpg",
   "resources/about/web/military.jpg",
