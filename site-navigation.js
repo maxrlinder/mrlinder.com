@@ -27,6 +27,17 @@ const navigationItems = [
     ],
   },
   {
+    id: "about",
+    label: "About",
+    href: "/about/",
+    accent: "violet",
+    children: [
+      { label: "Background", href: "/about/#background" },
+      { label: "Studies", href: "/about/#studies" },
+      { label: "Current work", href: "/about/#current-work" },
+    ],
+  },
+  {
     id: "work",
     label: "Work",
     href: "/work/",
@@ -46,17 +57,6 @@ const navigationItems = [
     href: "/lab/",
     accent: "blue",
     children: [],
-  },
-  {
-    id: "about",
-    label: "About",
-    href: "/about/",
-    accent: "violet",
-    children: [
-      { label: "Background", href: "/about/#background" },
-      { label: "Studies", href: "/about/#studies" },
-      { label: "Current work", href: "/about/#current-work" },
-    ],
   },
   {
     id: "links",

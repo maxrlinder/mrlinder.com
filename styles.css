@@ -1255,15 +1255,15 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   background: #fff;
 }
 
-.bio-gallery-ending {
-  grid-template-columns: minmax(230px, 0.7fr) minmax(0, 1.3fr);
-  align-items: center;
-}
-
 .about-signature {
   margin: 42px 0 0 !important;
   font: italic 22px/1 var(--serif) !important;
   text-align: right;
+}
+
+.bio-figure-ski {
+  width: min(100%, 620px);
+  margin: 30px auto 0;
 }
 
 @media (max-width: 760px) {
@@ -1388,8 +1388,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   .bio-split-wide,
   .bio-split-reverse,
   .bio-gallery-pair,
-  .bio-gallery-work,
-  .bio-gallery-ending {
+  .bio-gallery-work {
     grid-template-columns: 1fr;
   }
 
