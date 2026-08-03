@@ -303,7 +303,7 @@
 
         \vspace{0.10 cm}
         \begin{twocolentry}{2023}
-            \textbf{Marseilléstiftelsens Stipend}, awarded by Tessinsällskapet
+            \textbf{Marseillestiftelsens Stipend}, awarded by Tessinsällskapet
         \end{twocolentry}
 
         \vspace{0.10 cm}
