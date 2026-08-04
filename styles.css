@@ -554,17 +554,17 @@ site-sidebar {
 }
 
 .front-page {
-  display: grid;
-  padding: 36px 38px 34px;
-  grid-template-columns: minmax(0, 1fr) 335px;
-  gap: 55px;
-  align-items: start;
+  padding: 48px 48px 52px;
+}
+
+.front-copy {
+  max-width: 790px;
 }
 
 .front-copy h1 {
-  max-width: 9ch;
+  max-width: none;
   margin: 0;
-  font: bold clamp(48px, 7vw, 78px) / 0.86 var(--serif);
+  font: bold clamp(48px, 7.8vw, 92px) / 0.88 var(--serif);
   letter-spacing: -0.055em;
 }
 
@@ -612,30 +612,6 @@ site-sidebar {
 .plain-links span {
   padding: 0 8px;
   color: var(--rule);
-}
-
-.portrait-figure {
-  margin: 0;
-  padding: 6px;
-  border: 1px solid var(--ink);
-  background: var(--chrome);
-  box-shadow:
-    inset 1px 1px 0 #fff,
-    inset -1px -1px 0 #777;
-}
-
-.portrait-figure img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-bottom: 1px solid var(--ink);
-  object-fit: contain;
-}
-
-.portrait-figure figcaption {
-  padding: 7px 2px 1px;
-  font: 11px/1.4 var(--mono);
-  text-align: right;
 }
 
 .site-index {
@@ -1296,13 +1272,6 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
   .front-page {
     padding: 30px 25px;
-    grid-template-columns: 1fr;
-    gap: 42px;
-  }
-
-  .portrait-figure {
-    width: min(100%, 380px);
-    margin: 0 auto;
   }
 
   .site-index {

@@ -16,7 +16,6 @@ const required = [
   "site-config.js",
   "site-navigation.js",
   "script.js",
-  "resources/me_cutout.png",
   "resources/Max_R_L_CV.pdf",
   "resources/about/web/portrait.jpg",
   "resources/about/web/sailing.jpg",
