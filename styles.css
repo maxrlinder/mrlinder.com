@@ -1195,7 +1195,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 }
 
 .bio-figure-wide {
-  width: min(100%, 820px);
+  width: min(60%, 492px);
   margin: 34px auto 40px;
 }
 
