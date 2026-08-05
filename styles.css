@@ -1357,6 +1357,10 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
     width: min(100%, 390px);
     margin: 0 auto;
   }
+
+  .bio-figure-wide {
+    width: 100%;
+  }
 }
 
 @media (max-width: 500px) {
