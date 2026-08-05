@@ -17,6 +17,7 @@ const required = [
   "site-navigation.js",
   "script.js",
   "resources/Max_R_L_CV.pdf",
+  "resources/og-name-only.png",
   "resources/about/web/portrait.jpg",
   "resources/about/web/sailing.jpg",
   "resources/about/web/military.jpg",
@@ -44,7 +45,7 @@ for (const [index, page] of pages.entries()) {
   if (!page.includes("Skip to")) {
     throw new Error(`Missing skip link in page ${index + 1}`);
   }
-  if (!page.includes("/resources/og.png")) {
+  if (!page.includes("/resources/og-name-only.png")) {
     throw new Error(`Missing social preview metadata in page ${index + 1}`);
   }
 }
