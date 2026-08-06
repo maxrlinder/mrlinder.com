@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="126" viewBox="0 0 90 126" shape-rendering="crispEdges" role="img" aria-label="Card back">
+<title>Card back</title>
+<defs><pattern id="dither" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fbfbf7"/><rect width="1" height="1" fill="#e8e8e3"/><rect x="1" y="1" width="1" height="1" fill="#e8e8e3"/></pattern><pattern id="stripe" width="1" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="2" fill="#deded7"/><rect width="1" height="1" fill="#a9a9a3"/></pattern></defs>
+<path fill="#11110f" d="M2 0h86v1h-86z M2 125h86v1h-86z M0 2h1v122h-1z M89 2h1v122h-1z M1 1h1v1h-1z M88 1h1v1h-1z M1 124h1v1h-1z M88 124h1v1h-1z"/>
+<path fill="#fbfbf7" d="M2 1h86v124h-86z M1 2h88v122h-88z"/>
+<path fill="#ffffff" d="M2 1h85v1h-85z M1 2h1v121h-1z"/>
+<path fill="#77776f" d="M3 124h85v1h-85z M88 3h1v121h-1z"/>
+<path fill="#11110f" d="M4 4h82v118h-82z"/>
+<path fill="#725393" d="M5 5h80v116h-80z"/>
+<rect x="5" y="5" width="80" height="116" fill="url(#backfill)"/>
+<defs><pattern id="backfill" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fbfbf7"/><rect x="2" y="2" width="2" height="2" fill="#fbfbf7"/></pattern></defs>
+<path fill="#11110f" d="M23 41h44v44h-44z"/>
+<path fill="#deded7" d="M24 42h42v42h-42z"/>
+<path fill="#ffffff" d="M24 42h42v1h-42z M24 43h1v41h-1z"/>
+<path fill="#77776f" d="M25 83h41v1h-41z M65 43h1v40h-1z"/>
+<path fill="#11110f" d="M34 46h4v2h-4z M32 48h8v2h-8z M30 50h12v2h-12z M28 52h16v2h-16z M28 54h16v2h-16z M28 56h4v2h-4z M34 56h4v2h-4z M40 56h4v2h-4z M34 58h4v2h-4z M32 60h8v2h-8z"/>
+<path fill="#c73b32" d="M48 46h4v2h-4z M56 46h4v2h-4z M46 48h16v2h-16z M46 50h16v2h-16z M46 52h16v2h-16z M48 54h12v2h-12z M50 56h8v2h-8z M52 58h4v2h-4z M34 64h4v2h-4z M32 66h8v2h-8z M30 68h12v2h-12z M28 70h16v2h-16z M28 72h16v2h-16z M30 74h12v2h-12z M32 76h8v2h-8z M34 78h4v2h-4z"/>
+<path fill="#11110f" d="M50 64h8v2h-8z M50 66h8v2h-8z M46 68h16v2h-16z M46 70h16v2h-16z M46 72h4v2h-4z M52 72h4v2h-4z M58 72h4v2h-4z M52 74h4v2h-4z M50 76h8v2h-8z"/>
+</svg>

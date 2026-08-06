@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Card deck — sheet</title>
+    <style>
+      :root {
+        --screen: #f4f3ed;
+        --screen-light: #fbfbf7;
+        --chrome: #deded7;
+        --ink: #11110f;
+        --muted: #585850;
+      }
+      body {
+        margin: 0;
+        padding: 20px;
+        background: #e8e8e3;
+        color: var(--ink);
+        font: 12px/1.45 Arial, Helvetica, sans-serif;
+      }
+      .window {
+        max-width: 1160px;
+        margin: 0 auto;
+        border: 1px solid var(--ink);
+        background: var(--screen-light);
+        box-shadow:
+          1px 1px 0 #fff,
+          3px 3px 0 #8c8c86;
+      }
+      .titlebar {
+        display: flex;
+        min-height: 26px;
+        padding: 3px 4px;
+        border-bottom: 1px solid var(--ink);
+        background: repeating-linear-gradient(
+          to bottom,
+          var(--chrome) 0,
+          var(--chrome) 2px,
+          #a9a9a3 2px,
+          #a9a9a3 3px
+        );
+        align-items: center;
+        justify-content: center;
+      }
+      .titlebar strong {
+        padding: 1px 9px;
+        background: var(--chrome);
+        font-size: 12px;
+      }
+      .body {
+        padding: 14px;
+      }
+      h2 {
+        margin: 14px 0 6px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      h2:first-child {
+        margin-top: 0;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      figure {
+        margin: 0;
+      }
+      img {
+        display: block;
+        width: 78px;
+        height: auto;
+        box-shadow: 2px 2px 0 #8c8c86;
+      }
+      figcaption {
+        margin-top: 3px;
+        color: var(--muted);
+        font: 10px/1 "Courier New", Courier, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="window">
+      <div class="titlebar"><strong>Cards</strong></div>
+      <div class="body">
+        <h2>Spades</h2>
+        <div class="row" data-suit="spades"></div>
+        <h2>Hearts</h2>
+        <div class="row" data-suit="hearts"></div>
+        <h2>Diamonds</h2>
+        <div class="row" data-suit="diamonds"></div>
+        <h2>Clubs</h2>
+        <div class="row" data-suit="clubs"></div>
+        <h2>Backs</h2>
+        <div class="row" data-backs></div>
+      </div>
+    </div>
+    <script>
+      const ranks = [
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "j",
+        "q",
+        "k",
+        "a",
+      ];
+      const cell = (file) => {
+        const fig = document.createElement("figure");
+        const img = document.createElement("img");
+        img.src = file + ".svg";
+        img.alt = file;
+        const cap = document.createElement("figcaption");
+        cap.textContent = file;
+        fig.append(img, cap);
+        return fig;
+      };
+      document.querySelectorAll("[data-suit]").forEach((row) => {
+        ranks.forEach((r) => row.append(cell(row.dataset.suit + "-" + r)));
+      });
+      document
+        .querySelector("[data-backs]")
+        .append(cell("back"), cell("back-violet"));
+    </script>
+  </body>
+</html>

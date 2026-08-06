@@ -46,6 +46,11 @@ await Promise.all(
 await cp(resolve(root, "resources"), resolve(client, "resources"), {
   recursive: true,
 });
+await cp(
+  resolve(root, "RL-environment"),
+  resolve(client, "RL-environment"),
+  { recursive: true },
+);
 await rm(resolve(client, "resources", "about"), {
   recursive: true,
   force: true,

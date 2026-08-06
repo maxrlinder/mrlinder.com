@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Play card games against reinforcement-learning agents trained by Max Rehman Linder."
+    />
+    <meta name="theme-color" content="#f4f3ed" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="RL Playground — Max Rehman Linder" />
+    <meta
+      property="og:description"
+      content="Family card games, browser-based RL agents, and a standing invitation to beat them."
+    />
+    <meta property="og:url" content="https://mrlinder.com/RL-environment/" />
+    <meta
+      property="og:image"
+      content="https://mrlinder.com/resources/og-plump.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>RL Playground — Max Rehman Linder</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/RL-environment/rl.css" />
+    <script src="/site-config.js"></script>
+    <script src="/site-navigation.js" defer></script>
+    <script src="/script.js" defer></script>
+  </head>
+  <body class="rl-directory-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <div class="rl-boot" data-boot-screen aria-hidden="true">
+      <div class="rl-boot-table">
+        <div class="rl-boot-card boot-card-one"></div>
+        <div class="rl-boot-card boot-card-two"></div>
+        <div class="rl-boot-card boot-card-three"></div>
+        <div class="rl-boot-card boot-card-four"></div>
+        <strong>Shuffling the playground…</strong>
+      </div>
+    </div>
+
+    <site-sidebar current="rl-environment"></site-sidebar>
+
+    <main class="site-frame rl-directory-frame" id="main">
+      <section class="mac-window rl-directory-window">
+        <div class="window-titlebar">
+          <span class="window-control"></span>
+          <strong>RL-environment</strong>
+          <span class="window-control window-control-double"></span>
+        </div>
+
+        <div class="rl-directory-intro">
+          <p class="section-label">GAMES DIRECTORY</p>
+          <h1>My playground<br />of games.</h1>
+          <div class="spectrum-rule" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span
+            ><span></span><span></span>
+          </div>
+          <p class="rl-directory-lead">
+            Welcome to my playground of games. This is a fun place to hang out,
+            play, and practise these family games. Can you reliably beat any of
+            my AI agents at the hardest difficulty?
+          </p>
+          <p class="rl-early-note">
+            <span class="status-light" aria-hidden="true"></span>
+            Early iteration — more games will become available over time.
+          </p>
+        </div>
+
+        <div class="game-directory" aria-labelledby="available-games">
+          <div class="game-directory-bar">
+            <h2 id="available-games">Available games</h2>
+            <span>1 item</span>
+          </div>
+          <a
+            class="game-file"
+            href="/RL-environment/plump/"
+            data-game-link
+            aria-label="Open Plump"
+          >
+            <img src="/RL-environment/plump.svg" alt="" />
+            <span class="game-file-copy">
+              <strong>Plump</strong>
+              <small>Card game · 3–5 players · PPO agent</small>
+            </span>
+            <span class="game-file-open" aria-hidden="true">Open →</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <div class="game-launcher" data-game-launcher aria-hidden="true">
+      <div class="game-launcher-window">
+        <div class="window-titlebar">
+          <span class="window-control"></span>
+          <strong>Opening Plump</strong>
+          <span class="window-control window-control-double"></span>
+        </div>
+        <div class="game-launcher-body">
+          <div class="mini-deck" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div>
+            <strong>Setting the table…</strong>
+            <p>Cards, score sheet, and agent.</p>
+            <div class="boot-progress"><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <p>© <span data-current-year>2026</span> Max Rehman Linder</p>
+      <p>mrlinder.com/RL-environment</p>
+      <p>1 playable game</p>
+    </footer>
+
+    <script>
+      document.querySelector("[data-game-link]")?.addEventListener("click", (event) => {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        event.preventDefault();
+        const launcher = document.querySelector("[data-game-launcher]");
+        launcher?.setAttribute("aria-hidden", "false");
+        launcher?.classList.add("is-launching");
+        window.setTimeout(() => {
+          window.location.href = event.currentTarget.href;
+        }, 720);
+      });
+    </script>
+  </body>
+</html>

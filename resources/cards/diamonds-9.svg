@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="126" viewBox="0 0 90 126" shape-rendering="crispEdges" role="img" aria-label="9 of diamonds">
+<title>9 of diamonds</title>
+<defs><pattern id="dither" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fbfbf7"/><rect width="1" height="1" fill="#e8e8e3"/><rect x="1" y="1" width="1" height="1" fill="#e8e8e3"/></pattern><pattern id="stripe" width="1" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="2" fill="#deded7"/><rect width="1" height="1" fill="#a9a9a3"/></pattern></defs>
+<path fill="#11110f" d="M2 0h86v1h-86z M2 125h86v1h-86z M0 2h1v122h-1z M89 2h1v122h-1z M1 1h1v1h-1z M88 1h1v1h-1z M1 124h1v1h-1z M88 124h1v1h-1z"/>
+<path fill="#fbfbf7" d="M2 1h86v124h-86z M1 2h88v122h-88z"/>
+<path fill="#ffffff" d="M2 1h85v1h-85z M1 2h1v121h-1z"/>
+<path fill="#77776f" d="M3 124h85v1h-85z M88 3h1v121h-1z"/>
+<path fill="#c73b32" d="M24 26h2v1h-2z M23 27h4v1h-4z M22 28h6v1h-6z M21 29h8v1h-8z M21 30h8v1h-8z M21 31h8v1h-8z M21 32h8v1h-8z M22 33h6v1h-6z M23 34h4v1h-4z M24 35h2v1h-2z M64 26h2v1h-2z M63 27h4v1h-4z M62 28h6v1h-6z M61 29h8v1h-8z M61 30h8v1h-8z M61 31h8v1h-8z M61 32h8v1h-8z M62 33h6v1h-6z M63 34h4v1h-4z M64 35h2v1h-2z M24 48h2v1h-2z M23 49h4v1h-4z M22 50h6v1h-6z M21 51h8v1h-8z M21 52h8v1h-8z M21 53h8v1h-8z M21 54h8v1h-8z M22 55h6v1h-6z M23 56h4v1h-4z M24 57h2v1h-2z M64 48h2v1h-2z M63 49h4v1h-4z M62 50h6v1h-6z M61 51h8v1h-8z M61 52h8v1h-8z M61 53h8v1h-8z M61 54h8v1h-8z M62 55h6v1h-6z M63 56h4v1h-4z M64 57h2v1h-2z M44 58h2v1h-2z M43 59h4v1h-4z M42 60h6v1h-6z M41 61h8v1h-8z M41 62h8v1h-8z M41 63h8v1h-8z M41 64h8v1h-8z M42 65h6v1h-6z M43 66h4v1h-4z M44 67h2v1h-2z"/>
+<path fill="#c73b32" transform="rotate(180 25 73)" d="M24 68h2v1h-2z M23 69h4v1h-4z M22 70h6v1h-6z M21 71h8v1h-8z M21 72h8v1h-8z M21 73h8v1h-8z M21 74h8v1h-8z M22 75h6v1h-6z M23 76h4v1h-4z M24 77h2v1h-2z"/>
+<path fill="#c73b32" transform="rotate(180 65 73)" d="M64 68h2v1h-2z M63 69h4v1h-4z M62 70h6v1h-6z M61 71h8v1h-8z M61 72h8v1h-8z M61 73h8v1h-8z M61 74h8v1h-8z M62 75h6v1h-6z M63 76h4v1h-4z M64 77h2v1h-2z"/>
+<path fill="#c73b32" transform="rotate(180 25 95)" d="M24 90h2v1h-2z M23 91h4v1h-4z M22 92h6v1h-6z M21 93h8v1h-8z M21 94h8v1h-8z M21 95h8v1h-8z M21 96h8v1h-8z M22 97h6v1h-6z M23 98h4v1h-4z M24 99h2v1h-2z"/>
+<path fill="#c73b32" transform="rotate(180 65 95)" d="M64 90h2v1h-2z M63 91h4v1h-4z M62 92h6v1h-6z M61 93h8v1h-8z M61 94h8v1h-8z M61 95h8v1h-8z M61 96h8v1h-8z M62 97h6v1h-6z M63 98h4v1h-4z M64 99h2v1h-2z"/>
+<path fill="#c73b32" d="M6 4h6v2h-6z M4 6h2v2h-2z M12 6h2v2h-2z M4 8h2v2h-2z M12 8h2v2h-2z M6 10h8v2h-8z M12 12h2v2h-2z M10 14h2v2h-2z M6 16h4v2h-4z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+<path fill="#c73b32" transform="rotate(180 45 63)" d="M6 4h6v2h-6z M4 6h2v2h-2z M12 6h2v2h-2z M4 8h2v2h-2z M12 8h2v2h-2z M6 10h8v2h-8z M12 12h2v2h-2z M10 14h2v2h-2z M6 16h4v2h-4z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+</svg>

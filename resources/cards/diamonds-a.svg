@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="126" viewBox="0 0 90 126" shape-rendering="crispEdges" role="img" aria-label="Ace of diamonds">
+<title>Ace of diamonds</title>
+<defs><pattern id="dither" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fbfbf7"/><rect width="1" height="1" fill="#e8e8e3"/><rect x="1" y="1" width="1" height="1" fill="#e8e8e3"/></pattern><pattern id="stripe" width="1" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="2" fill="#deded7"/><rect width="1" height="1" fill="#a9a9a3"/></pattern></defs>
+<path fill="#11110f" d="M2 0h86v1h-86z M2 125h86v1h-86z M0 2h1v122h-1z M89 2h1v122h-1z M1 1h1v1h-1z M88 1h1v1h-1z M1 124h1v1h-1z M88 124h1v1h-1z"/>
+<path fill="#fbfbf7" d="M2 1h86v124h-86z M1 2h88v122h-88z"/>
+<path fill="#ffffff" d="M2 1h85v1h-85z M1 2h1v121h-1z"/>
+<path fill="#77776f" d="M3 124h85v1h-85z M88 3h1v121h-1z"/>
+<path fill="#11110f" d="M26 44h38v38h-38z"/>
+<rect x="27" y="45" width="36" height="36" fill="url(#dither)"/>
+<path fill="#77776f" d="M27 45h36v1h-36z M27 46h1v35h-1z"/>
+<path fill="#ffffff" d="M28 80h35v1h-35z M62 46h1v34h-1z"/>
+<path fill="#c73b32" d="M42 48h6v3h-6z M39 51h12v3h-12z M36 54h18v3h-18z M33 57h24v3h-24z M33 60h24v3h-24z M33 63h24v3h-24z M33 66h24v3h-24z M36 69h18v3h-18z M39 72h12v3h-12z M42 75h6v3h-6z M6 4h6v2h-6z M4 6h2v2h-2z M12 6h2v2h-2z M4 8h2v2h-2z M12 8h2v2h-2z M4 10h10v2h-10z M4 12h2v2h-2z M12 12h2v2h-2z M4 14h2v2h-2z M12 14h2v2h-2z M4 16h2v2h-2z M12 16h2v2h-2z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+<path fill="#c73b32" transform="rotate(180 45 63)" d="M6 4h6v2h-6z M4 6h2v2h-2z M12 6h2v2h-2z M4 8h2v2h-2z M12 8h2v2h-2z M4 10h10v2h-10z M4 12h2v2h-2z M12 12h2v2h-2z M4 14h2v2h-2z M12 14h2v2h-2z M4 16h2v2h-2z M12 16h2v2h-2z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+</svg>

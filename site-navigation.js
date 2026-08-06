@@ -38,6 +38,15 @@ const navigationItems = [
     ],
   },
   {
+    id: "rl-environment",
+    label: "RL environment",
+    href: "/RL-environment/",
+    accent: "green",
+    children: [
+      { label: "Plump", href: "/RL-environment/plump/" },
+    ],
+  },
+  {
     id: "contact",
     label: "Contact",
     href: "/contact/",

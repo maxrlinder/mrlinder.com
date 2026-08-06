@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Play a full game of Swedish Plump against a browser-based reinforcement-learning agent."
+    />
+    <meta name="theme-color" content="#deded7" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Play Plump — RL Playground" />
+    <meta
+      property="og:description"
+      content="Bid your tricks, follow suit, and try to beat Max Linder's PPO card-playing agent."
+    />
+    <meta property="og:url" content="https://mrlinder.com/RL-environment/plump/" />
+    <meta
+      property="og:image"
+      content="https://mrlinder.com/resources/og-plump.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Plump — RL Playground</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/RL-environment/rl.css" />
+  </head>
+  <body class="plump-page">
+    <a class="skip-link" href="#main">Skip to game</a>
+
+    <div class="plump-shell">
+      <header class="plump-menubar">
+        <a class="plump-home-link" href="/RL-environment/">← Games directory</a>
+        <strong>Plump</strong>
+        <span class="model-state" data-model-state>Agent not loaded</span>
+      </header>
+
+      <main id="main">
+        <section class="plump-setup" data-setup>
+          <div class="mac-window plump-setup-window">
+            <div class="window-titlebar">
+              <span class="window-control"></span>
+              <strong>New game of Plump</strong>
+              <span class="window-control window-control-double"></span>
+            </div>
+            <div class="plump-setup-grid">
+              <article class="plump-rules">
+                <p class="section-label">SWEDISH CARD GAME</p>
+                <h1>Plump.</h1>
+                <div class="spectrum-rule" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span
+                  ><span></span><span></span>
+                </div>
+                <p class="plump-rules-lead">
+                  Predict exactly how many tricks you will win. Get it right to
+                  score; miss by one and you still get nothing.
+                </p>
+                <ol class="rule-list">
+                  <li>Everyone bids from 0 up to the number of cards in hand.</li>
+                  <li>The final bid may not make the table total equal the hand size.</li>
+                  <li>Follow the led suit when you can. There is no trump suit.</li>
+                  <li>The highest card in the led suit wins and leads the next trick.</li>
+                  <li>A correct bid scores 10 + bid. A correct zero scores 05. A miss scores 00.</li>
+                </ol>
+              </article>
+
+              <form class="plump-controls" data-setup-form>
+                <p class="section-label">GAME SETTINGS</p>
+                <h2>Set the table</h2>
+                <p class="setup-caption">Full game · high → low → high</p>
+
+                <div class="control-row">
+                  <label for="opponents">Opponents</label>
+                  <select id="opponents" name="opponents">
+                    <option value="2">2 opponents</option>
+                    <option value="3" selected>3 opponents</option>
+                    <option value="4">4 opponents</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="max-cards">Starting / upper cards</label>
+                  <select id="max-cards" name="maxCards">
+                    <option value="5">5 cards</option>
+                    <option value="6">6 cards</option>
+                    <option value="7">7 cards</option>
+                    <option value="8">8 cards</option>
+                    <option value="9">9 cards</option>
+                    <option value="10" selected>10 cards</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="min-cards">Lower cards</label>
+                  <select id="min-cards" name="minCards">
+                    <option value="3" selected>3 cards</option>
+                    <option value="4">4 cards</option>
+                    <option value="5">5 cards</option>
+                    <option value="6">6 cards</option>
+                    <option value="7">7 cards</option>
+                    <option value="8">8 cards</option>
+                    <option value="9">9 cards</option>
+                  </select>
+                </div>
+
+                <div class="difficulty-control">
+                  <div class="difficulty-header">
+                    <label for="difficulty">Agent difficulty</label>
+                    <output for="difficulty" data-difficulty-output>Temperature 1.0</output>
+                  </div>
+                  <input
+                    id="difficulty"
+                    name="difficulty"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="33"
+                    aria-describedby="difficulty-labels"
+                  />
+                  <div class="slider-labels" id="difficulty-labels">
+                    <span>Random plays<br />T = ∞</span>
+                    <span>T = 1 at 33%</span>
+                    <span>Argmax<br />Hardest</span>
+                  </div>
+                </div>
+
+                <div class="full-game-stamp">
+                  <strong>FULL GAME ONLY</strong><br />
+                  The deal descends to the lower limit, then climbs back to the
+                  starting hand.
+                </div>
+
+                <button class="start-game-button" type="submit" data-start-game>
+                  Load agent &amp; start game
+                </button>
+                <div class="model-download" data-model-download hidden>
+                  <p><span data-load-label>Preparing…</span><span data-load-percent>0%</span></p>
+                  <div class="model-download-track"><span data-load-progress></span></div>
+                </div>
+                <p class="model-note">
+                  Checkpoint 4,000 · schema v6 · about 8 MB. Inference stays on
+                  your device. WebGPU is used when available.
+                </p>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section class="plump-game" data-game hidden aria-label="Plump game table">
+          <div class="game-toolbar">
+            <button class="game-button" type="button" data-new-game>New game…</button>
+            <button class="game-button" type="button" data-rules-button>Rules</button>
+            <div class="game-toggles">
+              <label class="switch-label">
+                <input type="checkbox" data-probability-toggle />
+                Action probabilities
+              </label>
+              <label class="switch-label">
+                <input type="checkbox" data-oracle-toggle />
+                Oracle readout
+              </label>
+            </div>
+          </div>
+
+          <div class="intel-strip" data-intel-strip hidden>
+            <span class="intel-title">Model from your seat</span>
+            <div class="intel-items" data-intel-items></div>
+          </div>
+
+          <div class="game-layout">
+            <div class="table-panel">
+              <div class="game-status-line" aria-live="polite">
+                <span data-status>Preparing the first deal…</span>
+              </div>
+              <div class="table-felt" data-table>
+                <div class="round-plaque" data-round-plaque></div>
+                <div data-seats></div>
+                <div class="trick-zone" data-trick-zone></div>
+              </div>
+              <div class="human-area">
+                <div class="human-label" data-human-label>You · bid — · tricks 0</div>
+                <div class="human-hand" data-human-hand></div>
+              </div>
+
+              <div class="bid-panel" data-bid-panel hidden>
+                <h2>Your bid</h2>
+                <p data-bid-prompt>How many tricks will you win?</p>
+                <div class="bid-options" data-bid-options></div>
+              </div>
+
+              <div class="round-dialog" data-round-dialog hidden>
+                <div class="window-titlebar">
+                  <span class="window-control"></span>
+                  <strong>Round complete</strong>
+                  <span class="window-control window-control-double"></span>
+                </div>
+                <div class="round-dialog-body">
+                  <h2 data-round-result>Scores entered.</h2>
+                  <p data-round-summary></p>
+                  <button class="game-button" type="button" data-next-round>Deal next round</button>
+                </div>
+              </div>
+
+              <div class="game-over-dialog" data-game-over hidden>
+                <div class="window-titlebar">
+                  <span class="window-control"></span>
+                  <strong>Game complete</strong>
+                  <span class="window-control window-control-double"></span>
+                </div>
+                <div class="round-dialog-body">
+                  <h2 data-game-over-title>Game over.</h2>
+                  <p data-game-over-summary></p>
+                  <button class="game-button" type="button" data-play-again>Play again</button>
+                </div>
+              </div>
+            </div>
+
+            <aside class="score-panel" aria-label="Score sheet">
+              <div class="score-titlebar"><span>Score sheet</span><span>High · low · high</span></div>
+              <div class="score-scroll" data-score-sheet></div>
+              <p class="score-legend">
+                During a round, cells show the bid. After scoring: 11 = hit a
+                bid of 1, 12 = hit 2, 05 = hit zero, 00 = missed bid.
+              </p>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="game-loading" data-game-loading hidden aria-live="polite">
+      <div class="game-loading-inner">
+        <div class="window-titlebar">
+          <span class="window-control"></span>
+          <strong>Starting Plump</strong>
+          <span class="window-control window-control-double"></span>
+        </div>
+        <div class="game-loading-body">
+          <div class="loading-card-orbit" aria-hidden="true">
+            <span style="--i: 0"></span><span style="--i: 1"></span>
+            <span style="--i: 2"></span><span style="--i: 3"></span>
+          </div>
+          <div>
+            <strong data-loading-title>Waking the agent…</strong>
+            <p data-loading-copy>The checkpoint runs entirely in this browser.</p>
+            <div class="boot-progress"><span data-loading-progress></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="placeholder-dialog" data-rules-dialog>
+      <div class="dialog-bar">
+        <strong>Plump rules</strong>
+        <button class="dialog-close" type="button" data-close-rules aria-label="Close">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="dialog-icon">i</div>
+        <div>
+          <h2>Bid exactly. Follow suit.</h2>
+          <p>
+            Highest card of the led suit wins. There is no trump. The final
+            bidder cannot make total bids equal the number of tricks. Exact
+            bids score 10 + bid; exact zero scores 05; misses score 00.
+          </p>
+          <button class="dialog-ok" type="button" data-close-rules>OK</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module" src="/RL-environment/plump/game.js"></script>
+  </body>
+</html>

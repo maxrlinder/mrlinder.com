@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="126" viewBox="0 0 90 126" shape-rendering="crispEdges" role="img" aria-label="4 of diamonds">
+<title>4 of diamonds</title>
+<defs><pattern id="dither" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fbfbf7"/><rect width="1" height="1" fill="#e8e8e3"/><rect x="1" y="1" width="1" height="1" fill="#e8e8e3"/></pattern><pattern id="stripe" width="1" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="2" fill="#deded7"/><rect width="1" height="1" fill="#a9a9a3"/></pattern></defs>
+<path fill="#11110f" d="M2 0h86v1h-86z M2 125h86v1h-86z M0 2h1v122h-1z M89 2h1v122h-1z M1 1h1v1h-1z M88 1h1v1h-1z M1 124h1v1h-1z M88 124h1v1h-1z"/>
+<path fill="#fbfbf7" d="M2 1h86v124h-86z M1 2h88v122h-88z"/>
+<path fill="#ffffff" d="M2 1h85v1h-85z M1 2h1v121h-1z"/>
+<path fill="#77776f" d="M3 124h85v1h-85z M88 3h1v121h-1z"/>
+<path fill="#c73b32" d="M24 26h2v1h-2z M23 27h4v1h-4z M22 28h6v1h-6z M21 29h8v1h-8z M21 30h8v1h-8z M21 31h8v1h-8z M21 32h8v1h-8z M22 33h6v1h-6z M23 34h4v1h-4z M24 35h2v1h-2z M64 26h2v1h-2z M63 27h4v1h-4z M62 28h6v1h-6z M61 29h8v1h-8z M61 30h8v1h-8z M61 31h8v1h-8z M61 32h8v1h-8z M62 33h6v1h-6z M63 34h4v1h-4z M64 35h2v1h-2z"/>
+<path fill="#c73b32" transform="rotate(180 25 95)" d="M24 90h2v1h-2z M23 91h4v1h-4z M22 92h6v1h-6z M21 93h8v1h-8z M21 94h8v1h-8z M21 95h8v1h-8z M21 96h8v1h-8z M22 97h6v1h-6z M23 98h4v1h-4z M24 99h2v1h-2z"/>
+<path fill="#c73b32" transform="rotate(180 65 95)" d="M64 90h2v1h-2z M63 91h4v1h-4z M62 92h6v1h-6z M61 93h8v1h-8z M61 94h8v1h-8z M61 95h8v1h-8z M61 96h8v1h-8z M62 97h6v1h-6z M63 98h4v1h-4z M64 99h2v1h-2z"/>
+<path fill="#c73b32" d="M10 4h2v2h-2z M8 6h4v2h-4z M6 8h2v2h-2z M10 8h2v2h-2z M4 10h2v2h-2z M10 10h2v2h-2z M4 12h10v2h-10z M10 14h2v2h-2z M10 16h2v2h-2z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+<path fill="#c73b32" transform="rotate(180 45 63)" d="M10 4h2v2h-2z M8 6h4v2h-4z M6 8h2v2h-2z M10 8h2v2h-2z M4 10h2v2h-2z M10 10h2v2h-2z M4 12h10v2h-10z M10 14h2v2h-2z M10 16h2v2h-2z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+</svg>

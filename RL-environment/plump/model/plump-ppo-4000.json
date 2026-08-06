@@ -1,0 +1,24 @@
+{
+  "format": "onnx",
+  "checkpoint": "resume_004000_reconfigured.pt",
+  "iteration": 4000,
+  "schemaVersion": 6,
+  "modelFormatVersion": 2,
+  "quantization": "dynamic-int8",
+  "modelConfig": {
+    "schema_version": 6,
+    "max_players": 5,
+    "max_hand_size": 10,
+    "trick_win_token": true,
+    "turn_token": "bid",
+    "d_model": 384,
+    "n_layers": 6,
+    "n_heads": 12,
+    "n_kv_heads": 2,
+    "d_ff": 1152,
+    "dropout": 0.0
+  },
+  "file": "plump-ppo-4000-int8.onnx",
+  "bytes": 8361852,
+  "sha256": "2615d1e678ff9b2c8988d10ebafae0b60019f02d2b2b51b4fbf78da0d5a98e25"
+}

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="126" viewBox="0 0 90 126" shape-rendering="crispEdges" role="img" aria-label="King of diamonds">
+<title>King of diamonds</title>
+<defs><pattern id="dither" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fbfbf7"/><rect width="1" height="1" fill="#e8e8e3"/><rect x="1" y="1" width="1" height="1" fill="#e8e8e3"/></pattern><pattern id="stripe" width="1" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="2" fill="#deded7"/><rect width="1" height="1" fill="#a9a9a3"/></pattern></defs>
+<path fill="#11110f" d="M2 0h86v1h-86z M2 125h86v1h-86z M0 2h1v122h-1z M89 2h1v122h-1z M1 1h1v1h-1z M88 1h1v1h-1z M1 124h1v1h-1z M88 124h1v1h-1z"/>
+<path fill="#fbfbf7" d="M2 1h86v124h-86z M1 2h88v122h-88z"/>
+<path fill="#ffffff" d="M2 1h85v1h-85z M1 2h1v121h-1z"/>
+<path fill="#77776f" d="M3 124h85v1h-85z M88 3h1v121h-1z"/>
+<path fill="#11110f" d="M22 30h46v66h-46z"/>
+<path fill="#fbfbf7" d="M23 31h44v64h-44z"/>
+<rect x="23" y="31" width="44" height="9" fill="url(#stripe)"/>
+<path fill="#11110f" d="M23 40h44v1h-44z"/>
+<path fill="#deded7" d="M39 31h12v9h-12z"/>
+<path fill="#11110f" d="M42 32h1v1h-1z M46 32h1v1h-1z M42 33h1v1h-1z M45 33h1v1h-1z M42 34h1v1h-1z M44 34h1v1h-1z M42 35h2v1h-2z M42 36h1v1h-1z M44 36h1v1h-1z M42 37h1v1h-1z M45 37h1v1h-1z M42 38h1v1h-1z M46 38h1v1h-1z"/>
+<rect x="23" y="41" width="44" height="54" fill="url(#dither)"/>
+<path fill="#11110f" d="M33 41h4v2h-4z M43 41h4v2h-4z M53 41h4v2h-4z M31 43h2v2h-2z"/>
+<path fill="#d9b829" d="M33 43h4v2h-4z"/>
+<path fill="#11110f" d="M37 43h2v2h-2z M41 43h2v2h-2z"/>
+<path fill="#d9b829" d="M43 43h4v2h-4z"/>
+<path fill="#11110f" d="M47 43h2v2h-2z M51 43h2v2h-2z"/>
+<path fill="#d9b829" d="M53 43h4v2h-4z"/>
+<path fill="#11110f" d="M57 43h2v2h-2z M31 45h2v2h-2z"/>
+<path fill="#d9b829" d="M33 45h24v2h-24z"/>
+<path fill="#11110f" d="M57 45h2v2h-2z M31 47h2v2h-2z"/>
+<path fill="#d9b829" d="M33 47h24v2h-24z"/>
+<path fill="#11110f" d="M57 47h2v2h-2z M31 49h2v2h-2z"/>
+<path fill="#a8891c" d="M33 49h24v2h-24z"/>
+<path fill="#11110f" d="M57 49h2v2h-2z M31 51h28v2h-28z M35 53h2v2h-2z"/>
+<path fill="#e8c9a8" d="M37 53h16v2h-16z"/>
+<path fill="#11110f" d="M53 53h2v2h-2z M35 55h2v2h-2z"/>
+<path fill="#e8c9a8" d="M37 55h16v2h-16z"/>
+<path fill="#11110f" d="M53 55h2v2h-2z M35 57h2v2h-2z"/>
+<path fill="#e8c9a8" d="M37 57h2v2h-2z"/>
+<path fill="#11110f" d="M39 57h2v2h-2z"/>
+<path fill="#e8c9a8" d="M41 57h8v2h-8z"/>
+<path fill="#11110f" d="M49 57h2v2h-2z"/>
+<path fill="#e8c9a8" d="M51 57h2v2h-2z"/>
+<path fill="#11110f" d="M53 57h2v2h-2z M35 59h2v2h-2z"/>
+<path fill="#e8c9a8" d="M37 59h16v2h-16z"/>
+<path fill="#11110f" d="M53 59h2v2h-2z M35 61h2v2h-2z"/>
+<path fill="#e8c9a8" d="M37 61h6v2h-6z"/>
+<path fill="#c99b74" d="M43 61h4v2h-4z"/>
+<path fill="#e8c9a8" d="M47 61h6v2h-6z"/>
+<path fill="#11110f" d="M53 61h2v2h-2z M35 63h2v2h-2z"/>
+<path fill="#e8c9a8" d="M37 63h4v2h-4z"/>
+<path fill="#11110f" d="M41 63h8v2h-8z"/>
+<path fill="#e8c9a8" d="M49 63h4v2h-4z"/>
+<path fill="#11110f" d="M53 63h2v2h-2z M33 65h2v2h-2z"/>
+<path fill="#ffffff" d="M35 65h20v2h-20z"/>
+<path fill="#11110f" d="M55 65h2v2h-2z M33 67h2v2h-2z"/>
+<path fill="#ffffff" d="M35 67h20v2h-20z"/>
+<path fill="#11110f" d="M55 67h2v2h-2z M35 69h2v2h-2z"/>
+<path fill="#ffffff" d="M37 69h16v2h-16z"/>
+<path fill="#11110f" d="M53 69h2v2h-2z M37 71h2v2h-2z"/>
+<path fill="#ffffff" d="M39 71h12v2h-12z"/>
+<path fill="#11110f" d="M51 71h2v2h-2z M39 73h2v2h-2z"/>
+<path fill="#ffffff" d="M41 73h8v2h-8z"/>
+<path fill="#11110f" d="M49 73h2v2h-2z M35 75h2v2h-2z"/>
+<path fill="#db7a25" d="M37 75h16v2h-16z"/>
+<path fill="#11110f" d="M53 75h2v2h-2z M31 77h4v2h-4z"/>
+<path fill="#db7a25" d="M35 77h20v2h-20z"/>
+<path fill="#11110f" d="M55 77h4v2h-4z M27 79h4v2h-4z"/>
+<path fill="#db7a25" d="M31 79h28v2h-28z"/>
+<path fill="#11110f" d="M59 79h4v2h-4z M25 81h2v2h-2z"/>
+<path fill="#db7a25" d="M27 81h36v2h-36z"/>
+<path fill="#11110f" d="M63 81h2v2h-2z M25 83h2v2h-2z"/>
+<path fill="#db7a25" d="M27 83h36v2h-36z"/>
+<path fill="#11110f" d="M63 83h2v2h-2z M25 85h2v2h-2z"/>
+<path fill="#db7a25" d="M27 85h36v2h-36z"/>
+<path fill="#11110f" d="M63 85h2v2h-2z M25 87h2v2h-2z"/>
+<path fill="#db7a25" d="M27 87h36v2h-36z"/>
+<path fill="#11110f" d="M63 87h2v2h-2z M25 89h2v2h-2z"/>
+<path fill="#db7a25" d="M27 89h36v2h-36z"/>
+<path fill="#11110f" d="M63 89h2v2h-2z M25 91h2v2h-2z"/>
+<path fill="#a95a17" d="M27 91h36v2h-36z"/>
+<path fill="#11110f" d="M63 91h2v2h-2z M25 93h40v2h-40z"/>
+<path fill="#ffffff" d="M43 77h4v2h-4z M41 79h8v2h-8z M39 81h12v2h-12z M37 83h16v2h-16z M37 85h16v2h-16z M39 87h12v2h-12z M41 89h8v2h-8z M43 91h4v2h-4z"/>
+<path fill="#c73b32" d="M4 4h2v2h-2z M12 4h2v2h-2z M4 6h2v2h-2z M10 6h2v2h-2z M4 8h2v2h-2z M8 8h2v2h-2z M4 10h4v2h-4z M4 12h2v2h-2z M8 12h2v2h-2z M4 14h2v2h-2z M10 14h2v2h-2z M4 16h2v2h-2z M12 16h2v2h-2z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+<path fill="#c73b32" transform="rotate(180 45 63)" d="M4 4h2v2h-2z M12 4h2v2h-2z M4 6h2v2h-2z M10 6h2v2h-2z M4 8h2v2h-2z M8 8h2v2h-2z M4 10h4v2h-4z M4 12h2v2h-2z M8 12h2v2h-2z M4 14h2v2h-2z M10 14h2v2h-2z M4 16h2v2h-2z M12 16h2v2h-2z M8 19h1v1h-1z M7 20h3v1h-3z M6 21h5v1h-5z M6 22h5v1h-5z M6 23h5v1h-5z M7 24h3v1h-3z M8 25h1v1h-1z"/>
+</svg>

@@ -10,9 +10,13 @@ const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".onnx": "application/octet-stream",
   ".pdf": "application/pdf",
   ".png": "image/png",
+  ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
+  ".wasm": "application/wasm",
 };
 
 const server = createServer(async (request, response) => {

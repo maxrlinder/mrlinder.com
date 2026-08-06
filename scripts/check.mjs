@@ -12,12 +12,20 @@ const required = [
   "photos/index.html",
   "links/index.html",
   "contact/index.html",
+  "RL-environment/index.html",
+  "RL-environment/plump/index.html",
+  "RL-environment/rl.css",
+  "RL-environment/plump/game.js",
+  "RL-environment/plump/model-client.js",
+  "RL-environment/plump/model/plump-ppo-4000-int8.onnx",
+  "RL-environment/plump/model/plump-ppo-4000.json",
   "styles.css",
   "site-config.js",
   "site-navigation.js",
   "script.js",
   "resources/Max_R_L_CV.pdf",
   "resources/og-name-only.png",
+  "resources/og-plump.png",
   "resources/about/web/portrait.jpg",
   "resources/about/web/sailing.jpg",
   "resources/about/web/military.jpg",
@@ -33,7 +41,13 @@ const required = [
 await Promise.all(required.map((file) => access(resolve(root, file))));
 
 const pages = await Promise.all(
-  ["index.html", "cv/index.html", "about/index.html"].map((file) =>
+  [
+    "index.html",
+    "cv/index.html",
+    "about/index.html",
+    "RL-environment/index.html",
+    "RL-environment/plump/index.html",
+  ].map((file) =>
     readFile(resolve(root, file), "utf8"),
   ),
 );
@@ -45,7 +59,7 @@ for (const [index, page] of pages.entries()) {
   if (!page.includes("Skip to")) {
     throw new Error(`Missing skip link in page ${index + 1}`);
   }
-  if (!page.includes("/resources/og-name-only.png")) {
+  if (!page.includes("property=\"og:image\"") || !page.includes("/resources/")) {
     throw new Error(`Missing social preview metadata in page ${index + 1}`);
   }
 }
