@@ -24,7 +24,7 @@ const required = [
   "site-config.js",
   "site-navigation.js",
   "script.js",
-  "resources/Max_R_L_CV.pdf",
+  "resources/CV_Max_R_Linder.pdf",
   "resources/og-name-only.png",
   "resources/og-plump.png",
   "resources/about/web/portrait.jpg",

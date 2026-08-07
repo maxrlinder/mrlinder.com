@@ -21,7 +21,7 @@ const navigationItems = [
       },
       {
         label: "Download CV",
-        href: "/resources/Max_R_L_CV.pdf",
+        href: "/resources/CV_Max_R_Linder.pdf",
         download: true,
       },
     ],
