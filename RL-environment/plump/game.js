@@ -385,19 +385,19 @@ function playOrigin(player) {
   if (player === 0) return { x: "0px", y: "230px" };
   const origins = {
     3: {
-      1: { x: "0px", y: "-210px" },
+      1: { x: "-250px", y: "-30px" },
       2: { x: "250px", y: "-30px" },
     },
     4: {
-      1: { x: "0px", y: "-210px" },
-      2: { x: "250px", y: "-30px" },
-      3: { x: "-250px", y: "-30px" },
+      1: { x: "-250px", y: "-30px" },
+      2: { x: "0px", y: "-210px" },
+      3: { x: "250px", y: "-30px" },
     },
     5: {
-      1: { x: "-105px", y: "-210px" },
-      2: { x: "105px", y: "-210px" },
-      3: { x: "250px", y: "20px" },
-      4: { x: "-250px", y: "20px" },
+      1: { x: "-250px", y: "20px" },
+      2: { x: "-105px", y: "-210px" },
+      3: { x: "105px", y: "-210px" },
+      4: { x: "250px", y: "20px" },
     },
   };
   return origins[game.numPlayers]?.[player] || { x: "0px", y: "-210px" };
@@ -424,15 +424,23 @@ function renderTrick() {
     let card = dom.trickZone.querySelector(`[data-play-position="${position}"]`);
     if (!card) {
       const origin = playOrigin(play.player);
-      card = document.createElement("img");
+      card = document.createElement("div");
       card.className = `trick-card trick-card-player-${play.player}`;
       card.dataset.playPosition = position;
-      card.src = cardAsset(play.card);
-      card.alt = `${playerName(play.player)} played ${cardLabel(play.card)}`;
+      card.setAttribute("role", "img");
+      card.setAttribute(
+        "aria-label",
+        `${playerName(play.player)} played ${cardLabel(play.card)}${play.position === 0 ? ", leading card" : ""}`,
+      );
       card.style.setProperty("--from-x", origin.x);
       card.style.setProperty("--from-y", origin.y);
+      const image = document.createElement("img");
+      image.src = cardAsset(play.card);
+      image.alt = "";
+      card.append(image);
       dom.trickZone.append(card);
     }
+    card.classList.toggle("is-lead", play.position === 0);
     card.classList.toggle("is-winner", trick.winner === play.player);
   });
 
@@ -456,26 +464,44 @@ function renderHumanHand() {
   const bid = playerBid(0);
   dom.humanLabel.classList.toggle("is-current", game.round.currentPlayer === 0);
   dom.humanLabel.textContent = `You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[0]} · total ${game.scores[0]}`;
-  dom.humanHand.innerHTML = hand
-    .map((card, index) => {
-      const allowed = legal.has(cardKey(card));
-      const unavailable = humanTurn && !allowed;
-      const disabled = !humanTurn || unavailable || interactionLocked;
-      return `
-        <button
-          class="hand-card-button${unavailable ? " is-illegal" : ""}${dealing ? " is-dealing" : ""}"
-          type="button"
-          data-play-card="${cardKey(card)}"
-          ${disabled ? "disabled" : ""}
-          style="animation-delay:${index * 48}ms"
-          aria-label="Play ${cardLabel(card)}${unavailable ? ", unavailable" : ""}"
-        >
-          <img src="${cardAsset(card)}" alt="" />
-          ${policyBadge(modelCardId(card))}
-        </button>
-      `;
-    })
-    .join("");
+  const activeCards = new Set(hand.map(cardKey));
+
+  $$('[data-play-card]', dom.humanHand).forEach((button) => {
+    if (!activeCards.has(button.dataset.playCard)) button.remove();
+  });
+
+  hand.forEach((card, index) => {
+    const key = cardKey(card);
+    const allowed = legal.has(key);
+    const unavailable = humanTurn && !allowed;
+    const disabled = !humanTurn || unavailable || interactionLocked;
+    let button = dom.humanHand.querySelector(`[data-play-card="${key}"]`);
+
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.dataset.playCard = key;
+      const image = document.createElement("img");
+      image.src = cardAsset(card);
+      image.alt = "";
+      button.append(image);
+    }
+
+    button.className = `hand-card-button${unavailable ? " is-illegal" : ""}${dealing ? " is-dealing" : ""}`;
+    button.disabled = disabled;
+    button.style.animationDelay = `${index * 48}ms`;
+    button.setAttribute(
+      "aria-label",
+      `Play ${cardLabel(card)}${unavailable ? ", unavailable" : ""}`,
+    );
+    $$(".prob-badge, .argmax-mark", button).forEach((marker) => marker.remove());
+    button.insertAdjacentHTML("beforeend", policyBadge(modelCardId(card)));
+
+    const cardAtPosition = dom.humanHand.children[index];
+    if (cardAtPosition !== button) {
+      dom.humanHand.insertBefore(button, cardAtPosition || null);
+    }
+  });
 }
 
 function renderBidPanel() {
@@ -587,12 +613,14 @@ function render() {
 
 async function refreshHumanPrediction() {
   if (!game || !agent.session || !["bidding", "playing"].includes(game.round.phase)) {
+    predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
     render();
     return;
   }
   if (!dom.probabilityToggle.checked && !dom.oracleToggle.checked) {
+    predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
     render();
@@ -618,6 +646,7 @@ async function refreshHumanPrediction() {
     }
     render();
   } catch {
+    if (request !== predictionRequest) return;
     humanPrediction = null;
     humanPolicy = null;
     dom.intelStrip.hidden = true;
@@ -729,6 +758,7 @@ async function beginDeal() {
 async function playHumanCard(card) {
   if (interactionLocked || game.round.currentPlayer !== 0) return;
   interactionLocked = true;
+  predictionRequest += 1;
   humanPrediction = null;
   humanPolicy = null;
   const result = game.play(card);
@@ -831,6 +861,7 @@ dom.game.addEventListener("click", (event) => {
   const bidButton = event.target.closest("[data-bid]");
   if (bidButton && !interactionLocked) {
     const value = Number(bidButton.dataset.bid);
+    predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
     game.bid(value);
@@ -850,6 +881,7 @@ dom.probabilityToggle.addEventListener("change", refreshHumanPrediction);
 dom.oracleToggle.addEventListener("change", refreshHumanPrediction);
 
 $("[data-next-round]").addEventListener("click", () => {
+  predictionRequest += 1;
   dom.roundDialog.hidden = true;
   game.startNextRound();
   beginDeal();

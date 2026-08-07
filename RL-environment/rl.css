@@ -526,17 +526,12 @@
 
 .round-plaque {
   position: absolute;
-  z-index: 4;
-  top: 19px;
-  left: 50%;
-  min-width: 190px;
-  padding: 6px 14px;
-  border: 1px solid var(--ink);
-  background: var(--screen-light);
-  box-shadow: 2px 2px 0 rgba(0,0,0,.25);
-  transform: translateX(-50%);
+  z-index: 2;
+  top: 24px;
+  left: 30px;
+  padding: 0;
   font: 10px/1.35 var(--mono);
-  text-align: center;
+  text-align: left;
   text-transform: uppercase;
 }
 
@@ -549,23 +544,22 @@
   position: absolute;
   z-index: 5;
   width: 150px;
-  padding: 7px;
-  border: 1px solid var(--ink);
-  background: var(--chrome);
-  box-shadow: 3px 3px 0 rgba(0,0,0,.25);
+  padding: 0;
   text-align: center;
-  transition: transform 180ms ease, background 180ms linear;
+  transition: transform 180ms ease;
 }
 
 .seat.is-current {
-  background: #fff;
-  box-shadow: 0 0 0 3px var(--yellow), 4px 4px 0 rgba(0,0,0,.3);
   transform: translateY(-3px);
 }
 
 .seat-name {
   display: flex;
   margin-bottom: 5px;
+  padding: 5px 6px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+  box-shadow: 2px 2px 0 rgba(0,0,0,.25);
   justify-content: space-between;
   gap: 8px;
   font: bold 10px/1 var(--mono);
@@ -573,11 +567,19 @@
 }
 
 .seat-stats {
-  display: flex;
-  margin-top: 5px;
+  display: inline-flex;
+  margin: 5px auto 0;
+  padding: 3px 5px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
   justify-content: center;
   gap: 9px;
   font: 9px/1 var(--mono);
+}
+
+.seat.is-current .seat-name {
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--yellow), 3px 3px 0 rgba(0,0,0,.3);
 }
 
 .opponent-hand {
@@ -598,21 +600,19 @@
 .opponent-card:first-child { margin-left: 0; }
 .opponent-card.is-dealing { animation: deal-to-hand 460ms cubic-bezier(.17,.8,.3,1.12) both; }
 
-.seat-player-1 { top: -24px; left: 50%; transform: translateX(-50%); }
-.seat-player-1.is-current { transform: translateX(-50%) translateY(-3px); }
-.seat-player-2 { top: 104px; right: -39px; }
-.seat-player-3 { top: 104px; left: -39px; }
-.seat-player-4 { top: -8px; left: 14%; }
+.players-3 .seat-player-1 { top: 104px; left: -39px; }
+.players-3 .seat-player-2 { top: 104px; right: -39px; }
 
-.players-4 .seat-player-1 { top: -24px; }
-.players-4 .seat-player-2 { top: 113px; right: -42px; }
-.players-4 .seat-player-3 { top: 113px; left: -42px; }
+.players-4 .seat-player-1 { top: 113px; left: -42px; }
+.players-4 .seat-player-2 { top: -24px; left: 50%; transform: translateX(-50%); }
+.players-4 .seat-player-2.is-current { transform: translateX(-50%) translateY(-3px); }
+.players-4 .seat-player-3 { top: 113px; right: -42px; }
 
-.players-5 .seat-player-1 { top: -25px; left: 32%; }
-.players-5 .seat-player-2 { top: -25px; right: 10%; left: auto; }
-.players-5 .seat-player-3 { top: 135px; right: -43px; left: auto; }
-.players-5 .seat-player-4 { top: 135px; left: -43px; }
-.players-5 .seat-player-1.is-current { transform: translateX(-50%) translateY(-3px); }
+.players-5 .seat-player-1 { top: 135px; left: -43px; }
+.players-5 .seat-player-2 { top: -25px; left: 32%; transform: translateX(-50%); }
+.players-5 .seat-player-2.is-current { transform: translateX(-50%) translateY(-3px); }
+.players-5 .seat-player-3 { top: -25px; right: 10%; }
+.players-5 .seat-player-4 { top: 135px; right: -43px; }
 
 .trick-zone {
   position: absolute;
@@ -634,16 +634,35 @@
   animation: card-to-table 820ms cubic-bezier(.22,.7,.22,1) both;
 }
 
-.trick-card-player-0 { top: 101px; left: 104px; --card-rotate: 2deg; }
-.trick-card-player-1 { top: 5px; left: 104px; --card-rotate: -3deg; }
-.trick-card-player-2 { top: 52px; left: 187px; --card-rotate: 5deg; }
-.trick-card-player-3 { top: 52px; left: 21px; --card-rotate: -5deg; }
-.trick-card-player-4 { top: 65px; left: 20px; --card-rotate: -2deg; }
+.trick-card > img { display: block; width: 100%; }
 
-.players-5 .trick-card-player-1 { top: 14px; left: 66px; }
-.players-5 .trick-card-player-2 { top: 14px; left: 142px; }
-.players-5 .trick-card-player-3 { top: 64px; left: 188px; }
-.players-5 .trick-card-player-4 { top: 64px; left: 20px; }
+.trick-card.is-lead::after {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  padding: 2px 5px;
+  border: 1px solid var(--ink);
+  background: var(--yellow);
+  color: var(--ink);
+  content: "Lead";
+  font: bold 8px/1 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+}
+
+.trick-card-player-0 { top: 101px; left: 104px; --card-rotate: 2deg; }
+.players-3 .trick-card-player-1 { top: 52px; left: 21px; --card-rotate: -5deg; }
+.players-3 .trick-card-player-2 { top: 52px; left: 187px; --card-rotate: 5deg; }
+
+.players-4 .trick-card-player-1 { top: 52px; left: 21px; --card-rotate: -5deg; }
+.players-4 .trick-card-player-2 { top: 5px; left: 104px; --card-rotate: -3deg; }
+.players-4 .trick-card-player-3 { top: 52px; left: 187px; --card-rotate: 5deg; }
+
+.players-5 .trick-card-player-1 { top: 64px; left: 20px; --card-rotate: -5deg; }
+.players-5 .trick-card-player-2 { top: 14px; left: 66px; --card-rotate: -3deg; }
+.players-5 .trick-card-player-3 { top: 14px; left: 142px; --card-rotate: 3deg; }
+.players-5 .trick-card-player-4 { top: 64px; left: 188px; --card-rotate: 5deg; }
 
 .trick-card.is-winner {
   outline: 3px solid var(--yellow);
@@ -730,6 +749,8 @@
 
 .prob-badge { right: -3px; bottom: 5px; padding: 3px 4px; }
 .argmax-mark { top: -5px; right: -4px; display: grid; width: 19px; height: 19px; background: var(--yellow); place-items: center; }
+.hand-card-button .prob-badge { right: auto; bottom: 6px; left: 4px; }
+.hand-card-button .argmax-mark { top: 3px; right: auto; left: 4px; }
 
 .bid-panel {
   position: absolute;
