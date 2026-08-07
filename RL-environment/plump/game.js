@@ -741,18 +741,19 @@ async function refreshOraclePrediction() {
     oraclePrediction = prediction;
     oracleLoading = false;
     render();
-  } catch {
+  } catch (error) {
     if (request !== oracleRequest) return;
+    console.error("Oracle inference failed after retrying.", error);
     oraclePrediction = null;
     oracleLoading = false;
-    oracleError = "Oracle model unavailable on this device.";
+    oracleError = "Oracle readout hit a temporary inference error. Toggle it off and on to retry.";
     render();
   }
 }
 
-function refreshPredictions() {
-  refreshHumanPrediction();
-  refreshOraclePrediction();
+async function refreshPredictions() {
+  await refreshHumanPrediction();
+  await refreshOraclePrediction();
 }
 
 async function chooseBotAction(player) {

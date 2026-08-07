@@ -207,9 +207,20 @@ export class BrowserPpoAgent {
     this.manifest = null;
     this.backend = "not loaded";
     this.oracleSession = null;
+    this.oracleModel = null;
     this.oracleManifest = null;
     this.oracleBackend = "not loaded";
     this.oracleLoadPromise = null;
+    this.inferenceQueue = Promise.resolve();
+  }
+
+  enqueueInference(callback) {
+    const pending = this.inferenceQueue.then(callback, callback);
+    this.inferenceQueue = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
   }
 
   async load(onProgress = () => {}) {
@@ -273,7 +284,7 @@ export class BrowserPpoAgent {
     if (!this.session) throw new Error("The PPO agent is not loaded.");
     const rows = buildTokens(game, observer);
     const tensor = new ort.Tensor("int64", flattenInt64(rows), [1, rows.length, WIDTH]);
-    const output = await this.session.run({ tokens: tensor });
+    const output = await this.enqueueInference(() => this.session.run({ tokens: tensor }));
     return {
       bidLogits: [...output.bid_logits.data],
       cardLogits: [...output.card_logits.data],
@@ -294,24 +305,16 @@ export class BrowserPpoAgent {
       });
       const response = await fetch(`${MODEL_ROOT}${this.oracleManifest.file}`);
       if (!response.ok) throw new Error("Could not download the oracle weights.");
-      const model = new Uint8Array(await response.arrayBuffer());
+      this.oracleModel = new Uint8Array(await response.arrayBuffer());
       ort.env.wasm.wasmPaths = RUNTIME_ROOT;
       ort.env.wasm.numThreads = 1;
-      const prefersGpu = "gpu" in navigator;
-      try {
-        this.oracleSession = await ort.InferenceSession.create(model, {
-          executionProviders: prefersGpu ? ["webgpu", "wasm"] : ["wasm"],
-          graphOptimizationLevel: "all",
-        });
-        this.oracleBackend = prefersGpu ? "WebGPU" : "WebAssembly";
-      } catch (gpuError) {
-        if (!prefersGpu) throw gpuError;
-        this.oracleSession = await ort.InferenceSession.create(model, {
+      await this.enqueueInference(async () => {
+        this.oracleSession = await ort.InferenceSession.create(this.oracleModel, {
           executionProviders: ["wasm"],
           graphOptimizationLevel: "all",
         });
         this.oracleBackend = "WebAssembly";
-      }
+      });
       return this;
     })();
     try {
@@ -326,7 +329,26 @@ export class BrowserPpoAgent {
     if (!this.oracleSession) throw new Error("The oracle critic is not loaded.");
     const rows = buildOracleTokens(game);
     const tensor = new ort.Tensor("int64", flattenInt64(rows), [1, rows.length, WIDTH]);
-    const output = await this.oracleSession.run({ tokens: tensor });
+    const output = await this.enqueueInference(async () => {
+      try {
+        return await this.oracleSession.run({ tokens: tensor });
+      } catch (initialError) {
+        const failedSession = this.oracleSession;
+        this.oracleSession = null;
+        try {
+          await failedSession?.release();
+        } catch {
+          // A failed backend may already have released its resources.
+        }
+        if (!this.oracleModel) throw initialError;
+        this.oracleSession = await ort.InferenceSession.create(this.oracleModel, {
+          executionProviders: ["wasm"],
+          graphOptimizationLevel: "all",
+        });
+        this.oracleBackend = "WebAssembly";
+        return this.oracleSession.run({ tokens: tensor });
+      }
+    });
     return {
       values: [...output.values.data],
       trickLogits: [...output.trick_logits.data],
