@@ -9,6 +9,9 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const wait = (milliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const BOT_THINK_MS = 440;
+const CARD_SETTLE_MS = 900;
+const TRICK_RESULT_HOLD_MS = 1200;
 
 const SUIT_SYMBOL = {
   spades: "♠",
@@ -340,6 +343,7 @@ let humanPrediction = null;
 let humanPolicy = null;
 let lastStatus = "";
 let displayedCompletedTrick = null;
+let gameSequence = 0;
 
 function setStatus(message) {
   lastStatus = message;
@@ -378,32 +382,63 @@ function renderSeats() {
 }
 
 function playOrigin(player) {
-  if (player === 0) return { x: "0px", y: "210px" };
-  if (player === 1) return { x: "0px", y: "-190px" };
-  if (player === 2) return { x: "230px", y: "-70px" };
-  if (player === 3) return { x: "-230px", y: "-70px" };
-  return { x: "-170px", y: "-170px" };
+  if (player === 0) return { x: "0px", y: "230px" };
+  const origins = {
+    3: {
+      1: { x: "0px", y: "-210px" },
+      2: { x: "250px", y: "-30px" },
+    },
+    4: {
+      1: { x: "0px", y: "-210px" },
+      2: { x: "250px", y: "-30px" },
+      3: { x: "-250px", y: "-30px" },
+    },
+    5: {
+      1: { x: "-105px", y: "-210px" },
+      2: { x: "105px", y: "-210px" },
+      3: { x: "250px", y: "20px" },
+      4: { x: "-250px", y: "20px" },
+    },
+  };
+  return origins[game.numPlayers]?.[player] || { x: "0px", y: "-210px" };
 }
 
 function renderTrick() {
   const trick = displayedCompletedTrick || game.round.tricks.at(-1);
   if (!trick) {
-    dom.trickZone.innerHTML = "";
+    dom.trickZone.replaceChildren();
+    delete dom.trickZone.dataset.trickKey;
     return;
   }
-  dom.trickZone.innerHTML = trick.plays
-    .map((play) => {
+
+  const trickKey = `${gameSequence}:${game.roundIndex}:${trick.trickIndex}`;
+  if (dom.trickZone.dataset.trickKey !== trickKey) {
+    dom.trickZone.replaceChildren();
+    dom.trickZone.dataset.trickKey = trickKey;
+  }
+
+  const activePositions = new Set();
+  trick.plays.forEach((play) => {
+    const position = String(play.position);
+    activePositions.add(position);
+    let card = dom.trickZone.querySelector(`[data-play-position="${position}"]`);
+    if (!card) {
       const origin = playOrigin(play.player);
-      return `
-        <img
-          class="trick-card${trick.winner === play.player ? " is-winner" : ""}"
-          src="${cardAsset(play.card)}"
-          alt="${playerName(play.player)} played ${cardLabel(play.card)}"
-          style="--from-x:${origin.x};--from-y:${origin.y}"
-        />
-      `;
-    })
-    .join("");
+      card = document.createElement("img");
+      card.className = `trick-card trick-card-player-${play.player}`;
+      card.dataset.playPosition = position;
+      card.src = cardAsset(play.card);
+      card.alt = `${playerName(play.player)} played ${cardLabel(play.card)}`;
+      card.style.setProperty("--from-x", origin.x);
+      card.style.setProperty("--from-y", origin.y);
+      dom.trickZone.append(card);
+    }
+    card.classList.toggle("is-winner", trick.winner === play.player);
+  });
+
+  $$(".trick-card", dom.trickZone).forEach((card) => {
+    if (!activePositions.has(card.dataset.playPosition)) card.remove();
+  });
 }
 
 function policyBadge(index) {
@@ -503,7 +538,7 @@ function renderScoreSheet() {
 }
 
 function renderRoundPlaque() {
-  const trick = game.round.tricks.at(-1);
+  const trick = displayedCompletedTrick || game.round.tricks.at(-1);
   const trickNumber = game.round.phase === "bidding" ? "Bidding" : `Trick ${Math.min((trick?.trickIndex || 0) + 1, game.round.handSize)} / ${game.round.handSize}`;
   dom.roundPlaque.innerHTML = `<strong>Round ${game.roundIndex + 1} / ${game.schedule.length}</strong>${game.round.handSize} cards · ${trickNumber}`;
 }
@@ -650,7 +685,7 @@ async function continueBots() {
     setStatus(`${playerName(player)} is ${phase === "bidding" ? "considering a bid" : "choosing a card"}…`);
     render();
     const action = await chooseBotAction(player);
-    await wait(reducedMotion ? 0 : 260);
+    await wait(reducedMotion ? 0 : BOT_THINK_MS);
     if (action.type === "bid") {
       game.bid(action.value);
       setStatus(`${playerName(player)} bids ${action.value}.`);
@@ -661,12 +696,7 @@ async function continueBots() {
       displayedCompletedTrick = result.completedTrick || null;
       setStatus(`${playerName(player)} plays ${cardLabel(action.card)}.`);
       render();
-      await wait(reducedMotion ? 0 : result.trickComplete ? 850 : 420);
-      if (result.trickComplete) {
-        setStatus(`${playerName(result.winner)} takes the trick.`);
-        displayedCompletedTrick = null;
-        render();
-      }
+      await settlePlayedCard(result);
     }
   }
   interactionLocked = false;
@@ -705,12 +735,8 @@ async function playHumanCard(card) {
   displayedCompletedTrick = result.completedTrick || null;
   setStatus(`You play ${cardLabel(card)}.`);
   render();
-  await wait(reducedMotion ? 0 : result.trickComplete ? 850 : 340);
+  await settlePlayedCard(result);
   interactionLocked = false;
-  if (result.trickComplete) {
-    setStatus(`${playerName(result.winner)} takes the trick.`);
-    displayedCompletedTrick = null;
-  }
   render();
   if (game.round.phase === "round_over") {
     showRoundResult();
@@ -719,6 +745,16 @@ async function playHumanCard(card) {
   } else {
     await continueBots();
   }
+}
+
+async function settlePlayedCard(result) {
+  await wait(reducedMotion ? 0 : CARD_SETTLE_MS);
+  if (!result.trickComplete) return;
+  setStatus(`${playerName(result.winner)} takes the trick.`);
+  render();
+  await wait(reducedMotion ? 0 : TRICK_RESULT_HOLD_MS);
+  displayedCompletedTrick = null;
+  render();
 }
 
 function updateLoadProgress(percent, label) {
@@ -758,6 +794,7 @@ async function startGame(form) {
     updateLoadProgress(100, "Fallback table ready");
   }
   await wait(reducedMotion ? 0 : 360);
+  gameSequence += 1;
   game = new PlumpGame({
     opponents: Number(data.get("opponents")),
     minimum,
