@@ -13,6 +13,7 @@ const required = [
   "links/index.html",
   "contact/index.html",
   "RL-environment/index.html",
+  "RL-environment/plump-logo.svg",
   "RL-environment/plump/index.html",
   "RL-environment/rl.css",
   "RL-environment/plump/game.js",

@@ -123,8 +123,7 @@
   font: 12px/1 var(--sans);
 }
 
-.rl-boot,
-.game-launcher {
+.rl-boot {
   position: fixed;
   z-index: 1100;
   inset: 0;
@@ -179,59 +178,6 @@
 @keyframes rl-shuffle {
   50% { margin-top: -22px; }
   to { filter: hue-rotate(24deg); }
-}
-
-.game-launcher {
-  display: none;
-  background: rgba(244, 243, 237, 0.94);
-}
-
-.game-launcher.is-launching {
-  display: grid;
-}
-
-.game-launcher-window {
-  width: min(390px, calc(100% - 32px));
-  border: 1px solid var(--ink);
-  background: var(--chrome);
-  box-shadow: 5px 5px 0 #77776f;
-}
-
-.game-launcher-body {
-  display: grid;
-  padding: 28px;
-  grid-template-columns: 72px 1fr;
-  gap: 22px;
-  align-items: center;
-}
-
-.game-launcher-body p {
-  margin: 4px 0 13px;
-  font: 11px/1.3 var(--mono);
-}
-
-.mini-deck {
-  position: relative;
-  width: 60px;
-  height: 76px;
-}
-
-.mini-deck span {
-  position: absolute;
-  inset: 0;
-  border: 1px solid var(--ink);
-  background: var(--screen-light);
-}
-
-.mini-deck span:nth-child(1) { transform: rotate(-12deg); }
-.mini-deck span:nth-child(2) { transform: rotate(7deg); }
-.mini-deck span:nth-child(3) {
-  background: repeating-linear-gradient(45deg, #000080 0 5px, var(--violet) 5px 10px);
-  animation: mini-deck-jump 420ms ease-in-out infinite alternate;
-}
-
-@keyframes mini-deck-jump {
-  to { transform: translateY(-7px) rotate(2deg); }
 }
 
 /* Plump setup */
@@ -760,7 +706,7 @@
 }
 
 .hand-card-button:disabled { cursor: default; }
-.hand-card-button.is-illegal { filter: grayscale(.85) opacity(.58); }
+.hand-card-button.is-illegal { filter: grayscale(.85) contrast(.86); }
 .hand-card-button.is-dealing { animation: deal-to-hand 460ms cubic-bezier(.17,.8,.3,1.12) both; }
 
 @keyframes deal-to-hand {
@@ -1078,7 +1024,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rl-boot-card,
-  .mini-deck span,
   .loading-card-orbit,
   .trick-card,
   .hand-card-button.is-dealing { animation: none !important; }

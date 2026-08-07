@@ -424,15 +424,16 @@ function renderHumanHand() {
   dom.humanHand.innerHTML = hand
     .map((card, index) => {
       const allowed = legal.has(cardKey(card));
-      const disabled = !allowed || interactionLocked;
+      const unavailable = humanTurn && !allowed;
+      const disabled = !humanTurn || unavailable || interactionLocked;
       return `
         <button
-          class="hand-card-button${allowed ? "" : " is-illegal"}${dealing ? " is-dealing" : ""}"
+          class="hand-card-button${unavailable ? " is-illegal" : ""}${dealing ? " is-dealing" : ""}"
           type="button"
           data-play-card="${cardKey(card)}"
           ${disabled ? "disabled" : ""}
           style="animation-delay:${index * 48}ms"
-          aria-label="Play ${cardLabel(card)}${allowed ? "" : ", unavailable"}"
+          aria-label="Play ${cardLabel(card)}${unavailable ? ", unavailable" : ""}"
         >
           <img src="${cardAsset(card)}" alt="" />
           ${policyBadge(modelCardId(card))}

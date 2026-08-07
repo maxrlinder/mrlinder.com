@@ -76,10 +76,9 @@
           <a
             class="game-file"
             href="/RL-environment/plump/"
-            data-game-link
             aria-label="Open Plump"
           >
-            <img src="/RL-environment/plump.svg" alt="" />
+            <img src="/RL-environment/plump-logo.svg" alt="" />
             <span class="game-file-copy">
               <strong>Plump</strong>
               <small>Card game · 3–5 players · PPO agent</small>
@@ -90,43 +89,11 @@
       </section>
     </main>
 
-    <div class="game-launcher" data-game-launcher aria-hidden="true">
-      <div class="game-launcher-window">
-        <div class="window-titlebar">
-          <span class="window-control"></span>
-          <strong>Opening Plump</strong>
-          <span class="window-control window-control-double"></span>
-        </div>
-        <div class="game-launcher-body">
-          <div class="mini-deck" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <div>
-            <strong>Setting the table…</strong>
-            <p>Cards, score sheet, and agent.</p>
-            <div class="boot-progress"><span></span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <footer class="site-footer">
       <p>© <span data-current-year>2026</span> Max Rehman Linder</p>
       <p>mrlinder.com/RL-environment</p>
       <p>1 playable game</p>
     </footer>
 
-    <script>
-      document.querySelector("[data-game-link]")?.addEventListener("click", (event) => {
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        event.preventDefault();
-        const launcher = document.querySelector("[data-game-launcher]");
-        launcher?.setAttribute("aria-hidden", "false");
-        launcher?.classList.add("is-launching");
-        window.setTimeout(() => {
-          window.location.href = event.currentTarget.href;
-        }, 720);
-      });
-    </script>
   </body>
 </html>
