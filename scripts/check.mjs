@@ -20,6 +20,8 @@ const required = [
   "RL-environment/plump/model-client.js",
   "RL-environment/plump/model/plump-ppo-4000-int8.onnx",
   "RL-environment/plump/model/plump-ppo-4000.json",
+  "RL-environment/plump/model/plump-oracle-4000-int8.onnx",
+  "RL-environment/plump/model/plump-oracle-4000-int8.json",
   "styles.css",
   "site-config.js",
   "site-navigation.js",

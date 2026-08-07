@@ -2,6 +2,7 @@ import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/o
 
 const MODEL_ROOT = "/RL-environment/plump/model/";
 const MODEL_MANIFEST = `${MODEL_ROOT}plump-ppo-4000.json`;
+const ORACLE_MANIFEST = `${MODEL_ROOT}plump-oracle-4000-int8.json`;
 const RUNTIME_ROOT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";
 
 const TOKEN = Object.freeze({
@@ -162,6 +163,35 @@ export function buildTokens(game, observer) {
   return tokens;
 }
 
+/** Build the perfect-information, absolute-seat stream used by the PPO oracle. */
+export function buildOracleTokens(game) {
+  const round = game.round;
+  const handSize = round.handSize;
+  const actorTokens = buildTokens(game, 0);
+  const oracleHands = round.initialHands.flatMap((hand, owner) =>
+    [...hand]
+      .sort((a, b) => cardId(a) - cardId(b))
+      .map((card) => {
+        const token = baseToken(game.numPlayers, handSize);
+        token[0] = TOKEN.HAND;
+        token[1] = owner;
+        token[2] = card.rank - 2;
+        token[3] = SUITS.indexOf(card.suit);
+        token[4] = cardId(card);
+        return token;
+      }),
+  );
+  const tokens = [
+    actorTokens[0],
+    ...oracleHands,
+    ...actorTokens.slice(1 + handSize),
+  ];
+  // Remaining-hand snapshots belong only to an observer stream. The oracle
+  // derives every current hand from its full-deal prefix and public plays.
+  tokens.forEach((token) => token.fill(52, 12));
+  return tokens;
+}
+
 const flattenInt64 = (rows) => {
   const values = new BigInt64Array(rows.length * WIDTH);
   let offset = 0;
@@ -176,6 +206,10 @@ export class BrowserPpoAgent {
     this.session = null;
     this.manifest = null;
     this.backend = "not loaded";
+    this.oracleSession = null;
+    this.oracleManifest = null;
+    this.oracleBackend = "not loaded";
+    this.oracleLoadPromise = null;
   }
 
   async load(onProgress = () => {}) {
@@ -247,6 +281,55 @@ export class BrowserPpoAgent {
       trickLogits: [...output.trick_logits.data],
       suitLogits: [...output.suit_logits.data],
       bidHitLogits: [...output.bid_hit_logits.data],
+    };
+  }
+
+  async loadOracle() {
+    if (this.oracleSession) return this;
+    if (this.oracleLoadPromise) return this.oracleLoadPromise;
+    this.oracleLoadPromise = (async () => {
+      this.oracleManifest = await fetch(ORACLE_MANIFEST).then((response) => {
+        if (!response.ok) throw new Error("Could not read the oracle manifest.");
+        return response.json();
+      });
+      const response = await fetch(`${MODEL_ROOT}${this.oracleManifest.file}`);
+      if (!response.ok) throw new Error("Could not download the oracle weights.");
+      const model = new Uint8Array(await response.arrayBuffer());
+      ort.env.wasm.wasmPaths = RUNTIME_ROOT;
+      ort.env.wasm.numThreads = 1;
+      const prefersGpu = "gpu" in navigator;
+      try {
+        this.oracleSession = await ort.InferenceSession.create(model, {
+          executionProviders: prefersGpu ? ["webgpu", "wasm"] : ["wasm"],
+          graphOptimizationLevel: "all",
+        });
+        this.oracleBackend = prefersGpu ? "WebGPU" : "WebAssembly";
+      } catch (gpuError) {
+        if (!prefersGpu) throw gpuError;
+        this.oracleSession = await ort.InferenceSession.create(model, {
+          executionProviders: ["wasm"],
+          graphOptimizationLevel: "all",
+        });
+        this.oracleBackend = "WebAssembly";
+      }
+      return this;
+    })();
+    try {
+      return await this.oracleLoadPromise;
+    } catch (error) {
+      this.oracleLoadPromise = null;
+      throw error;
+    }
+  }
+
+  async predictOracle(game) {
+    if (!this.oracleSession) throw new Error("The oracle critic is not loaded.");
+    const rows = buildOracleTokens(game);
+    const tensor = new ort.Tensor("int64", flattenInt64(rows), [1, rows.length, WIDTH]);
+    const output = await this.oracleSession.run({ tokens: tensor });
+    return {
+      values: [...output.values.data],
+      trickLogits: [...output.trick_logits.data],
     };
   }
 }

@@ -323,6 +323,7 @@ const dom = {
   probabilityToggle: $("[data-probability-toggle]"),
   oracleToggle: $("[data-oracle-toggle]"),
   intelStrip: $("[data-intel-strip]"),
+  intelTitle: $(".intel-title"),
   intelItems: $("[data-intel-items]"),
   roundDialog: $("[data-round-dialog]"),
   roundResult: $("[data-round-result]"),
@@ -341,9 +342,23 @@ let dealing = false;
 let predictionRequest = 0;
 let humanPrediction = null;
 let humanPolicy = null;
+let oracleRequest = 0;
+let oraclePrediction = null;
+let oracleLoading = false;
+let oracleError = "";
 let lastStatus = "";
 let displayedCompletedTrick = null;
 let gameSequence = 0;
+
+function invalidatePredictionReadouts() {
+  predictionRequest += 1;
+  oracleRequest += 1;
+  humanPrediction = null;
+  humanPolicy = null;
+  oraclePrediction = null;
+  oracleLoading = false;
+  oracleError = "";
+}
 
 function setStatus(message) {
   lastStatus = message;
@@ -569,34 +584,82 @@ function renderRoundPlaque() {
   dom.roundPlaque.innerHTML = `<strong>Round ${game.roundIndex + 1} / ${game.schedule.length}</strong>${game.round.handSize} cards · ${trickNumber}`;
 }
 
-function renderIntel() {
-  const visible = dom.oracleToggle.checked && humanPrediction;
-  dom.intelStrip.hidden = !visible;
-  if (!visible) return;
+function topFinalTrickProbabilities(player) {
   const completedTricks = game.round.tricks.filter((trick) => trick.winner !== null).length;
   const unresolved = game.round.handSize - completedTricks;
-  const chips = [`<span class="intel-chip"><strong>EV</strong> ${humanPrediction.value >= 0 ? "+" : ""}${humanPrediction.value.toFixed(2)}</span>`];
-  for (let relativePlayer = 0; relativePlayer < game.numPlayers; relativePlayer += 1) {
-    const player = relativePlayer;
-    const won = game.round.tricksWon[player];
-    const logits = humanPrediction.trickLogits.slice(relativePlayer * 11, relativePlayer * 11 + 11);
-    const possible = Array.from({ length: Math.min(won + unresolved, 10) - won + 1 }, (_, index) => won + index);
-    const maximum = Math.max(...possible.map((count) => logits[count]));
-    const weights = possible.map((count) => Math.exp(logits[count] - maximum));
-    const total = weights.reduce((sum, value) => sum + value, 0);
-    const expected = possible.reduce((sum, count, index) => sum + count * weights[index] / total, 0);
-    const hit = sigmoid(humanPrediction.bidHitLogits[relativePlayer]);
-    chips.push(`<span class="intel-chip"><strong>${playerName(player)}</strong> ${expected.toFixed(1)} tricks · bid hit ${Math.round(hit * 100)}%</span>`);
-  }
-  for (let relativePlayer = 1; relativePlayer < game.numPlayers; relativePlayer += 1) {
-    const suitValues = modelSuits.map((suit, suitIndex) => ({
+  const won = game.round.tricksWon[player];
+  const logits = oraclePrediction.trickLogits.slice(player * 11, player * 11 + 11);
+  const counts = Array.from(
+    { length: Math.min(won + unresolved, 10) - won + 1 },
+    (_, index) => won + index,
+  );
+  const maximum = Math.max(...counts.map((count) => logits[count]));
+  const weighted = counts.map((count) => ({
+    count,
+    weight: Math.exp(logits[count] - maximum),
+  }));
+  const total = weighted.reduce((sum, item) => sum + item.weight, 0);
+  return weighted
+    .map((item) => ({ count: item.count, probability: item.weight / total }))
+    .sort((a, b) => b.probability - a.probability)
+    .slice(0, 3);
+}
+
+function suitPresenceProbabilities(player) {
+  if (player === 0) {
+    return modelSuits.map((suit) => ({
       suit,
-      probability: sigmoid(humanPrediction.suitLogits[(relativePlayer - 1) * 4 + suitIndex]),
+      probability: game.round.hands[0].some((card) => card.suit === suit) ? 1 : 0,
     }));
-    const strongest = suitValues.reduce((best, item) => item.probability > best.probability ? item : best);
-    chips.push(`<span class="intel-chip"><strong>P${relativePlayer} holds</strong> ${SUIT_SYMBOL[strongest.suit]} ${Math.round(strongest.probability * 100)}%</span>`);
   }
-  dom.intelItems.innerHTML = chips.join("");
+  if (!humanPrediction) return null;
+  return modelSuits.map((suit, suitIndex) => ({
+    suit,
+    probability: sigmoid(humanPrediction.suitLogits[(player - 1) * 4 + suitIndex]),
+  }));
+}
+
+function renderIntel() {
+  const visible = dom.oracleToggle.checked;
+  dom.intelStrip.hidden = !visible;
+  if (!visible) return;
+  dom.intelTitle.textContent = "Oracle + model beliefs";
+
+  if (oracleLoading) {
+    dom.intelItems.innerHTML = '<span class="oracle-message">Loading the perfect-information oracle…</span>';
+    return;
+  }
+  if (oracleError) {
+    dom.intelItems.innerHTML = `<span class="oracle-message is-error">${oracleError}</span>`;
+    return;
+  }
+  if (!oraclePrediction) {
+    dom.intelItems.innerHTML = '<span class="oracle-message">Oracle readout is available during bidding and play.</span>';
+    return;
+  }
+
+  dom.intelItems.innerHTML = Array.from({ length: game.numPlayers }, (_, player) => {
+    const value = oraclePrediction.values[player];
+    const topTricks = topFinalTrickProbabilities(player)
+      .map((item) => `<span class="oracle-prob"><strong>${item.count}</strong> ${Math.round(item.probability * 100)}%</span>`)
+      .join("");
+    const suitPresence = suitPresenceProbabilities(player);
+    const suits = suitPresence
+      ? suitPresence
+        .map((item) => {
+          const red = ["hearts", "diamonds"].includes(item.suit) ? " is-red" : "";
+          return `<span class="oracle-suit${red}">${SUIT_SYMBOL[item.suit]} ${Math.round(item.probability * 100)}%</span>`;
+        })
+        .join("")
+      : '<span class="oracle-pending">Model belief loading…</span>';
+    return `
+      <section class="oracle-player" aria-label="${playerName(player)} prediction readout">
+        <header><strong>${playerName(player)}</strong><span>EV ${value >= 0 ? "+" : ""}${value.toFixed(2)}</span></header>
+        <div class="oracle-line"><b>Final tricks · top 3</b><span class="oracle-values">${topTricks}</span></div>
+        <div class="oracle-line"><b>Suit presence · your model</b><span class="oracle-values">${suits}</span></div>
+      </section>
+    `;
+  }).join("");
 }
 
 function render() {
@@ -649,8 +712,47 @@ async function refreshHumanPrediction() {
     if (request !== predictionRequest) return;
     humanPrediction = null;
     humanPolicy = null;
-    dom.intelStrip.hidden = true;
+    render();
   }
+}
+
+async function refreshOraclePrediction() {
+  if (
+    !game ||
+    !dom.oracleToggle.checked ||
+    !["bidding", "playing"].includes(game.round.phase)
+  ) {
+    oracleRequest += 1;
+    oraclePrediction = null;
+    oracleLoading = false;
+    oracleError = "";
+    render();
+    return;
+  }
+  const request = ++oracleRequest;
+  oraclePrediction = null;
+  oracleLoading = true;
+  oracleError = "";
+  render();
+  try {
+    await agent.loadOracle();
+    const prediction = await agent.predictOracle(game);
+    if (request !== oracleRequest) return;
+    oraclePrediction = prediction;
+    oracleLoading = false;
+    render();
+  } catch {
+    if (request !== oracleRequest) return;
+    oraclePrediction = null;
+    oracleLoading = false;
+    oracleError = "Oracle model unavailable on this device.";
+    render();
+  }
+}
+
+function refreshPredictions() {
+  refreshHumanPrediction();
+  refreshOraclePrediction();
 }
 
 async function chooseBotAction(player) {
@@ -715,6 +817,7 @@ async function continueBots() {
     render();
     const action = await chooseBotAction(player);
     await wait(reducedMotion ? 0 : BOT_THINK_MS);
+    invalidatePredictionReadouts();
     if (action.type === "bid") {
       game.bid(action.value);
       setStatus(`${playerName(player)} bids ${action.value}.`);
@@ -739,13 +842,18 @@ async function continueBots() {
     setStatus(game.round.phase === "bidding" ? "Your turn to bid." : "Your turn to play a card.");
   }
   render();
-  refreshHumanPrediction();
+  refreshPredictions();
 }
 
 async function beginDeal() {
   dealing = true;
+  predictionRequest += 1;
+  oracleRequest += 1;
   humanPrediction = null;
   humanPolicy = null;
+  oraclePrediction = null;
+  oracleLoading = false;
+  oracleError = "";
   setStatus(`Dealing ${game.round.handSize} cards…`);
   render();
   await wait(reducedMotion ? 0 : 720);
@@ -759,8 +867,12 @@ async function playHumanCard(card) {
   if (interactionLocked || game.round.currentPlayer !== 0) return;
   interactionLocked = true;
   predictionRequest += 1;
+  oracleRequest += 1;
   humanPrediction = null;
   humanPolicy = null;
+  oraclePrediction = null;
+  oracleLoading = false;
+  oracleError = "";
   const result = game.play(card);
   displayedCompletedTrick = result.completedTrick || null;
   setStatus(`You play ${cardLabel(card)}.`);
@@ -862,8 +974,12 @@ dom.game.addEventListener("click", (event) => {
   if (bidButton && !interactionLocked) {
     const value = Number(bidButton.dataset.bid);
     predictionRequest += 1;
+    oracleRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
+    oraclePrediction = null;
+    oracleLoading = false;
+    oracleError = "";
     game.bid(value);
     setStatus(`You bid ${value}.`);
     render();
@@ -878,10 +994,11 @@ dom.game.addEventListener("click", (event) => {
 });
 
 dom.probabilityToggle.addEventListener("change", refreshHumanPrediction);
-dom.oracleToggle.addEventListener("change", refreshHumanPrediction);
+dom.oracleToggle.addEventListener("change", refreshPredictions);
 
 $("[data-next-round]").addEventListener("click", () => {
   predictionRequest += 1;
+  oracleRequest += 1;
   dom.roundDialog.hidden = true;
   game.startNextRound();
   beginDeal();
@@ -889,6 +1006,10 @@ $("[data-next-round]").addEventListener("click", () => {
 
 $("[data-new-game]").addEventListener("click", () => {
   predictionRequest += 1;
+  oracleRequest += 1;
+  oraclePrediction = null;
+  oracleLoading = false;
+  oracleError = "";
   dom.game.hidden = true;
   dom.setup.hidden = false;
   dom.roundDialog.hidden = true;
@@ -898,6 +1019,11 @@ $("[data-new-game]").addEventListener("click", () => {
 });
 
 $("[data-play-again]").addEventListener("click", () => {
+  predictionRequest += 1;
+  oracleRequest += 1;
+  oraclePrediction = null;
+  oracleLoading = false;
+  oracleError = "";
   dom.gameOver.hidden = true;
   dom.game.hidden = true;
   dom.setup.hidden = false;

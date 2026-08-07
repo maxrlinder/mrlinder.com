@@ -378,14 +378,6 @@
 
 .slider-labels span:last-child { text-align: right; }
 
-.full-game-stamp {
-  margin: 26px 0;
-  padding: 10px 12px;
-  border: 1px solid var(--ink);
-  background: var(--screen-light);
-  font: 11px/1.4 var(--mono);
-}
-
 .start-game-button,
 .game-button,
 .bid-button {
@@ -796,11 +788,11 @@
 
 .intel-strip {
   display: grid;
-  min-height: 44px;
-  padding: 6px 10px;
+  min-height: 76px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--ink);
   background: #f7f2d5;
-  align-items: center;
+  align-items: start;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
 }
@@ -808,6 +800,7 @@
 .intel-strip[hidden] { display: none; }
 
 .intel-title {
+  padding-top: 5px;
   font: bold 9px/1.2 var(--mono);
   text-transform: uppercase;
 }
@@ -815,15 +808,80 @@
 .intel-items {
   display: flex;
   overflow-x: auto;
-  gap: 7px;
+  padding-bottom: 2px;
+  gap: 8px;
 }
 
-.intel-chip {
-  flex: 0 0 auto;
-  padding: 4px 6px;
+.oracle-message {
+  padding: 8px 9px;
   border: 1px solid var(--rule);
   background: #fff;
+  font: 9px/1.3 var(--mono);
+}
+
+.oracle-message.is-error { color: #940000; }
+
+.oracle-player {
+  flex: 0 0 310px;
+  padding: 6px 7px 7px;
+  border: 1px solid var(--rule);
+  background: #fff;
+  box-shadow: 2px 2px 0 rgba(0,0,0,.16);
   font: 9px/1.25 var(--mono);
+}
+
+.oracle-player header {
+  display: flex;
+  margin: -6px -7px 6px;
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--chrome);
+  justify-content: space-between;
+  gap: 10px;
+  text-transform: uppercase;
+}
+
+.oracle-player header > span {
+  color: #000080;
+  font-weight: bold;
+}
+
+.oracle-line {
+  display: grid;
+  margin-top: 4px;
+  grid-template-columns: 102px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+}
+
+.oracle-line > b {
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.oracle-values {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.oracle-prob,
+.oracle-suit,
+.oracle-pending {
+  padding: 2px 4px;
+  border: 1px solid #b8b8b0;
+  background: #f8f8f3;
+  white-space: nowrap;
+}
+
+.oracle-prob strong { font-size: 10px; }
+.oracle-suit.is-red { color: var(--red); }
+.oracle-pending { color: var(--muted); font-size: 8px; }
+
+@media (max-width: 600px) {
+  .oracle-player { flex-basis: 280px; }
 }
 
 .game-status-line {
