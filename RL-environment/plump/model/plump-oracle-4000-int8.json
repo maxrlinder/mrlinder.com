@@ -1,0 +1,25 @@
+{
+  "format": "onnx",
+  "kind": "perfect-information-oracle-critic",
+  "checkpoint": "iter_014200.pt",
+  "iteration": 14200,
+  "schemaVersion": 6,
+  "modelFormatVersion": 2,
+  "quantization": "dynamic-int8",
+  "modelConfig": {
+    "schema_version": 6,
+    "max_players": 5,
+    "max_hand_size": 10,
+    "trick_win_token": true,
+    "turn_token": "bid",
+    "d_model": 384,
+    "n_layers": 6,
+    "n_heads": 12,
+    "n_kv_heads": 2,
+    "d_ff": 1152,
+    "dropout": 0.0
+  },
+  "file": "plump-oracle-14200-int8.onnx",
+  "bytes": 8154101,
+  "sha256": "387ea2e8ed13c35ad1a39b48b2f79e522f5b3d8bc8496cb9f14bc3dd12fd3df9"
+}
