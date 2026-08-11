@@ -1,8 +1,10 @@
 import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.webgpu.bundle.min.mjs";
+import {
+  PLUMP_MODEL_CONFIG,
+  configuredActorPrecision,
+} from "./model-config.js";
 
 const MODEL_ROOT = "/RL-environment/plump/model/";
-const MODEL_MANIFEST = `${MODEL_ROOT}plump-ppo-14200-int8.json`;
-const ORACLE_MANIFEST = `${MODEL_ROOT}plump-oracle-14200-int8.json`;
 const RUNTIME_ROOT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";
 
 const TOKEN = Object.freeze({
@@ -206,6 +208,7 @@ export class BrowserPpoAgent {
     this.session = null;
     this.manifest = null;
     this.backend = "not loaded";
+    this.precision = "not loaded";
     this.oracleSession = null;
     this.oracleModel = null;
     this.oracleManifest = null;
@@ -223,19 +226,16 @@ export class BrowserPpoAgent {
     return pending;
   }
 
-  async load(onProgress = () => {}) {
-    if (this.session) return this;
-    onProgress(2, "Reading model manifest…");
-    this.manifest = await fetch(MODEL_MANIFEST).then((response) => {
+  async downloadModel(manifestFile, onProgress = () => {}) {
+    const manifest = await fetch(`${MODEL_ROOT}${manifestFile}`).then((response) => {
       if (!response.ok) throw new Error("Could not read the model manifest.");
       return response.json();
     });
-
-    const response = await fetch(`${MODEL_ROOT}${this.manifest.file}`);
+    const response = await fetch(`${MODEL_ROOT}${manifest.file}`);
     if (!response.ok || !response.body) {
       throw new Error("Could not download the model weights.");
     }
-    const total = Number(response.headers.get("content-length")) || this.manifest.bytes;
+    const total = Number(response.headers.get("content-length")) || manifest.bytes;
     const reader = response.body.getReader();
     const chunks = [];
     let received = 0;
@@ -244,10 +244,7 @@ export class BrowserPpoAgent {
       if (done) break;
       chunks.push(value);
       received += value.length;
-      onProgress(
-        5 + Math.round((received / total) * 70),
-        `Downloading checkpoint… ${Math.round((received / total) * 100)}%`,
-      );
+      onProgress(received, total);
     }
     const model = new Uint8Array(received);
     let cursor = 0;
@@ -255,14 +252,60 @@ export class BrowserPpoAgent {
       model.set(chunk, cursor);
       cursor += chunk.length;
     }
+    return { manifest, model };
+  }
 
+  async load(onProgress = () => {}) {
+    if (this.session) return this;
+    onProgress(2, "Reading model manifest…");
     ort.env.wasm.wasmPaths = RUNTIME_ROOT;
     ort.env.wasm.numThreads = 1;
-    onProgress(82, "Compiling the policy for this device…");
-
     const prefersGpu = "gpu" in navigator;
+    const requestedPrecision = configuredActorPrecision();
+    const selectedPrecision = requestedPrecision === "fp16" && prefersGpu
+      ? "fp16"
+      : "fp32";
+    let bundle = await this.downloadModel(
+      PLUMP_MODEL_CONFIG.actorManifests[selectedPrecision],
+      (received, total) => {
+        const percentage = Math.round((received / total) * 100);
+        onProgress(
+          5 + Math.round((received / total) * 70),
+          `Downloading checkpoint… ${percentage}%`,
+        );
+      },
+    );
+    this.manifest = bundle.manifest;
+    onProgress(82, `Compiling the ${selectedPrecision.toUpperCase()} policy…`);
+
+    if (selectedPrecision === "fp16") {
+      try {
+        this.session = await ort.InferenceSession.create(bundle.model, {
+          executionProviders: ["webgpu"],
+          graphOptimizationLevel: "all",
+        });
+        this.backend = "WebGPU";
+        this.precision = "FP16 mixed precision";
+        onProgress(100, `Agent ready · ${this.backend} · ${this.precision}`);
+        return this;
+      } catch {
+        onProgress(8, "FP16 unavailable; downloading the full-precision policy…");
+        bundle = await this.downloadModel(
+          PLUMP_MODEL_CONFIG.actorManifests.fp32,
+          (received, total) => {
+            const percentage = Math.round((received / total) * 100);
+            onProgress(
+              10 + Math.round((received / total) * 65),
+              `Downloading checkpoint… ${percentage}%`,
+            );
+          },
+        );
+        this.manifest = bundle.manifest;
+      }
+    }
+
     try {
-      this.session = await ort.InferenceSession.create(model, {
+      this.session = await ort.InferenceSession.create(bundle.model, {
         executionProviders: prefersGpu ? ["webgpu", "wasm"] : ["wasm"],
         graphOptimizationLevel: "all",
       });
@@ -270,13 +313,14 @@ export class BrowserPpoAgent {
     } catch (gpuError) {
       if (!prefersGpu) throw gpuError;
       onProgress(88, "GPU unavailable; preparing the CPU policy…");
-      this.session = await ort.InferenceSession.create(model, {
+      this.session = await ort.InferenceSession.create(bundle.model, {
         executionProviders: ["wasm"],
         graphOptimizationLevel: "all",
       });
       this.backend = "WebAssembly";
     }
-    onProgress(100, `Agent ready · ${this.backend}`);
+    this.precision = "FP32";
+    onProgress(100, `Agent ready · ${this.backend} · ${this.precision}`);
     return this;
   }
 
@@ -299,7 +343,9 @@ export class BrowserPpoAgent {
     if (this.oracleSession) return this;
     if (this.oracleLoadPromise) return this.oracleLoadPromise;
     this.oracleLoadPromise = (async () => {
-      this.oracleManifest = await fetch(ORACLE_MANIFEST).then((response) => {
+      this.oracleManifest = await fetch(
+        `${MODEL_ROOT}${PLUMP_MODEL_CONFIG.oracleManifest}`,
+      ).then((response) => {
         if (!response.ok) throw new Error("Could not read the oracle manifest.");
         return response.json();
       });

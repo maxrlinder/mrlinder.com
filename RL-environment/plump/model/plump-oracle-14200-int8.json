@@ -5,7 +5,8 @@
   "iteration": 14200,
   "schemaVersion": 6,
   "modelFormatVersion": 2,
-  "quantization": "dynamic-int8",
+  "precision": "fp32",
+  "quantization": "none",
   "modelConfig": {
     "schema_version": 6,
     "max_players": 5,
@@ -19,7 +20,7 @@
     "d_ff": 1152,
     "dropout": 0.0
   },
-  "file": "plump-oracle-14200-int8.onnx",
-  "bytes": 8154101,
-  "sha256": "387ea2e8ed13c35ad1a39b48b2f79e522f5b3d8bc8496cb9f14bc3dd12fd3df9"
+  "file": "plump-oracle-14200-fp32.onnx",
+  "bytes": 30723045,
+  "sha256": "439990a8d6db0b5eec3049877296971adb2035eda7284b6853c58ab764f7d134"
 }

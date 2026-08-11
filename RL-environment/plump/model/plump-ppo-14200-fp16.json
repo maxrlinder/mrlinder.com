@@ -1,0 +1,25 @@
+{
+  "format": "onnx",
+  "checkpoint": "iter_014200.pt",
+  "iteration": 14200,
+  "schemaVersion": 6,
+  "modelFormatVersion": 2,
+  "precision": "fp16",
+  "quantization": "none",
+  "modelConfig": {
+    "schema_version": 6,
+    "max_players": 5,
+    "max_hand_size": 10,
+    "trick_win_token": true,
+    "turn_token": "bid",
+    "d_model": 384,
+    "n_layers": 6,
+    "n_heads": 12,
+    "n_kv_heads": 2,
+    "d_ff": 1152,
+    "dropout": 0.0
+  },
+  "file": "plump-ppo-14200-fp16.onnx",
+  "bytes": 15832558,
+  "sha256": "5f6206c9e50372ec845739e73c30f5b318ce73f797b39f6b3502b8ea4019f6c5"
+}

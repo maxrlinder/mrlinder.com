@@ -1,0 +1,26 @@
+{
+  "format": "onnx",
+  "kind": "perfect-information-oracle-critic",
+  "checkpoint": "iter_014200.pt",
+  "iteration": 14200,
+  "schemaVersion": 6,
+  "modelFormatVersion": 2,
+  "precision": "fp32",
+  "quantization": "none",
+  "modelConfig": {
+    "schema_version": 6,
+    "max_players": 5,
+    "max_hand_size": 10,
+    "trick_win_token": true,
+    "turn_token": "bid",
+    "d_model": 384,
+    "n_layers": 6,
+    "n_heads": 12,
+    "n_kv_heads": 2,
+    "d_ff": 1152,
+    "dropout": 0.0
+  },
+  "file": "plump-oracle-14200-fp32.onnx",
+  "bytes": 30723045,
+  "sha256": "439990a8d6db0b5eec3049877296971adb2035eda7284b6853c58ab764f7d134"
+}

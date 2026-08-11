@@ -13,9 +13,12 @@ import json
 import sys
 from pathlib import Path
 
+import onnx
 import torch
 import torch.nn.functional as F
 from onnxruntime.quantization import QuantType, quantize_dynamic
+from onnxruntime.transformers.float16 import convert_float_to_float16
+from onnxruntime.transformers.onnx_model import OnnxModel
 from torch import nn
 
 
@@ -84,6 +87,12 @@ def main() -> None:
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument(
+        "--precision",
+        choices=("fp32", "fp16", "int8"),
+        default="int8",
+        help="Weight precision for the browser artifact (default: int8).",
+    )
+    parser.add_argument(
         "--plump-source",
         type=Path,
         default=Path(__file__).resolve().parents[2] / "plump-bot",
@@ -104,7 +113,11 @@ def main() -> None:
     wrapper = BrowserPlumpOracle(critic).eval()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    fp32_output = args.output.with_name(f"{args.output.stem}.fp32.onnx")
+    fp32_output = (
+        args.output
+        if args.precision == "fp32"
+        else args.output.with_name(f"{args.output.stem}.source-fp32.onnx")
+    )
     sample = torch.zeros((1, config.oracle_max_seq_len, 22), dtype=torch.int64)
     sample[..., 0] = 1
     sample[..., 1] = config.player_na_id
@@ -131,13 +144,24 @@ def main() -> None:
             dynamo=False,
         )
 
-    quantize_dynamic(
-        fp32_output,
-        args.output,
-        weight_type=QuantType.QInt8,
-        op_types_to_quantize=["MatMul", "Gemm"],
-    )
-    fp32_output.unlink()
+    if args.precision == "int8":
+        quantize_dynamic(
+            fp32_output,
+            args.output,
+            weight_type=QuantType.QInt8,
+            op_types_to_quantize=["MatMul", "Gemm"],
+        )
+        fp32_output.unlink()
+    elif args.precision == "fp16":
+        converted = convert_float_to_float16(
+            onnx.load(fp32_output),
+            keep_io_types=True,
+            op_block_list=["LayerNormalization", "Softmax"],
+        )
+        converted_model = OnnxModel(converted)
+        converted_model.topological_sort(is_deterministic=True)
+        onnx.save(converted_model.model, args.output)
+        fp32_output.unlink()
 
     manifest = {
         "format": "onnx",
@@ -146,7 +170,8 @@ def main() -> None:
         "iteration": int(payload["iteration"]),
         "schemaVersion": int(payload["schema_version"]),
         "modelFormatVersion": int(payload["model_format_version"]),
-        "quantization": "dynamic-int8",
+        "precision": args.precision,
+        "quantization": "dynamic-int8" if args.precision == "int8" else "none",
         "modelConfig": payload["model_config"],
         "file": args.output.name,
         "bytes": args.output.stat().st_size,

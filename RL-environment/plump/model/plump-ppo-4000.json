@@ -4,7 +4,8 @@
   "iteration": 14200,
   "schemaVersion": 6,
   "modelFormatVersion": 2,
-  "quantization": "dynamic-int8",
+  "precision": "fp32",
+  "quantization": "none",
   "modelConfig": {
     "schema_version": 6,
     "max_players": 5,
@@ -18,7 +19,7 @@
     "d_ff": 1152,
     "dropout": 0.0
   },
-  "file": "plump-ppo-14200-int8.onnx",
-  "bytes": 8361852,
-  "sha256": "9b7292ea28239aa2e68dfda477eaf2f4d5be54a316c90832506e1b36b4598296"
+  "file": "plump-ppo-14200-fp32.onnx",
+  "bytes": 31458737,
+  "sha256": "33f173b6f7eb9c1dd3d37d93d725e490eb5515eb7ba97ad4b4ef81c12c6a99f9"
 }
