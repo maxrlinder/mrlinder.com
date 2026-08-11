@@ -1,7 +1,7 @@
 {
   "format": "onnx",
-  "checkpoint": "resume_004000_reconfigured.pt",
-  "iteration": 4000,
+  "checkpoint": "iter_014200.pt",
+  "iteration": 14200,
   "schemaVersion": 6,
   "modelFormatVersion": 2,
   "quantization": "dynamic-int8",
@@ -18,7 +18,7 @@
     "d_ff": 1152,
     "dropout": 0.0
   },
-  "file": "plump-ppo-4000-int8.onnx",
+  "file": "plump-ppo-14200-int8.onnx",
   "bytes": 8361852,
-  "sha256": "2615d1e678ff9b2c8988d10ebafae0b60019f02d2b2b51b4fbf78da0d5a98e25"
+  "sha256": "9b7292ea28239aa2e68dfda477eaf2f4d5be54a316c90832506e1b36b4598296"
 }

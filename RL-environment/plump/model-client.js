@@ -1,8 +1,8 @@
 import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.webgpu.bundle.min.mjs";
 
 const MODEL_ROOT = "/RL-environment/plump/model/";
-const MODEL_MANIFEST = `${MODEL_ROOT}plump-ppo-4000.json`;
-const ORACLE_MANIFEST = `${MODEL_ROOT}plump-oracle-4000-int8.json`;
+const MODEL_MANIFEST = `${MODEL_ROOT}plump-ppo-14200-int8.json`;
+const ORACLE_MANIFEST = `${MODEL_ROOT}plump-oracle-14200-int8.json`;
 const RUNTIME_ROOT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";
 
 const TOKEN = Object.freeze({
