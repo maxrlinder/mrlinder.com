@@ -94,6 +94,9 @@ class BrowserPlumpModel(nn.Module):
             tokens.shape[0], config.belief_opponents, 4
         )
         bid_hit_logits = model.bid_hit_head(hidden)
+        rank_boundary_logits = model.rank_boundary_head(hidden).view(
+            tokens.shape[0], config.belief_opponents + 1, 4, 2
+        )
         return (
             bid_logits,
             card_logits,
@@ -101,6 +104,7 @@ class BrowserPlumpModel(nn.Module):
             trick_logits,
             suit_logits,
             bid_hit_logits,
+            rank_boundary_logits,
         )
 
 
@@ -175,6 +179,7 @@ def main() -> None:
                 "trick_logits",
                 "suit_logits",
                 "bid_hit_logits",
+                "rank_boundary_logits",
             ],
             dynamic_axes={"tokens": {0: "batch", 1: "sequence"}},
             opset_version=18,

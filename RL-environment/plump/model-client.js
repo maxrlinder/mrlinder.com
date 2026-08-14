@@ -336,6 +336,7 @@ export class BrowserPpoAgent {
       trickLogits: [...output.trick_logits.data],
       suitLogits: [...output.suit_logits.data],
       bidHitLogits: [...output.bid_hit_logits.data],
+      rankBoundaryLogits: [...output.rank_boundary_logits.data],
     };
   }
 
