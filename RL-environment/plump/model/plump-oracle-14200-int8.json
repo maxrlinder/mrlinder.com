@@ -1,8 +1,8 @@
 {
   "format": "onnx",
   "kind": "perfect-information-oracle-critic",
-  "checkpoint": "iter_028700.pt",
-  "iteration": 28700,
+  "checkpoint": "iter_030100.pt",
+  "iteration": 30100,
   "schemaVersion": 6,
   "modelFormatVersion": 3,
   "precision": "fp32",
@@ -20,7 +20,7 @@
     "d_ff": 1152,
     "dropout": 0.0
   },
-  "file": "plump-oracle-28700-fp32.onnx",
+  "file": "plump-oracle-30100-fp32.onnx",
   "bytes": 30723045,
-  "sha256": "2fab18018ece9dde8024bd702fd8b852a9e2fff967ce382aa7af056ad3fa1f6d"
+  "sha256": "6a264f4aad232e99d3e047fed6eab4a91cea6a918d9820c6bcd2e86f909ec049"
 }
