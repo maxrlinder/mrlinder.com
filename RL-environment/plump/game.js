@@ -435,8 +435,12 @@ function configureSetupMode() {
   const mode = selectedPlayMode();
   const role = selectedMultiplayerRole();
   const multiplayerMode = mode === "multiplayer";
+  const joiningTable = multiplayerMode && role === "guest";
   dom.multiplayerSetup.hidden = !multiplayerMode;
-  dom.joinCodeRow.hidden = !multiplayerMode || role !== "guest";
+  dom.joinCodeRow.hidden = !joiningTable;
+  dom.joinCode.disabled = !joiningTable;
+  dom.joinCode.required = joiningTable;
+  if (!joiningTable) dom.joinCode.value = "";
   dom.hostSettings.hidden = multiplayerMode && role === "guest";
   dom.opponentsLabel.textContent = multiplayerMode ? "AI opponents" : "Opponents";
   if (multiplayerPhase === "idle") {

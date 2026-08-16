@@ -381,6 +381,7 @@
 
 .multiplayer-setup[hidden],
 .multiplayer-lobby[hidden],
+.join-code-row[hidden],
 .setup-error[hidden],
 .live-table-badge[hidden] { display: none; }
 
