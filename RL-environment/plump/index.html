@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Play a full game of Swedish Plump against a browser-based reinforcement-learning agent."
+      content="Play Swedish Plump against a browser-based reinforcement-learning agent or host a peer-to-peer table with friends."
     />
     <meta name="theme-color" content="#deded7" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Play Plump — RL Playground" />
     <meta
       property="og:description"
-      content="Bid your tricks, follow suit, and try to beat Max Linder's PPO card-playing agent."
+      content="Bid your tricks, invite friends with a table code, and fill open seats with Max Linder's PPO card-playing agent."
     />
     <meta property="og:url" content="https://mrlinder.com/RL-environment/plump/" />
     <meta
@@ -68,68 +68,136 @@
                 <h2>Set the table</h2>
                 <p class="setup-caption">Full game · high → low → high</p>
 
-                <div class="control-row">
-                  <label for="opponents">Opponents</label>
-                  <select id="opponents" name="opponents">
-                    <option value="2">2 opponents</option>
-                    <option value="3" selected>3 opponents</option>
-                    <option value="4">4 opponents</option>
-                  </select>
-                </div>
-                <div class="control-row">
-                  <label for="max-cards">Starting / upper cards</label>
-                  <select id="max-cards" name="maxCards">
-                    <option value="5">5 cards</option>
-                    <option value="6">6 cards</option>
-                    <option value="7">7 cards</option>
-                    <option value="8">8 cards</option>
-                    <option value="9">9 cards</option>
-                    <option value="10" selected>10 cards</option>
-                  </select>
-                </div>
-                <div class="control-row">
-                  <label for="min-cards">Lower cards</label>
-                  <select id="min-cards" name="minCards">
-                    <option value="3" selected>3 cards</option>
-                    <option value="4">4 cards</option>
-                    <option value="5">5 cards</option>
-                    <option value="6">6 cards</option>
-                    <option value="7">7 cards</option>
-                    <option value="8">8 cards</option>
-                    <option value="9">9 cards</option>
-                  </select>
+                <fieldset class="play-mode-picker">
+                  <legend>Play mode</legend>
+                  <label>
+                    <input type="radio" name="playMode" value="solo" checked />
+                    <span>Solo vs AI</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="playMode" value="multiplayer" />
+                    <span>Multiplayer</span>
+                  </label>
+                </fieldset>
+
+                <div class="multiplayer-setup" data-multiplayer-setup hidden>
+                  <div class="control-row multiplayer-name-row">
+                    <label for="player-name">Your name</label>
+                    <input id="player-name" name="playerName" maxlength="18" value="Player" />
+                  </div>
+                  <fieldset class="multiplayer-role-picker">
+                    <legend>Join friends</legend>
+                    <label>
+                      <input type="radio" name="multiplayerRole" value="host" checked />
+                      <span>Create table</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="multiplayerRole" value="guest" />
+                      <span>Enter code</span>
+                    </label>
+                  </fieldset>
+                  <div class="control-row join-code-row" data-join-code-row hidden>
+                    <label for="join-code">Table code</label>
+                    <input
+                      id="join-code"
+                      name="roomCode"
+                      maxlength="9"
+                      autocomplete="off"
+                      autocapitalize="characters"
+                      spellcheck="false"
+                      placeholder="ABCD2345"
+                    />
+                  </div>
+                  <p class="multiplayer-note">
+                    Friends connect directly to the host. The host deals, validates
+                    every move, and runs all AI inference.
+                  </p>
                 </div>
 
-                <div class="difficulty-control">
-                  <div class="difficulty-header">
-                    <label for="difficulty">Agent difficulty</label>
-                    <output for="difficulty" data-difficulty-output>Temperature 1.0</output>
+                <div data-host-settings>
+                  <div class="control-row">
+                    <label for="opponents" data-opponents-label>Opponents</label>
+                    <select id="opponents" name="opponents">
+                      <option value="2">2 opponents</option>
+                      <option value="3" selected>3 opponents</option>
+                      <option value="4">4 opponents</option>
+                    </select>
                   </div>
-                  <input
-                    id="difficulty"
-                    name="difficulty"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value="33"
-                    aria-describedby="difficulty-labels"
-                  />
-                  <div class="slider-labels" id="difficulty-labels">
-                    <span>Random plays<br />T = ∞</span>
-                    <span>Argmax<br />Hardest</span>
+                  <div class="control-row">
+                    <label for="max-cards">Starting / upper cards</label>
+                    <select id="max-cards" name="maxCards">
+                      <option value="5">5 cards</option>
+                      <option value="6">6 cards</option>
+                      <option value="7">7 cards</option>
+                      <option value="8">8 cards</option>
+                      <option value="9">9 cards</option>
+                      <option value="10" selected>10 cards</option>
+                    </select>
+                  </div>
+                  <div class="control-row">
+                    <label for="min-cards">Lower cards</label>
+                    <select id="min-cards" name="minCards">
+                      <option value="3" selected>3 cards</option>
+                      <option value="4">4 cards</option>
+                      <option value="5">5 cards</option>
+                      <option value="6">6 cards</option>
+                      <option value="7">7 cards</option>
+                      <option value="8">8 cards</option>
+                      <option value="9">9 cards</option>
+                    </select>
+                  </div>
+
+                  <div class="difficulty-control">
+                    <div class="difficulty-header">
+                      <label for="difficulty">Agent difficulty</label>
+                      <output for="difficulty" data-difficulty-output>Temperature 1.0</output>
+                    </div>
+                    <input
+                      id="difficulty"
+                      name="difficulty"
+                      type="range"
+                      min="0"
+                      max="100"
+                      value="33"
+                      aria-describedby="difficulty-labels"
+                    />
+                    <div class="slider-labels" id="difficulty-labels">
+                      <span>Random plays<br />T = ∞</span>
+                      <span>Argmax<br />Hardest</span>
+                    </div>
                   </div>
                 </div>
 
                 <button class="start-game-button" type="submit" data-start-game>
                   Load agent &amp; start game
                 </button>
+
+                <section class="multiplayer-lobby" data-multiplayer-lobby hidden>
+                  <div class="lobby-code" data-lobby-code-wrap>
+                    <span>TABLE CODE</span>
+                    <strong data-lobby-code>—</strong>
+                    <button class="game-button" type="button" data-copy-code>Copy code</button>
+                  </div>
+                  <div class="lobby-status" aria-live="polite" data-lobby-status>
+                    Opening the table…
+                  </div>
+                  <ol class="lobby-roster" data-lobby-roster></ol>
+                  <button class="start-game-button" type="button" data-start-multiplayer hidden>
+                    Load agent &amp; deal multiplayer game
+                  </button>
+                  <button class="game-button lobby-cancel" type="button" data-leave-lobby>
+                    Leave table
+                  </button>
+                </section>
+
+                <p class="setup-error" data-setup-error hidden aria-live="assertive"></p>
                 <div class="model-download" data-model-download hidden>
                   <p><span data-load-label>Preparing…</span><span data-load-percent>0%</span></p>
                   <div class="model-download-track"><span data-load-progress></span></div>
                 </div>
                 <p class="model-note">
-                  Checkpoint 4,000 · schema v6 · about 8 MB. Inference stays on
-                  your device. WebGPU is used when available.
+                  Inference stays in the browser. In multiplayer, only the host
+                  loads the model and controls the authoritative game state.
                 </p>
               </form>
             </div>
@@ -140,6 +208,7 @@
           <div class="game-toolbar">
             <button class="game-button" type="button" data-new-game>New game…</button>
             <button class="game-button" type="button" data-rules-button>Rules</button>
+            <span class="live-table-badge" data-live-table-badge hidden></span>
             <div class="game-toggles">
               <label class="switch-label">
                 <input type="checkbox" data-probability-toggle />

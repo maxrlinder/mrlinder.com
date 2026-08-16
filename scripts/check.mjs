@@ -17,6 +17,7 @@ const required = [
   "RL-environment/plump/index.html",
   "RL-environment/rl.css",
   "RL-environment/plump/game.js",
+  "RL-environment/plump/multiplayer.js",
   "RL-environment/plump/model-config.js",
   "RL-environment/plump/model-client.js",
   "RL-environment/plump/model/plump-ppo-28700-fp32.onnx",

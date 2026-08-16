@@ -3,6 +3,12 @@ import {
   modelCardId,
   modelSuits,
 } from "./model-client.js";
+import {
+  generateRoomCode,
+  normalizeRoomCode,
+  PlumpPeerRoom,
+  validRoomCode,
+} from "./multiplayer.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -28,6 +34,12 @@ const cardKey = (card) => `${card.suit}:${card.rank}`;
 const cardAsset = (card) =>
   `/resources/cards/${card.suit}-${RANK_FILE[card.rank] || card.rank}.svg`;
 const sigmoid = (value) => 1 / (1 + Math.exp(-value));
+const escapeHtml = (value) => String(value).replace(/[&<>"]/g, (character) => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+})[character]);
 
 function shuffle(items) {
   const array = [...items];
@@ -57,9 +69,9 @@ function sortHand(cards) {
   );
 }
 
-class PlumpGame {
-  constructor({ opponents, minimum, maximum }) {
-    this.numPlayers = opponents + 1;
+export class PlumpGame {
+  constructor({ opponents, numPlayers, minimum, maximum }) {
+    this.numPlayers = numPlayers ?? opponents + 1;
     this.schedule = schedule(minimum, maximum);
     this.scores = Array(this.numPlayers).fill(0);
     this.completedRounds = [];
@@ -223,6 +235,10 @@ class PlumpGame {
   }
 }
 
+function hydrateGame(snapshot) {
+  return Object.assign(Object.create(PlumpGame.prototype), snapshot);
+}
+
 function temperatureFor(value) {
   if (value <= 0) return Number.POSITIVE_INFINITY;
   if (value >= 100) return 0;
@@ -295,6 +311,22 @@ function fallbackCard(game, player) {
 const dom = {
   setup: $("[data-setup]"),
   setupForm: $("[data-setup-form]"),
+  multiplayerSetup: $("[data-multiplayer-setup]"),
+  multiplayerLobby: $("[data-multiplayer-lobby]"),
+  hostSettings: $("[data-host-settings]"),
+  opponents: $("#opponents"),
+  opponentsLabel: $("[data-opponents-label]"),
+  playerName: $("#player-name"),
+  joinCode: $("#join-code"),
+  joinCodeRow: $("[data-join-code-row]"),
+  startGame: $("[data-start-game]"),
+  startMultiplayer: $("[data-start-multiplayer]"),
+  lobbyCodeWrap: $("[data-lobby-code-wrap]"),
+  lobbyCode: $("[data-lobby-code]"),
+  lobbyStatus: $("[data-lobby-status]"),
+  lobbyRoster: $("[data-lobby-roster]"),
+  setupError: $("[data-setup-error]"),
+  liveTableBadge: $("[data-live-table-badge]"),
   game: $("[data-game]"),
   gameLoading: $("[data-game-loading]"),
   loadingTitle: $("[data-loading-title]"),
@@ -332,6 +364,7 @@ const dom = {
   gameOverTitle: $("[data-game-over-title]"),
   gameOverSummary: $("[data-game-over-summary]"),
   rulesDialog: $("[data-rules-dialog]"),
+  nextRound: $("[data-next-round]"),
 };
 
 const agent = new BrowserPpoAgent();
@@ -349,6 +382,473 @@ let oracleError = "";
 let lastStatus = "";
 let displayedCompletedTrick = null;
 let gameSequence = 0;
+let localPlayer = 0;
+let playerNames = [];
+let aiPlayers = new Set();
+let multiplayer = null;
+let multiplayerRole = null;
+let multiplayerPhase = "idle";
+let hostPeerId = null;
+let networkRevision = 0;
+let appliedNetworkRevision = -1;
+let peerToSeat = new Map();
+let seatToPeer = new Map();
+let guestNames = new Map();
+let insightPreferences = new Map();
+let hostOracleCacheRevision = -1;
+let hostOracleCachePromise = null;
+
+function cleanPlayerName(value, fallback = "Player") {
+  const name = String(value || "").replace(/\s+/g, " ").trim().slice(0, 18);
+  return name || fallback;
+}
+
+function setSetupError(message = "") {
+  dom.setupError.hidden = !message;
+  dom.setupError.textContent = message;
+}
+
+function selectedPlayMode() {
+  return dom.setupForm.elements.playMode.value;
+}
+
+function selectedMultiplayerRole() {
+  return dom.setupForm.elements.multiplayerRole.value;
+}
+
+function setOpponentOptions(mode, preferredValue = null) {
+  const previous = preferredValue ?? Number(dom.opponents.value);
+  const maximum = mode === "multiplayer" ? Math.max(0, 5 - (1 + guestNames.size)) : 4;
+  const minimum = mode === "multiplayer" ? 0 : 2;
+  const selected = Math.max(minimum, Math.min(maximum, Number.isFinite(previous) ? previous : 3));
+  dom.opponents.innerHTML = Array.from(
+    { length: maximum - minimum + 1 },
+    (_, index) => {
+      const count = minimum + index;
+      const noun = mode === "multiplayer" ? "AI opponent" : "opponent";
+      return `<option value="${count}"${count === selected ? " selected" : ""}>${count} ${noun}${count === 1 ? "" : "s"}</option>`;
+    },
+  ).join("");
+}
+
+function configureSetupMode() {
+  const mode = selectedPlayMode();
+  const role = selectedMultiplayerRole();
+  const multiplayerMode = mode === "multiplayer";
+  dom.multiplayerSetup.hidden = !multiplayerMode;
+  dom.joinCodeRow.hidden = !multiplayerMode || role !== "guest";
+  dom.hostSettings.hidden = multiplayerMode && role === "guest";
+  dom.opponentsLabel.textContent = multiplayerMode ? "AI opponents" : "Opponents";
+  if (multiplayerPhase === "idle") {
+    setOpponentOptions(mode);
+    dom.startGame.textContent = !multiplayerMode
+      ? "Load agent & start game"
+      : role === "host"
+        ? "Create multiplayer table"
+        : "Join multiplayer table";
+  }
+  setSetupError();
+}
+
+function currentLobbyRoster() {
+  const hostName = cleanPlayerName(dom.playerName.value, "Host");
+  return [hostName, ...guestNames.values()];
+}
+
+function renderLobby({ hostName, guests = [], aiCount = 0, status = "" } = {}) {
+  const humans = [hostName, ...guests].filter(Boolean);
+  const rows = [
+    ...humans.map((name, index) => ({
+      name,
+      kind: index === 0 ? "Host" : "Friend",
+    })),
+    ...Array.from({ length: aiCount }, (_, index) => ({
+      name: `Agent ${humans.length + index + 1}`,
+      kind: "AI",
+    })),
+  ];
+  dom.lobbyRoster.innerHTML = rows
+    .map((item) => `<li><span>${escapeHtml(item.name)}</span><span>${item.kind}</span></li>`)
+    .join("");
+  dom.lobbyStatus.textContent = status;
+}
+
+function updateHostLobby() {
+  if (!isHost() || multiplayerPhase !== "lobby") return;
+  setOpponentOptions("multiplayer", Number(dom.opponents.value));
+  const roster = currentLobbyRoster();
+  const aiCount = Number(dom.opponents.value);
+  const hasFriend = guestNames.size > 0;
+  const totalPlayers = roster.length + aiCount;
+  dom.startMultiplayer.hidden = false;
+  dom.startMultiplayer.disabled = !hasFriend || totalPlayers > 5;
+  renderLobby({
+    hostName: roster[0],
+    guests: roster.slice(1),
+    aiCount,
+    status: hasFriend
+      ? `${roster.length} human player${roster.length === 1 ? "" : "s"} connected · ${totalPlayers}/5 seats filled.`
+      : "Share the code with at least one friend. The game can start when they appear here.",
+  });
+  broadcastLobby();
+}
+
+async function broadcastLobby(target = null) {
+  if (!isHost() || !multiplayer || multiplayerPhase !== "lobby") return;
+  const roster = currentLobbyRoster();
+  await multiplayer.send({
+    type: "lobby",
+    code: multiplayer.code,
+    hostName: roster[0],
+    guests: roster.slice(1),
+    aiCount: Number(dom.opponents.value),
+  }, target).catch(() => {});
+}
+
+function redactedGameFor(player) {
+  const snapshot = JSON.parse(JSON.stringify(game));
+  snapshot.round.hands = snapshot.round.hands.map((hand, index) =>
+    index === player ? hand : hand.map(() => null),
+  );
+  snapshot.round.initialHands = snapshot.round.initialHands.map((hand, index) =>
+    index === player ? hand : hand.map(() => null),
+  );
+  return snapshot;
+}
+
+function statePacketFor(player) {
+  return {
+    type: "state",
+    revision: networkRevision,
+    localPlayer: player,
+    game: redactedGameFor(player),
+    playerNames,
+    aiPlayers: [...aiPlayers],
+    status: lastStatus,
+    dealing,
+    displayedCompletedTrick,
+    difficulty,
+    code: multiplayer?.code || "",
+  };
+}
+
+async function sendGameState(peerId, player) {
+  if (!isHost() || !multiplayer || !game) return;
+  await multiplayer.send(statePacketFor(player), peerId).catch(() => {});
+}
+
+async function broadcastGameState() {
+  if (!isHost() || !multiplayer || !game) return;
+  networkRevision += 1;
+  hostOracleCacheRevision = -1;
+  hostOracleCachePromise = null;
+  await Promise.all(
+    [...seatToPeer.entries()].map(([seat, peerId]) => sendGameState(peerId, seat)),
+  );
+  for (const peerId of insightPreferences.keys()) sendHostInsights(peerId);
+}
+
+function serializePolicy(policy) {
+  if (!policy) return null;
+  return {
+    argmax: policy.argmax,
+    probabilities: [...policy.probabilities.entries()],
+  };
+}
+
+function deserializePolicy(policy) {
+  if (!policy) return null;
+  return {
+    argmax: policy.argmax,
+    probabilities: new Map(policy.probabilities),
+  };
+}
+
+async function oracleForCurrentRevision() {
+  if (hostOracleCacheRevision === networkRevision && hostOracleCachePromise) {
+    return hostOracleCachePromise;
+  }
+  hostOracleCacheRevision = networkRevision;
+  hostOracleCachePromise = (async () => {
+    await agent.loadOracle();
+    return agent.predictOracle(game);
+  })();
+  return hostOracleCachePromise;
+}
+
+async function sendHostInsights(peerId) {
+  if (!isHost() || !game || !agent.session || !peerToSeat.has(peerId)) return;
+  const preferences = insightPreferences.get(peerId);
+  if (!preferences || (!preferences.action && !preferences.oracle)) return;
+  const seat = peerToSeat.get(peerId);
+  if (seat === undefined || !["bidding", "playing"].includes(game.round.phase)) return;
+  const revision = networkRevision;
+  try {
+    const prediction = await agent.predict(game, seat);
+    let policy = null;
+    if (preferences.action && game.round.currentPlayer === seat) {
+      policy = game.round.phase === "bidding"
+        ? legalDistribution(prediction.bidLogits, game.legalBids(), difficulty)
+        : legalDistribution(
+          prediction.cardLogits,
+          game.legalCards(seat).map(modelCardId),
+          difficulty,
+        );
+    }
+    const oracle = preferences.oracle ? await oracleForCurrentRevision() : null;
+    if (revision !== networkRevision) return;
+    await multiplayer.send({
+      type: "insights",
+      revision,
+      policy: serializePolicy(policy),
+      prediction: { suitLogits: Array.from(prediction.suitLogits) },
+      oracle: oracle ? {
+        values: Array.from(oracle.values),
+        trickLogits: Array.from(oracle.trickLogits),
+      } : null,
+    }, peerId);
+  } catch (error) {
+    if (revision !== networkRevision) return;
+    await multiplayer.send({
+      type: "insight_error",
+      revision,
+      message: preferences.oracle
+        ? "The host could not produce the oracle readout for this turn."
+        : "The host could not produce action probabilities for this turn.",
+    }, peerId).catch(() => {});
+    console.error("Host insight inference failed.", error);
+  }
+}
+
+function requestRemoteInsights() {
+  if (multiplayerRole !== "guest" || !multiplayer || !hostPeerId || !game) return;
+  predictionRequest += 1;
+  oracleRequest += 1;
+  humanPrediction = null;
+  humanPolicy = null;
+  oraclePrediction = null;
+  oracleError = "";
+  oracleLoading = dom.oracleToggle.checked;
+  render();
+  multiplayer.send({
+    type: "insight_preferences",
+    action: dom.probabilityToggle.checked,
+    oracle: dom.oracleToggle.checked,
+    revision: appliedNetworkRevision,
+  }, hostPeerId).catch(() => {
+    oracleLoading = false;
+    oracleError = "The host connection was interrupted.";
+    render();
+  });
+}
+
+function applyNetworkState(message) {
+  if (message.revision < appliedNetworkRevision) return;
+  const firstState = multiplayerPhase !== "playing";
+  appliedNetworkRevision = message.revision;
+  networkRevision = message.revision;
+  localPlayer = message.localPlayer;
+  playerNames = message.playerNames;
+  aiPlayers = new Set(message.aiPlayers);
+  game = hydrateGame(message.game);
+  difficulty = message.difficulty;
+  lastStatus = message.status;
+  dealing = message.dealing;
+  displayedCompletedTrick = message.displayedCompletedTrick;
+  interactionLocked = false;
+  multiplayerPhase = "playing";
+  if (firstState) gameSequence += 1;
+  invalidatePredictionReadouts();
+  dom.setup.hidden = true;
+  dom.gameLoading.hidden = true;
+  dom.game.hidden = false;
+  dom.liveTableBadge.hidden = false;
+  dom.liveTableBadge.textContent = `Live table · ${message.code}`;
+  dom.modelState.textContent = "Host inference connected";
+  dom.modelState.className = "model-state is-ready";
+  dom.roundDialog.hidden = true;
+  dom.gameOver.hidden = true;
+  render();
+  if (game.round.phase === "round_over") showRoundResult();
+  if (game.round.phase === "game_over") showGameOver();
+  if (dom.probabilityToggle.checked || dom.oracleToggle.checked) requestRemoteInsights();
+}
+
+function applyRemoteInsights(message) {
+  if (message.revision !== appliedNetworkRevision) return;
+  humanPolicy = deserializePolicy(message.policy);
+  humanPrediction = message.prediction;
+  oraclePrediction = message.oracle;
+  oracleLoading = false;
+  oracleError = "";
+  render();
+}
+
+async function handleRemotePlayerAction(message, peerId) {
+  if (!isHost() || multiplayerPhase !== "playing" || interactionLocked) return;
+  const player = peerToSeat.get(peerId);
+  if (player === undefined || game.round.currentPlayer !== player) {
+    if (player !== undefined) sendGameState(peerId, player);
+    return;
+  }
+  interactionLocked = true;
+  invalidatePredictionReadouts();
+  try {
+    if (message.action === "bid" && game.round.phase === "bidding") {
+      const value = Number(message.value);
+      game.bid(value);
+      setStatus(`${statusPlayerName(player)} bids ${value}.`);
+      render();
+      await broadcastGameState();
+      await wait(reducedMotion ? 0 : 180);
+    } else if (message.action === "play" && game.round.phase === "playing") {
+      const card = { suit: message.card?.suit, rank: Number(message.card?.rank) };
+      const result = game.play(card);
+      displayedCompletedTrick = result.completedTrick || null;
+      setStatus(`${statusPlayerName(player)} plays ${cardLabel(card)}.`);
+      render();
+      await broadcastGameState();
+      await settlePlayedCard(result);
+    } else {
+      throw new Error("The remote action does not match the current phase.");
+    }
+  } catch (error) {
+    console.warn("Rejected an invalid remote move.", error);
+    await sendGameState(peerId, player);
+  }
+  interactionLocked = false;
+  if (game.round.phase === "round_over") {
+    setStatus("Round complete. Entered on the score sheet.");
+    showRoundResult();
+    render();
+    await broadcastGameState();
+  } else if (game.round.phase === "game_over") {
+    setStatus("The score sheet is complete.");
+    showGameOver();
+    render();
+    await broadcastGameState();
+  } else {
+    await continueBots();
+  }
+}
+
+function handleNetworkMessage(message, peerId) {
+  if (!message || typeof message !== "object") return;
+  if (isHost()) {
+    if (message.type === "join_request") {
+      if (multiplayerPhase !== "lobby") {
+        multiplayer.send({ type: "rejected", message: "That table has already started." }, peerId).catch(() => {});
+        return;
+      }
+      if (!guestNames.has(peerId) && guestNames.size >= 4) {
+        multiplayer.send({ type: "rejected", message: "That table is full." }, peerId).catch(() => {});
+        return;
+      }
+      guestNames.set(peerId, cleanPlayerName(message.name));
+      updateHostLobby();
+      return;
+    }
+    if (message.type === "player_action") {
+      handleRemotePlayerAction(message, peerId);
+      return;
+    }
+    if (message.type === "insight_preferences") {
+      insightPreferences.set(peerId, {
+        action: Boolean(message.action),
+        oracle: Boolean(message.oracle),
+      });
+      sendHostInsights(peerId);
+    }
+    return;
+  }
+
+  if (message.type === "host_hello") {
+    if (hostPeerId && hostPeerId !== peerId) return;
+    hostPeerId = peerId;
+    multiplayer.send({
+      type: "join_request",
+      name: cleanPlayerName(dom.playerName.value),
+    }, hostPeerId).catch(() => {});
+    return;
+  }
+  if (peerId !== hostPeerId) return;
+  if (message.type === "lobby") {
+    multiplayerPhase = "lobby";
+    dom.lobbyCode.textContent = message.code;
+    renderLobby({
+      hostName: message.hostName,
+      guests: message.guests,
+      aiCount: message.aiCount,
+      status: "Connected. Waiting for the host to deal.",
+    });
+    return;
+  }
+  if (message.type === "starting") {
+    multiplayerPhase = "starting";
+    dom.lobbyStatus.textContent = "The host is loading the agent and preparing the deal…";
+    return;
+  }
+  if (message.type === "state") {
+    applyNetworkState(message);
+    return;
+  }
+  if (message.type === "insights") {
+    applyRemoteInsights(message);
+    return;
+  }
+  if (message.type === "insight_error" && message.revision === appliedNetworkRevision) {
+    oracleLoading = false;
+    oracleError = message.message;
+    render();
+    return;
+  }
+  if (message.type === "rejected" || message.type === "table_closed") {
+    setSetupError(message.message || "The host closed this table.");
+    leaveMultiplayer({ preserveError: true });
+  }
+}
+
+function handlePeerJoin(peerId) {
+  if (isHost()) {
+    multiplayer.send({ type: "host_hello" }, peerId).catch(() => {});
+  }
+}
+
+function handlePeerLeave(peerId) {
+  if (isHost()) {
+    if (["lobby", "starting"].includes(multiplayerPhase)) {
+      guestNames.delete(peerId);
+      if (multiplayerPhase === "lobby") updateHostLobby();
+      return;
+    }
+    const seat = peerToSeat.get(peerId);
+    if (seat !== undefined) {
+      const disconnectedName = publicPlayerName(seat);
+      peerToSeat.delete(peerId);
+      seatToPeer.delete(seat);
+      insightPreferences.delete(peerId);
+      aiPlayers.add(seat);
+      playerNames[seat] = `Agent ${seat + 1}`;
+      setStatus(`${disconnectedName} disconnected; AI has taken over that seat.`);
+      render();
+      broadcastGameState().then(() => continueBots());
+    }
+    return;
+  }
+  if (peerId === hostPeerId) {
+    setSetupError("The host left, so the multiplayer table has closed.");
+    leaveMultiplayer({ preserveError: true });
+  }
+}
+
+function handleNetworkError(message) {
+  if (multiplayerPhase === "playing") {
+    setStatus(message);
+    render();
+  } else {
+    setSetupError(message);
+  }
+}
 
 function invalidatePredictionReadouts() {
   predictionRequest += 1;
@@ -365,8 +865,34 @@ function setStatus(message) {
   dom.status.textContent = message;
 }
 
+function isMultiplayer() {
+  return multiplayerRole === "host" || multiplayerRole === "guest";
+}
+
+function isHost() {
+  return multiplayerRole === "host";
+}
+
+function isAiPlayer(player) {
+  return aiPlayers.has(player);
+}
+
+function viewOffset(player) {
+  if (!game) return player;
+  return (player - localPlayer + game.numPlayers) % game.numPlayers;
+}
+
+function publicPlayerName(player) {
+  if (playerNames[player]) return playerNames[player];
+  return isAiPlayer(player) ? `Agent ${player + 1}` : `Player ${player + 1}`;
+}
+
 function playerName(player) {
-  return player === 0 ? "You" : `Agent ${player}`;
+  return player === localPlayer ? "You" : publicPlayerName(player);
+}
+
+function statusPlayerName(player) {
+  return isHost() ? publicPlayerName(player) : playerName(player);
 }
 
 function playerBid(player) {
@@ -376,10 +902,12 @@ function playerBid(player) {
 function renderSeats() {
   dom.table.className = `table-felt players-${game.numPlayers}`;
   dom.seats.innerHTML = Array.from({ length: game.numPlayers - 1 }, (_, offset) => {
-    const player = offset + 1;
+    const seatOffset = offset + 1;
+    const player = (localPlayer + seatOffset) % game.numPlayers;
     const hand = game.round.hands[player];
     const bid = playerBid(player);
     const isCurrent = game.round.currentPlayer === player;
+    const seatState = isCurrent ? (isAiPlayer(player) ? "thinking" : "turn") : (isAiPlayer(player) ? "AI" : "PLAYER");
     const backs = hand
       .map(
         (_, index) =>
@@ -387,8 +915,8 @@ function renderSeats() {
       )
       .join("");
     return `
-      <div class="seat seat-player-${player}${isCurrent ? " is-current" : ""}">
-        <div class="seat-name"><span>${playerName(player)}</span><span>${isCurrent ? "thinking" : "PPO"}</span></div>
+      <div class="seat seat-player-${seatOffset}${isCurrent ? " is-current" : ""}">
+        <div class="seat-name"><span>${escapeHtml(playerName(player))}</span><span>${seatState}</span></div>
         <div class="opponent-hand" aria-label="${hand.length} hidden cards">${backs}</div>
         <div class="seat-stats"><span>bid ${bid ?? "—"}</span><span>tricks ${game.round.tricksWon[player]}</span><span>Σ ${game.scores[player]}</span></div>
       </div>
@@ -397,8 +925,12 @@ function renderSeats() {
 }
 
 function playOrigin(player) {
-  if (player === 0) return { x: "0px", y: "230px" };
+  const position = viewOffset(player);
+  if (position === 0) return { x: "0px", y: "230px" };
   const origins = {
+    2: {
+      1: { x: "0px", y: "-210px" },
+    },
     3: {
       1: { x: "-250px", y: "-30px" },
       2: { x: "250px", y: "-30px" },
@@ -415,7 +947,7 @@ function playOrigin(player) {
       4: { x: "250px", y: "20px" },
     },
   };
-  return origins[game.numPlayers]?.[player] || { x: "0px", y: "-210px" };
+  return origins[game.numPlayers]?.[position] || { x: "0px", y: "-210px" };
 }
 
 function renderTrick() {
@@ -440,7 +972,7 @@ function renderTrick() {
     if (!card) {
       const origin = playOrigin(play.player);
       card = document.createElement("div");
-      card.className = `trick-card trick-card-player-${play.player}`;
+      card.className = `trick-card trick-card-player-${viewOffset(play.player)}`;
       card.dataset.playPosition = position;
       card.setAttribute("role", "img");
       card.setAttribute(
@@ -473,12 +1005,12 @@ function policyBadge(index) {
 }
 
 function renderHumanHand() {
-  const hand = sortHand(game.round.hands[0]);
-  const humanTurn = game.round.currentPlayer === 0 && game.round.phase === "playing";
-  const legal = new Set((humanTurn ? game.legalCards(0) : []).map(cardKey));
-  const bid = playerBid(0);
-  dom.humanLabel.classList.toggle("is-current", game.round.currentPlayer === 0);
-  dom.humanLabel.textContent = `You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[0]} · total ${game.scores[0]}`;
+  const hand = sortHand(game.round.hands[localPlayer]);
+  const humanTurn = game.round.currentPlayer === localPlayer && game.round.phase === "playing";
+  const legal = new Set((humanTurn ? game.legalCards(localPlayer) : []).map(cardKey));
+  const bid = playerBid(localPlayer);
+  dom.humanLabel.classList.toggle("is-current", game.round.currentPlayer === localPlayer);
+  dom.humanLabel.textContent = `You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[localPlayer]} · total ${game.scores[localPlayer]}`;
   const activeCards = new Set(hand.map(cardKey));
 
   $$('[data-play-card]', dom.humanHand).forEach((button) => {
@@ -520,7 +1052,7 @@ function renderHumanHand() {
 }
 
 function renderBidPanel() {
-  const humanTurn = game.round.currentPlayer === 0 && game.round.phase === "bidding";
+  const humanTurn = game.round.currentPlayer === localPlayer && game.round.phase === "bidding";
   dom.bidPanel.hidden = !humanTurn;
   if (!humanTurn) return;
   const legal = game.legalBids();
@@ -550,7 +1082,7 @@ function scoreValue(completed, player) {
 function renderScoreSheet() {
   const activeBids = game.round?.bids || [];
   const header = Array.from({ length: game.numPlayers }, (_, player) =>
-    `<th scope="col">${player === 0 ? "You" : `P${player}`}</th>`,
+    `<th scope="col">${escapeHtml(playerName(player))}</th>`,
   ).join("");
   const rows = game.schedule.map((handSize, roundIndex) => {
     const completed = game.completedRounds[roundIndex];
@@ -606,16 +1138,18 @@ function topFinalTrickProbabilities(player) {
 }
 
 function suitPresenceProbabilities(player) {
-  if (player === 0) {
+  if (player === localPlayer) {
     return modelSuits.map((suit) => ({
       suit,
-      probability: game.round.hands[0].some((card) => card.suit === suit) ? 1 : 0,
+      probability: game.round.hands[localPlayer].some((card) => card.suit === suit) ? 1 : 0,
     }));
   }
   if (!humanPrediction) return null;
+  const relativePlayer = (player - localPlayer + game.numPlayers) % game.numPlayers;
+  if (relativePlayer === 0) return null;
   return modelSuits.map((suit, suitIndex) => ({
     suit,
-    probability: sigmoid(humanPrediction.suitLogits[(player - 1) * 4 + suitIndex]),
+    probability: sigmoid(humanPrediction.suitLogits[(relativePlayer - 1) * 4 + suitIndex]),
   }));
 }
 
@@ -653,8 +1187,8 @@ function renderIntel() {
         .join("")
       : '<span class="oracle-pending">Model belief loading…</span>';
     return `
-      <section class="oracle-player" aria-label="${playerName(player)} prediction readout">
-        <header><strong>${playerName(player)}</strong><span>EV ${value >= 0 ? "+" : ""}${value.toFixed(2)}</span></header>
+      <section class="oracle-player" aria-label="${escapeHtml(playerName(player))} prediction readout">
+        <header><strong>${escapeHtml(playerName(player))}</strong><span>EV ${value >= 0 ? "+" : ""}${value.toFixed(2)}</span></header>
         <div class="oracle-line"><b>Final tricks · top 3</b><span class="oracle-values">${topTricks}</span></div>
         <div class="oracle-line"><b>Suit presence · your model</b><span class="oracle-values">${suits}</span></div>
       </section>
@@ -675,6 +1209,10 @@ function render() {
 }
 
 async function refreshHumanPrediction() {
+  if (multiplayerRole === "guest") {
+    requestRemoteInsights();
+    return;
+  }
   if (!game || !agent.session || !["bidding", "playing"].includes(game.round.phase)) {
     predictionRequest += 1;
     humanPrediction = null;
@@ -691,16 +1229,16 @@ async function refreshHumanPrediction() {
   }
   const request = ++predictionRequest;
   try {
-    const prediction = await agent.predict(game, 0);
+    const prediction = await agent.predict(game, localPlayer);
     if (request !== predictionRequest) return;
     humanPrediction = prediction;
-    if (game.round.currentPlayer === 0) {
+    if (game.round.currentPlayer === localPlayer) {
       if (game.round.phase === "bidding") {
         humanPolicy = legalDistribution(prediction.bidLogits, game.legalBids(), difficulty);
       } else {
         humanPolicy = legalDistribution(
           prediction.cardLogits,
-          game.legalCards(0).map(modelCardId),
+          game.legalCards(localPlayer).map(modelCardId),
           difficulty,
         );
       }
@@ -717,6 +1255,7 @@ async function refreshHumanPrediction() {
 }
 
 async function refreshOraclePrediction() {
+  if (multiplayerRole === "guest") return;
   if (
     !game ||
     !dom.oracleToggle.checked ||
@@ -752,6 +1291,10 @@ async function refreshOraclePrediction() {
 }
 
 async function refreshPredictions() {
+  if (multiplayerRole === "guest") {
+    requestRemoteInsights();
+    return;
+  }
   await refreshHumanPrediction();
   await refreshOraclePrediction();
 }
@@ -785,11 +1328,13 @@ async function chooseBotAction(player) {
 
 function showRoundResult() {
   const completed = game.completedRounds.at(-1);
-  const humanHit = completed.bids[0] === completed.tricksWon[0];
+  const humanHit = completed.bids[localPlayer] === completed.tricksWon[localPlayer];
   dom.roundResult.textContent = humanHit
-    ? `Exact! You score ${scoreValue(completed, 0)}.`
+    ? `Exact! You score ${scoreValue(completed, localPlayer)}.`
     : `Plump — you score 00.`;
-  dom.roundSummary.textContent = `You bid ${completed.bids[0]} and won ${completed.tricksWon[0]}. Your running total is ${game.scores[0]}.`;
+  dom.roundSummary.textContent = `You bid ${completed.bids[localPlayer]} and won ${completed.tricksWon[localPlayer]}. Your running total is ${game.scores[localPlayer]}.`;
+  dom.nextRound.disabled = isMultiplayer() && !isHost();
+  dom.nextRound.textContent = dom.nextRound.disabled ? "Waiting for host…" : "Deal next round";
   dom.roundDialog.hidden = false;
 }
 
@@ -799,36 +1344,39 @@ function showGameOver() {
     .map((score, player) => ({ score, player }))
     .filter((item) => item.score === high)
     .map((item) => playerName(item.player));
-  const humanWon = winners.includes("You");
+  const humanWon = winners.some((winner) => winner === "You");
   dom.gameOverTitle.textContent = humanWon ? "You beat the table!" : `${winners.join(" & ")} won.`;
   dom.gameOverSummary.textContent = `Final score: ${game.scores.map((score, player) => `${playerName(player)} ${score}`).join(" · ")}`;
   dom.gameOver.hidden = false;
 }
 
 async function continueBots() {
+  if (multiplayerRole === "guest") return;
   interactionLocked = true;
   render();
   while (
-    game.round.currentPlayer !== 0 &&
+    isAiPlayer(game.round.currentPlayer) &&
     ["bidding", "playing"].includes(game.round.phase)
   ) {
     const player = game.round.currentPlayer;
     const phase = game.round.phase;
-    setStatus(`${playerName(player)} is ${phase === "bidding" ? "considering a bid" : "choosing a card"}…`);
+    setStatus(`${statusPlayerName(player)} is ${phase === "bidding" ? "considering a bid" : "choosing a card"}…`);
     render();
     const action = await chooseBotAction(player);
     await wait(reducedMotion ? 0 : BOT_THINK_MS);
     invalidatePredictionReadouts();
     if (action.type === "bid") {
       game.bid(action.value);
-      setStatus(`${playerName(player)} bids ${action.value}.`);
+      setStatus(`${statusPlayerName(player)} bids ${action.value}.`);
       render();
+      await broadcastGameState();
       await wait(reducedMotion ? 0 : 180);
     } else {
       const result = game.play(action.card);
       displayedCompletedTrick = result.completedTrick || null;
-      setStatus(`${playerName(player)} plays ${cardLabel(action.card)}.`);
+      setStatus(`${statusPlayerName(player)} plays ${cardLabel(action.card)}.`);
       render();
+      await broadcastGameState();
       await settlePlayedCard(result);
     }
   }
@@ -839,10 +1387,15 @@ async function continueBots() {
   } else if (game.round.phase === "game_over") {
     setStatus("The score sheet is complete.");
     showGameOver();
-  } else if (game.round.currentPlayer === 0) {
-    setStatus(game.round.phase === "bidding" ? "Your turn to bid." : "Your turn to play a card.");
+  } else if (game.round.currentPlayer === localPlayer) {
+    setStatus(isHost()
+      ? `${publicPlayerName(localPlayer)}'s turn to ${game.round.phase === "bidding" ? "bid" : "play"}.`
+      : game.round.phase === "bidding" ? "Your turn to bid." : "Your turn to play a card.");
+  } else {
+    setStatus(`${statusPlayerName(game.round.currentPlayer)}'s turn to ${game.round.phase === "bidding" ? "bid" : "play"}.`);
   }
   render();
+  await broadcastGameState();
   refreshPredictions();
 }
 
@@ -857,15 +1410,29 @@ async function beginDeal() {
   oracleError = "";
   setStatus(`Dealing ${game.round.handSize} cards…`);
   render();
+  await broadcastGameState();
   await wait(reducedMotion ? 0 : 720);
   dealing = false;
-  setStatus(`Round ${game.roundIndex + 1}. Bidding begins with ${playerName(game.round.biddingStart)}.`);
+  setStatus(`Round ${game.roundIndex + 1}. Bidding begins with ${statusPlayerName(game.round.biddingStart)}.`);
   render();
+  await broadcastGameState();
   await continueBots();
 }
 
 async function playHumanCard(card) {
-  if (interactionLocked || game.round.currentPlayer !== 0) return;
+  if (interactionLocked || game.round.currentPlayer !== localPlayer) return;
+  if (multiplayerRole === "guest") {
+    interactionLocked = true;
+    render();
+    try {
+      await multiplayer.send({ type: "player_action", action: "play", card }, hostPeerId);
+    } catch {
+      interactionLocked = false;
+      setStatus("The play did not reach the host. Try again.");
+      render();
+    }
+    return;
+  }
   interactionLocked = true;
   predictionRequest += 1;
   oracleRequest += 1;
@@ -876,15 +1443,18 @@ async function playHumanCard(card) {
   oracleError = "";
   const result = game.play(card);
   displayedCompletedTrick = result.completedTrick || null;
-  setStatus(`You play ${cardLabel(card)}.`);
+  setStatus(`${statusPlayerName(localPlayer)} plays ${cardLabel(card)}.`);
   render();
+  await broadcastGameState();
   await settlePlayedCard(result);
   interactionLocked = false;
   render();
   if (game.round.phase === "round_over") {
     showRoundResult();
+    await broadcastGameState();
   } else if (game.round.phase === "game_over") {
     showGameOver();
+    await broadcastGameState();
   } else {
     await continueBots();
   }
@@ -893,11 +1463,13 @@ async function playHumanCard(card) {
 async function settlePlayedCard(result) {
   await wait(reducedMotion ? 0 : CARD_SETTLE_MS);
   if (!result.trickComplete) return;
-  setStatus(`${playerName(result.winner)} takes the trick.`);
+  setStatus(`${statusPlayerName(result.winner)} takes the trick.`);
   render();
+  await broadcastGameState();
   await wait(reducedMotion ? 0 : TRICK_RESULT_HOLD_MS);
   displayedCompletedTrick = null;
   render();
+  await broadcastGameState();
 }
 
 function updateLoadProgress(percent, label) {
@@ -910,24 +1482,27 @@ function updateLoadProgress(percent, label) {
   dom.loadingProgress.style.width = `${bounded}%`;
 }
 
-async function startGame(form) {
-  const data = new FormData(form);
+function validateHandRange(data) {
   const maximum = Number(data.get("maxCards"));
   const minimum = Number(data.get("minCards"));
   if (minimum >= maximum) {
     dom.minCards.focus();
     dom.minCards.setCustomValidity("The lower hand must be below the starting hand.");
     dom.minCards.reportValidity();
-    return;
+    return null;
   }
   dom.minCards.setCustomValidity("");
-  difficulty = Number(data.get("difficulty"));
+  return { data, maximum, minimum };
+}
+
+async function loadHostAgent() {
   dom.gameLoading.hidden = false;
   updateLoadProgress(1, "Waking the agent…");
   let fallback = false;
   try {
     await agent.load(updateLoadProgress);
-    dom.modelState.textContent = `Checkpoint 4,000 · ${agent.backend}`;
+    updateLoadProgress(100, `Agent ready · ${agent.backend}`);
+    dom.modelState.textContent = `Agent ready · ${agent.backend}`;
     dom.modelState.className = "model-state is-ready";
   } catch (error) {
     fallback = true;
@@ -937,9 +1512,25 @@ async function startGame(form) {
     updateLoadProgress(100, "Fallback table ready");
   }
   await wait(reducedMotion ? 0 : 360);
+  return fallback;
+}
+
+async function startSoloGame(form) {
+  const settings = validateHandRange(new FormData(form));
+  if (!settings) return;
+  const { data, maximum, minimum } = settings;
+  difficulty = Number(data.get("difficulty"));
+  localPlayer = 0;
+  multiplayerRole = null;
+  multiplayerPhase = "idle";
+  const opponents = Number(data.get("opponents"));
+  playerNames = ["You", ...Array.from({ length: opponents }, (_, index) => `Agent ${index + 2}`)];
+  aiPlayers = new Set(Array.from({ length: opponents }, (_, index) => index + 1));
+  dom.liveTableBadge.hidden = true;
+  const fallback = await loadHostAgent();
   gameSequence += 1;
   game = new PlumpGame({
-    opponents: Number(data.get("opponents")),
+    opponents,
     minimum,
     maximum,
   });
@@ -951,10 +1542,209 @@ async function startGame(form) {
   await beginDeal();
 }
 
+async function openMultiplayerLobby(form) {
+  setSetupError();
+  const role = selectedMultiplayerRole();
+  const playerName = cleanPlayerName(dom.playerName.value, role === "host" ? "Host" : "Player");
+  dom.playerName.value = playerName;
+  try {
+    localStorage.setItem("plump-player-name", playerName);
+  } catch {}
+  const code = role === "host" ? generateRoomCode() : normalizeRoomCode(dom.joinCode.value);
+  if (!validRoomCode(code)) {
+    dom.joinCode.focus();
+    setSetupError("Enter the complete 8-character table code.");
+    return;
+  }
+  dom.startGame.disabled = true;
+  dom.startGame.textContent = role === "host" ? "Opening table…" : "Finding table…";
+  $$('input[name="playMode"], input[name="multiplayerRole"]').forEach((input) => {
+    input.disabled = true;
+  });
+  multiplayerRole = role;
+  multiplayerPhase = "connecting";
+  hostPeerId = null;
+  guestNames = new Map();
+  peerToSeat = new Map();
+  seatToPeer = new Map();
+  insightPreferences = new Map();
+  multiplayer = new PlumpPeerRoom({
+    role,
+    code,
+    onMessage: handleNetworkMessage,
+    onPeerJoin: handlePeerJoin,
+    onPeerLeave: handlePeerLeave,
+    onError: handleNetworkError,
+  });
+  try {
+    await multiplayer.connect();
+  } catch (error) {
+    multiplayer = null;
+    multiplayerRole = null;
+    multiplayerPhase = "idle";
+    dom.startGame.disabled = false;
+    $$('input[name="playMode"], input[name="multiplayerRole"]').forEach((input) => {
+      input.disabled = false;
+    });
+    configureSetupMode();
+    setSetupError(error.message || "The multiplayer network could not be loaded.");
+    return;
+  }
+  multiplayerPhase = "lobby";
+  dom.startGame.hidden = true;
+  dom.startGame.disabled = false;
+  dom.multiplayerLobby.hidden = false;
+  dom.lobbyCode.textContent = code;
+  dom.lobbyCodeWrap.hidden = false;
+  dom.startMultiplayer.hidden = role !== "host";
+  if (role === "host") {
+    updateHostLobby();
+  } else {
+    dom.hostSettings.hidden = true;
+    dom.modelState.textContent = "Waiting for host";
+    renderLobby({
+      hostName: "Finding host…",
+      status: "Looking for the host. Keep this tab open while the table connects.",
+    });
+  }
+}
+
+async function startHostedGame() {
+  if (!isHost() || multiplayerPhase !== "lobby" || guestNames.size < 1) return;
+  const settings = validateHandRange(new FormData(dom.setupForm));
+  if (!settings) return;
+  const { data, maximum, minimum } = settings;
+  const aiCount = Number(data.get("opponents"));
+  if (1 + guestNames.size + aiCount > 5) {
+    setSetupError("Human and AI players may not exceed five seats.");
+    updateHostLobby();
+    return;
+  }
+  multiplayerPhase = "starting";
+  dom.startMultiplayer.disabled = true;
+  multiplayer.send({ type: "starting" }).catch(() => {});
+  difficulty = Number(data.get("difficulty"));
+  const fallback = await loadHostAgent();
+  if (guestNames.size < 1) {
+    dom.gameLoading.hidden = true;
+    multiplayerPhase = "lobby";
+    updateHostLobby();
+    return;
+  }
+  const humanPeers = [...guestNames.entries()];
+  const humanNames = [cleanPlayerName(dom.playerName.value, "Host"), ...humanPeers.map(([, name]) => name)];
+  const totalPlayers = humanNames.length + aiCount;
+  playerNames = [
+    ...humanNames,
+    ...Array.from({ length: aiCount }, (_, index) => `Agent ${humanNames.length + index + 1}`),
+  ];
+  aiPlayers = new Set(Array.from({ length: aiCount }, (_, index) => humanNames.length + index));
+  peerToSeat.clear();
+  seatToPeer.clear();
+  humanPeers.forEach(([peerId], index) => {
+    const seat = index + 1;
+    peerToSeat.set(peerId, seat);
+    seatToPeer.set(seat, peerId);
+  });
+  localPlayer = 0;
+  multiplayerPhase = "playing";
+  networkRevision = 0;
+  appliedNetworkRevision = -1;
+  gameSequence += 1;
+  game = new PlumpGame({ numPlayers: totalPlayers, minimum, maximum });
+  dom.setup.hidden = true;
+  displayedCompletedTrick = null;
+  dom.game.hidden = false;
+  dom.gameLoading.hidden = true;
+  dom.liveTableBadge.hidden = false;
+  dom.liveTableBadge.textContent = `Hosting · ${multiplayer.code}`;
+  if (fallback) setStatus("Checkpoint unavailable; strategic fallback controls the AI seats.");
+  await beginDeal();
+}
+
+async function leaveMultiplayer({ preserveError = false } = {}) {
+  const error = preserveError ? dom.setupError.textContent : "";
+  const activeRoom = multiplayer;
+  const wasHost = isHost();
+  if (wasHost && activeRoom) {
+    await activeRoom.send({
+      type: "table_closed",
+      message: "The host closed this multiplayer table.",
+    }).catch(() => {});
+  }
+  multiplayer = null;
+  multiplayerRole = null;
+  multiplayerPhase = "idle";
+  hostPeerId = null;
+  peerToSeat = new Map();
+  seatToPeer = new Map();
+  guestNames = new Map();
+  insightPreferences = new Map();
+  game = null;
+  localPlayer = 0;
+  aiPlayers = new Set();
+  playerNames = [];
+  appliedNetworkRevision = -1;
+  interactionLocked = false;
+  dom.game.hidden = true;
+  dom.setup.hidden = false;
+  dom.gameLoading.hidden = true;
+  dom.multiplayerLobby.hidden = true;
+  dom.startGame.hidden = false;
+  dom.startGame.disabled = false;
+  dom.startMultiplayer.hidden = true;
+  dom.liveTableBadge.hidden = true;
+  $$('input[name="playMode"], input[name="multiplayerRole"]').forEach((input) => {
+    input.disabled = false;
+  });
+  dom.roundDialog.hidden = true;
+  dom.gameOver.hidden = true;
+  dom.modelState.textContent = agent.session ? `Agent ready · ${agent.backend}` : "Agent not loaded";
+  dom.modelState.className = agent.session ? "model-state is-ready" : "model-state";
+  configureSetupMode();
+  if (error) setSetupError(error);
+  await activeRoom?.leave().catch(() => {});
+}
+
 dom.setupForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  startGame(event.currentTarget);
+  if (selectedPlayMode() === "solo") {
+    startSoloGame(event.currentTarget);
+  } else {
+    openMultiplayerLobby(event.currentTarget);
+  }
 });
+
+dom.startMultiplayer.addEventListener("click", startHostedGame);
+
+$$('input[name="playMode"], input[name="multiplayerRole"]').forEach((input) =>
+  input.addEventListener("change", configureSetupMode),
+);
+
+dom.joinCode.addEventListener("input", () => {
+  dom.joinCode.value = normalizeRoomCode(dom.joinCode.value);
+});
+
+dom.opponents.addEventListener("change", () => {
+  if (isHost() && multiplayerPhase === "lobby") updateHostLobby();
+});
+
+$("[data-copy-code]").addEventListener("click", async () => {
+  const code = dom.lobbyCode.textContent.trim();
+  try {
+    await navigator.clipboard.writeText(code);
+    dom.lobbyStatus.textContent = "Code copied. Send it to your friends.";
+  } catch {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(dom.lobbyCode);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    dom.lobbyStatus.textContent = "Code selected — copy it and send it to your friends.";
+  }
+});
+
+$("[data-leave-lobby]").addEventListener("click", () => leaveMultiplayer());
 
 dom.difficulty.addEventListener("input", () => {
   difficulty = Number(dom.difficulty.value);
@@ -970,21 +1760,29 @@ dom.maxCards.addEventListener("change", () => {
   if (Number(dom.minCards.value) >= maximum) dom.minCards.value = String(Math.max(3, maximum - 1));
 });
 
-dom.game.addEventListener("click", (event) => {
+dom.game.addEventListener("click", async (event) => {
   const bidButton = event.target.closest("[data-bid]");
   if (bidButton && !interactionLocked) {
     const value = Number(bidButton.dataset.bid);
-    predictionRequest += 1;
-    oracleRequest += 1;
-    humanPrediction = null;
-    humanPolicy = null;
-    oraclePrediction = null;
-    oracleLoading = false;
-    oracleError = "";
+    if (game.round.currentPlayer !== localPlayer) return;
+    if (multiplayerRole === "guest") {
+      interactionLocked = true;
+      render();
+      try {
+        await multiplayer.send({ type: "player_action", action: "bid", value }, hostPeerId);
+      } catch {
+        interactionLocked = false;
+        setStatus("The bid did not reach the host. Try again.");
+        render();
+      }
+      return;
+    }
+    invalidatePredictionReadouts();
     game.bid(value);
-    setStatus(`You bid ${value}.`);
+    setStatus(`${statusPlayerName(localPlayer)} bids ${value}.`);
     render();
-    continueBots();
+    await broadcastGameState();
+    await continueBots();
     return;
   }
   const cardButton = event.target.closest("[data-play-card]");
@@ -997,20 +1795,26 @@ dom.game.addEventListener("click", (event) => {
 dom.probabilityToggle.addEventListener("change", refreshHumanPrediction);
 dom.oracleToggle.addEventListener("change", refreshPredictions);
 
-$("[data-next-round]").addEventListener("click", () => {
+dom.nextRound.addEventListener("click", async () => {
+  if (isMultiplayer() && !isHost()) return;
   predictionRequest += 1;
   oracleRequest += 1;
   dom.roundDialog.hidden = true;
   game.startNextRound();
-  beginDeal();
+  await beginDeal();
 });
 
-$("[data-new-game]").addEventListener("click", () => {
+$("[data-new-game]").addEventListener("click", async () => {
   predictionRequest += 1;
   oracleRequest += 1;
   oraclePrediction = null;
   oracleLoading = false;
   oracleError = "";
+  if (isMultiplayer()) {
+    await leaveMultiplayer();
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+    return;
+  }
   dom.game.hidden = true;
   dom.setup.hidden = false;
   dom.roundDialog.hidden = true;
@@ -1019,12 +1823,16 @@ $("[data-new-game]").addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
 });
 
-$("[data-play-again]").addEventListener("click", () => {
+$("[data-play-again]").addEventListener("click", async () => {
   predictionRequest += 1;
   oracleRequest += 1;
   oraclePrediction = null;
   oracleLoading = false;
   oracleError = "";
+  if (isMultiplayer()) {
+    await leaveMultiplayer();
+    return;
+  }
   dom.gameOver.hidden = true;
   dom.game.hidden = true;
   dom.setup.hidden = false;
@@ -1037,3 +1845,13 @@ $$('[data-close-rules]').forEach((button) =>
 );
 
 dom.difficultyOutput.textContent = difficultyLabel(Number(dom.difficulty.value));
+
+try {
+  dom.playerName.value = cleanPlayerName(localStorage.getItem("plump-player-name"), "Player");
+} catch {}
+
+configureSetupMode();
+
+window.addEventListener("beforeunload", () => {
+  multiplayer?.leave();
+});
