@@ -354,6 +354,8 @@ const dom = {
   scoreSheet: $("[data-score-sheet]"),
   probabilityToggle: $("[data-probability-toggle]"),
   oracleToggle: $("[data-oracle-toggle]"),
+  setupProbabilityToggle: $("[data-setup-probability-toggle]"),
+  setupOracleToggle: $("[data-setup-oracle-toggle]"),
   intelStrip: $("[data-intel-strip]"),
   intelTitle: $(".intel-title"),
   intelItems: $("[data-intel-items]"),
@@ -1096,18 +1098,33 @@ function renderBidPanel() {
   const humanTurn = game.round.currentPlayer === localPlayer && game.round.phase === "bidding";
   dom.bidPanel.hidden = !humanTurn;
   if (!humanTurn) return;
-  const legal = game.legalBids();
+  const legal = new Set(game.legalBids());
+  const values = Array.from({ length: game.round.handSize + 1 }, (_, value) => value);
   const existing = game.round.bids.reduce((sum, item) => sum + item.value, 0);
   dom.bidPrompt.textContent = game.round.bids.length === game.numPlayers - 1
     ? `Last bid: the table has ${existing}. One value is forbidden.`
     : `How many of the ${game.round.handSize} tricks will you win?`;
-  dom.bidOptions.innerHTML = legal
+  dom.bidOptions.innerHTML = values
     .map(
-      (value) => `
-        <button class="bid-button" type="button" data-bid="${value}" ${interactionLocked ? "disabled" : ""}>
+      (value) => {
+        const forbidden = !legal.has(value);
+        const disabled = forbidden || interactionLocked;
+        const description = forbidden
+          ? `Bid ${value} is unavailable because the total bids would equal the number of tricks.`
+          : `Bid ${value}`;
+        return `
+        <button
+          class="bid-button${forbidden ? " is-forbidden" : ""}"
+          type="button"
+          data-bid="${value}"
+          ${disabled ? "disabled" : ""}
+          aria-label="${description}"
+          title="${description}"
+        >
           ${value}${policyBadge(value)}
         </button>
-      `,
+      `;
+      },
     )
     .join("");
 }
@@ -1803,7 +1820,7 @@ dom.maxCards.addEventListener("change", () => {
 
 dom.game.addEventListener("click", async (event) => {
   const bidButton = event.target.closest("[data-bid]");
-  if (bidButton && !interactionLocked) {
+  if (bidButton && !bidButton.disabled && !interactionLocked) {
     const value = Number(bidButton.dataset.bid);
     if (game.round.currentPlayer !== localPlayer) return;
     if (multiplayerRole === "guest") {
@@ -1851,8 +1868,23 @@ document.addEventListener("keydown", (event) => {
 mobileTableQuery.addEventListener("change", syncMobileDrawers);
 syncMobileDrawers();
 
-dom.probabilityToggle.addEventListener("change", refreshHumanPrediction);
-dom.oracleToggle.addEventListener("change", refreshPredictions);
+dom.setupProbabilityToggle.addEventListener("change", () => {
+  dom.probabilityToggle.checked = dom.setupProbabilityToggle.checked;
+});
+
+dom.setupOracleToggle.addEventListener("change", () => {
+  dom.oracleToggle.checked = dom.setupOracleToggle.checked;
+});
+
+dom.probabilityToggle.addEventListener("change", () => {
+  dom.setupProbabilityToggle.checked = dom.probabilityToggle.checked;
+  refreshHumanPrediction();
+});
+
+dom.oracleToggle.addEventListener("change", () => {
+  dom.setupOracleToggle.checked = dom.oracleToggle.checked;
+  refreshPredictions();
+});
 
 dom.nextRound.addEventListener("click", async () => {
   if (isMultiplayer() && !isHost()) return;

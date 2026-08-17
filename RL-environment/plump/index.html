@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Plump — RL Playground</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=mobile-table-1" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=mobile-table-2" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -112,6 +112,24 @@
                     Friends connect directly to the host. The host deals, validates
                     every move, and runs all AI inference.
                   </p>
+                  <fieldset class="multiplayer-insights">
+                    <legend>Your game view</legend>
+                    <label>
+                      <input type="checkbox" data-setup-probability-toggle />
+                      <span>
+                        <strong>Action probabilities</strong>
+                        <small>Show how your model weighs each available action.</small>
+                      </span>
+                    </label>
+                    <label>
+                      <input type="checkbox" data-setup-oracle-toggle />
+                      <span>
+                        <strong>Oracle view</strong>
+                        <small>Show perfect-information EV and trick predictions.</small>
+                      </span>
+                    </label>
+                    <p>Each player controls their own view and can change it during the game.</p>
+                  </fieldset>
                 </div>
 
                 <div data-host-settings>
@@ -363,6 +381,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=mobile-table-1"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=mobile-table-2"></script>
   </body>
 </html>
