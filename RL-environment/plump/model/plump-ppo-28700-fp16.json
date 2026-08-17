@@ -1,9 +1,9 @@
 {
   "format": "onnx",
-  "checkpoint": "iter_030100.pt",
-  "iteration": 30100,
+  "checkpoint": "iter_033200.pt",
+  "iteration": 33200,
   "schemaVersion": 6,
-  "modelFormatVersion": 3,
+  "modelFormatVersion": 4,
   "precision": "fp16",
   "quantization": "none",
   "modelConfig": {
@@ -19,7 +19,7 @@
     "d_ff": 1152,
     "dropout": 0.0
   },
-  "file": "plump-ppo-30100-fp16.onnx",
+  "file": "plump-ppo-33200-fp16.onnx",
   "bytes": 15864805,
-  "sha256": "5e4e869e8d5d839faf20aa3841333398f8a09d54d365e9d330fd75af1d8412cf"
+  "sha256": "110a817c57ed482b204ca93eb839484dde4d3262c70cee661ebef176f0037f3b"
 }
