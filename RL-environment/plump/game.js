@@ -365,6 +365,11 @@ const dom = {
   gameOverSummary: $("[data-game-over-summary]"),
   rulesDialog: $("[data-rules-dialog]"),
   nextRound: $("[data-next-round]"),
+  mobileDrawerTabs: $$('[data-mobile-drawer-target]'),
+  mobileDrawerClose: $$('[data-mobile-drawer-close]'),
+  mobileDrawerBackdrop: $(".mobile-drawer-backdrop"),
+  mobileToolsDrawer: $("[data-mobile-tools-drawer]"),
+  mobileScoreDrawer: $("[data-mobile-score-drawer]"),
 };
 
 const agent = new BrowserPpoAgent();
@@ -397,6 +402,38 @@ let guestNames = new Map();
 let insightPreferences = new Map();
 let hostOracleCacheRevision = -1;
 let hostOracleCachePromise = null;
+const mobileTableQuery = window.matchMedia("(max-width: 600px) and (orientation: portrait)");
+
+function setMobileDrawer(drawer = "", { focus = false } = {}) {
+  const activeDrawer = ["tools", "scores"].includes(drawer) ? drawer : "";
+  if (activeDrawer) dom.game.dataset.mobileDrawer = activeDrawer;
+  else delete dom.game.dataset.mobileDrawer;
+  dom.mobileDrawerBackdrop.hidden = !activeDrawer;
+  dom.mobileDrawerTabs.forEach((button) => {
+    const active = button.dataset.mobileDrawerTarget === activeDrawer;
+    button.setAttribute("aria-expanded", String(active));
+  });
+
+  const mobile = mobileTableQuery.matches;
+  dom.mobileToolsDrawer.inert = mobile && activeDrawer !== "tools";
+  dom.mobileScoreDrawer.inert = mobile && activeDrawer !== "scores";
+  if (focus && activeDrawer) {
+    const drawerElement = activeDrawer === "tools" ? dom.mobileToolsDrawer : dom.mobileScoreDrawer;
+    drawerElement.querySelector("[data-mobile-drawer-close]")?.focus();
+  }
+}
+
+function syncMobileDrawers() {
+  if (!mobileTableQuery.matches) {
+    delete dom.game.dataset.mobileDrawer;
+    dom.mobileDrawerBackdrop.hidden = true;
+    dom.mobileDrawerTabs.forEach((button) => button.setAttribute("aria-expanded", "false"));
+    dom.mobileToolsDrawer.inert = false;
+    dom.mobileScoreDrawer.inert = false;
+    return;
+  }
+  setMobileDrawer(dom.game.dataset.mobileDrawer || "");
+}
 
 function cleanPlayerName(value, fallback = "Player") {
   const name = String(value || "").replace(/\s+/g, " ").trim().slice(0, 18);
@@ -1796,6 +1833,24 @@ dom.game.addEventListener("click", async (event) => {
   }
 });
 
+dom.mobileDrawerTabs.forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.dataset.mobileDrawerTarget;
+    setMobileDrawer(dom.game.dataset.mobileDrawer === target ? "" : target, { focus: true });
+  });
+});
+
+dom.mobileDrawerClose.forEach((button) => {
+  button.addEventListener("click", () => setMobileDrawer(""));
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && dom.game.dataset.mobileDrawer) setMobileDrawer("");
+});
+
+mobileTableQuery.addEventListener("change", syncMobileDrawers);
+syncMobileDrawers();
+
 dom.probabilityToggle.addEventListener("change", refreshHumanPrediction);
 dom.oracleToggle.addEventListener("change", refreshPredictions);
 
@@ -1809,6 +1864,7 @@ dom.nextRound.addEventListener("click", async () => {
 });
 
 $("[data-new-game]").addEventListener("click", async () => {
+  setMobileDrawer("");
   predictionRequest += 1;
   oracleRequest += 1;
   oraclePrediction = null;
@@ -1828,6 +1884,7 @@ $("[data-new-game]").addEventListener("click", async () => {
 });
 
 $("[data-play-again]").addEventListener("click", async () => {
+  setMobileDrawer("");
   predictionRequest += 1;
   oracleRequest += 1;
   oraclePrediction = null;
@@ -1843,7 +1900,10 @@ $("[data-play-again]").addEventListener("click", async () => {
   game = null;
 });
 
-$("[data-rules-button]").addEventListener("click", () => dom.rulesDialog.showModal());
+$("[data-rules-button]").addEventListener("click", () => {
+  setMobileDrawer("");
+  dom.rulesDialog.showModal();
+});
 $$('[data-close-rules]').forEach((button) =>
   button.addEventListener("click", () => dom.rulesDialog.close()),
 );

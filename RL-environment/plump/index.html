@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
       content="Play Swedish Plump against a browser-based reinforcement-learning agent or host a peer-to-peer table with friends."
@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Plump — RL Playground</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=multiplayer-2" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=mobile-table-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -205,25 +205,57 @@
         </section>
 
         <section class="plump-game" data-game hidden aria-label="Plump game table">
-          <div class="game-toolbar">
-            <button class="game-button" type="button" data-new-game>New game…</button>
-            <button class="game-button" type="button" data-rules-button>Rules</button>
-            <span class="live-table-badge" data-live-table-badge hidden></span>
-            <div class="game-toggles">
-              <label class="switch-label">
-                <input type="checkbox" data-probability-toggle />
-                Action probabilities
-              </label>
-              <label class="switch-label">
-                <input type="checkbox" data-oracle-toggle />
-                Oracle probabilities
-              </label>
-            </div>
-          </div>
+          <button
+            class="mobile-drawer-tab mobile-drawer-tab-tools"
+            type="button"
+            data-mobile-drawer-target="tools"
+            aria-controls="mobile-game-tools"
+            aria-expanded="false"
+          >
+            Controls
+          </button>
+          <button
+            class="mobile-drawer-tab mobile-drawer-tab-scores"
+            type="button"
+            data-mobile-drawer-target="scores"
+            aria-controls="mobile-score-sheet"
+            aria-expanded="false"
+          >
+            Scores
+          </button>
+          <button
+            class="mobile-drawer-backdrop"
+            type="button"
+            data-mobile-drawer-close
+            hidden
+            aria-label="Close open panel"
+          ></button>
 
-          <div class="intel-strip" data-intel-strip hidden>
-            <span class="intel-title">Oracle + model beliefs</span>
-            <div class="intel-items" data-intel-items></div>
+          <div class="game-tools-drawer" id="mobile-game-tools" data-mobile-tools-drawer>
+            <div class="mobile-drawer-titlebar">
+              <strong>Game controls</strong>
+              <button type="button" data-mobile-drawer-close aria-label="Close game controls">×</button>
+            </div>
+            <div class="game-toolbar">
+              <button class="game-button" type="button" data-new-game>New game…</button>
+              <button class="game-button" type="button" data-rules-button>Rules</button>
+              <span class="live-table-badge" data-live-table-badge hidden></span>
+              <div class="game-toggles">
+                <label class="switch-label">
+                  <input type="checkbox" data-probability-toggle />
+                  Action probabilities
+                </label>
+                <label class="switch-label">
+                  <input type="checkbox" data-oracle-toggle />
+                  Oracle probabilities
+                </label>
+              </div>
+            </div>
+
+            <div class="intel-strip" data-intel-strip hidden>
+              <span class="intel-title">Oracle + model beliefs</span>
+              <div class="intel-items" data-intel-items></div>
+            </div>
           </div>
 
           <div class="game-layout">
@@ -274,8 +306,12 @@
               </div>
             </div>
 
-            <aside class="score-panel" aria-label="Score sheet">
-              <div class="score-titlebar"><span>Score sheet</span><span>High · low · high</span></div>
+            <aside class="score-panel" id="mobile-score-sheet" data-mobile-score-drawer aria-label="Score sheet">
+              <div class="score-titlebar">
+                <span>Score sheet</span>
+                <span>High · low · high</span>
+                <button type="button" data-mobile-drawer-close aria-label="Close score sheet">×</button>
+              </div>
               <div class="score-scroll" data-score-sheet></div>
               <p class="score-legend">
                 During a round, cells show the bid. After scoring: 11 = hit a
@@ -327,6 +363,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=multiplayer-2"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=mobile-table-1"></script>
   </body>
 </html>
