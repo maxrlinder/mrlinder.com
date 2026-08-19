@@ -24,7 +24,14 @@ from onnxruntime.transformers.onnx_model import OnnxModel
 
 
 class BrowserPlumpModel(nn.Module):
-    """ONNX-friendly wrapper returning only the final sequence position."""
+    """ONNX-friendly wrapper returning only the final sequence position.
+
+    The trunk is the training model's own ``forward_hidden``; only the handful
+    of operations ONNX cannot lower are swapped out, by ``onnx_export_patches``.
+    Transcribing the architecture here instead is how the previous version of
+    this script came to silently predate the bid-pressure fields, per-layer
+    embeddings, and attention value embeddings.
+    """
 
     def __init__(self, model: nn.Module) -> None:
         super().__init__()
@@ -34,52 +41,7 @@ class BrowserPlumpModel(nn.Module):
         model = self.model
         config = model.config
 
-        # Equivalent to SeqPlumpModel.embed, expressed without boolean row
-        # indexing so both normal event rows and TRICK_WIN remaining-hand rows
-        # remain dynamic in ONNX.
-        base = tokens[..., :12]
-        hidden = model.slot_embedding(base + model.slot_offsets).sum(dim=-2)
-        remaining = tokens[..., 12:]
-        valid = remaining < 52
-        safe = remaining.clamp_max(51)
-        remaining_vectors = F.embedding(safe, model.effective_card_input_weight())
-        remaining_sum = (
-            remaining_vectors * valid.unsqueeze(-1).to(remaining_vectors.dtype)
-        ).sum(dim=-2)
-        is_trick_win = (base[..., 0] == 5).unsqueeze(-1).to(hidden.dtype)
-        hidden = hidden + remaining_sum * is_trick_win
-        positions = torch.arange(tokens.shape[1], device=tokens.device)
-        hidden = hidden + model.pos_embedding(positions)
-
-        # The training model uses PyTorch's grouped-query SDPA kernel. ONNX's
-        # SDPA exporter does not accept GQA yet, so expand the two KV heads to
-        # twelve here and spell out the same causal attention operation.
-        for block in model.blocks:
-            batch, length, _ = hidden.shape
-            fused = block.qkv_proj(block.ln_attn(hidden))
-            q, k, v = fused.split(
-                [
-                    block.n_heads * block.head_dim,
-                    block.kv_heads * block.head_dim,
-                    block.kv_heads * block.head_dim,
-                ],
-                dim=-1,
-            )
-            q = q.view(batch, length, block.n_heads, block.head_dim).transpose(1, 2)
-            k = k.view(batch, length, block.kv_heads, block.head_dim).transpose(1, 2)
-            v = v.view(batch, length, block.kv_heads, block.head_dim).transpose(1, 2)
-            k = k.repeat_interleave(block.head_group, dim=1)
-            v = v.repeat_interleave(block.head_group, dim=1)
-            scores = (q @ k.transpose(-1, -2)) * block.scale
-            row = torch.arange(length, device=tokens.device)[:, None]
-            col = torch.arange(length, device=tokens.device)[None, :]
-            scores = scores.masked_fill(col > row, -1.0e9)
-            attention = scores.softmax(dim=-1) @ v
-            merged = attention.transpose(1, 2).reshape(batch, length, -1)
-            hidden = hidden + block.out_proj(merged)
-            hidden = hidden + block.mlp(block.ln_mlp(hidden))
-
-        hidden = model.final_norm(hidden)[:, -1]
+        hidden = model.forward_hidden(tokens)[:, -1]
         bid_logits = model.bid_head(hidden)
         card_logits = F.linear(
             hidden,
@@ -133,12 +95,19 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     sys.path.insert(0, str(args.plump_source.resolve()))
+    from plump_export_compat import (
+        assert_exportable,
+        onnx_export_patches,
+        sample_tokens,
+    )
     from plump.seq.config import SeqModelConfig
     from plump.seq.model import SeqPlumpModel, load_seq_model_state_dict
 
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = SeqModelConfig(**payload["model_config"])
+    assert_exportable(config)
     model = SeqPlumpModel(config)
     load_seq_model_state_dict(model, payload["model_state_dict"])
     model.eval()
@@ -150,23 +119,12 @@ def main() -> None:
         if args.precision == "fp32"
         else args.output.with_name(f"{args.output.stem}.source-fp32.onnx")
     )
-    sample = torch.zeros((1, config.max_seq_len, 22), dtype=torch.int64)
-    # A valid all-NA-ish stream avoids out-of-range embedding lookups while
-    # giving the exporter the maximum sequence shape used in production.
-    sample[..., 0] = 1
-    sample[..., 1] = config.player_na_id
-    sample[..., 2] = config.rank_na_id
-    sample[..., 3] = config.suit_na_id
-    sample[..., 4] = config.card_na_id
-    sample[..., 5] = config.bid_na_id
-    sample[..., 6] = config.trick_na_id
-    sample[..., 7] = config.pos_na_id
-    sample[..., 8] = config.max_hand_size
-    sample[..., 9] = config.max_players
-    sample[..., 10] = config.player_na_id
-    sample[..., 12:] = config.card_na_id
+    # A legal token row at the maximum production sequence length: legal so no
+    # embedding lookup runs out of range, maximum so the traced position table
+    # covers every shape the browser can ask for.
+    sample = sample_tokens(config, config.max_seq_len)
 
-    with torch.inference_mode():
+    with torch.inference_mode(), onnx_export_patches():
         torch.onnx.export(
             wrapper,
             (sample,),

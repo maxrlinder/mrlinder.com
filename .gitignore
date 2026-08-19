@@ -2,6 +2,7 @@
 dist/
 tmp/
 .wrangler/
+__pycache__/
 resources/about/*
 !resources/about/web/
 !resources/about/web/*

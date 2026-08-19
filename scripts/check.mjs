@@ -20,12 +20,13 @@ const required = [
   "RL-environment/plump/multiplayer.js",
   "RL-environment/plump/model-config.js",
   "RL-environment/plump/model-client.js",
-  "RL-environment/plump/model/plump-ppo-33200-fp32.onnx",
-  "RL-environment/plump/model/plump-ppo-33200-fp32.json",
-  "RL-environment/plump/model/plump-ppo-33200-fp16.onnx",
-  "RL-environment/plump/model/plump-ppo-33200-fp16.json",
-  "RL-environment/plump/model/plump-oracle-33200-fp32.onnx",
-  "RL-environment/plump/model/plump-oracle-33200-fp32.json",
+  "RL-environment/plump/tokens.js",
+  "RL-environment/plump/model/plump-ppo-38700-fp32.onnx",
+  "RL-environment/plump/model/plump-ppo-38700-fp32.json",
+  "RL-environment/plump/model/plump-ppo-38700-fp16.onnx",
+  "RL-environment/plump/model/plump-ppo-38700-fp16.json",
+  "RL-environment/plump/model/plump-oracle-38700-fp32.onnx",
+  "RL-environment/plump/model/plump-oracle-38700-fp32.json",
   "styles.css",
   "site-config.js",
   "site-navigation.js",
@@ -72,3 +73,7 @@ for (const [index, page] of pages.entries()) {
 }
 
 console.log("Checked routes, assets, metadata, and accessibility hooks.");
+
+// The Plump agent only plays well on the exact token stream it was trained on,
+// and a mismatch is silent at runtime. Importing this runs the comparison.
+await import("./check-plump-tokens.mjs");

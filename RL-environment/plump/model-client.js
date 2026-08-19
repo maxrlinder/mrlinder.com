@@ -3,196 +3,17 @@ import {
   PLUMP_MODEL_CONFIG,
   configuredActorPrecision,
 } from "./model-config.js";
+import {
+  MODEL_LIMITS,
+  SUITS,
+  WIDTH,
+  buildOracleTokens,
+  buildTokens,
+  modelCardId,
+} from "./tokens.js";
 
 const MODEL_ROOT = "/RL-environment/plump/model/";
 const RUNTIME_ROOT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";
-
-const TOKEN = Object.freeze({
-  GAME: 1,
-  HAND: 2,
-  BID: 3,
-  PLAY: 4,
-  TRICK_WIN: 5,
-  TURN: 6,
-});
-
-const NEXT = Object.freeze({ NONE: 0, BID: 1, PLAY: 2 });
-const SUITS = ["spades", "hearts", "diamonds", "clubs"];
-const WIDTH = 22;
-
-const relative = (player, observer, players) =>
-  (player - observer + players) % players;
-
-const cardId = (card) => SUITS.indexOf(card.suit) * 13 + (card.rank - 2);
-
-const baseToken = (players, handSize) => [
-  0, 5, 13, 4, 52, 11, 10, 5, handSize, players, 5, 0,
-  52, 52, 52, 52, 52, 52, 52, 52, 52, 52,
-];
-
-const turnToken = (
-  players,
-  handSize,
-  actor,
-  phase,
-  trick = null,
-  position = null,
-) => {
-  const token = baseToken(players, handSize);
-  token[0] = TOKEN.TURN;
-  token[1] = actor;
-  if (trick !== null) token[6] = trick;
-  if (position !== null) token[7] = position;
-  token[10] = actor;
-  token[11] = phase;
-  return token;
-};
-
-const eventToken = (event, observer, players, handSize, remainingHand) => {
-  const token = baseToken(players, handSize);
-  token[1] = relative(event.player, observer, players);
-
-  if (event.type === "bid") {
-    token[0] = TOKEN.BID;
-    token[5] = event.bid;
-  } else if (event.type === "play") {
-    token[0] = TOKEN.PLAY;
-    token[2] = event.card.rank - 2;
-    token[3] = SUITS.indexOf(event.card.suit);
-    token[4] = cardId(event.card);
-    token[6] = event.trickIndex;
-    token[7] = event.position;
-  } else if (event.type === "trick_win") {
-    token[0] = TOKEN.TRICK_WIN;
-    token[6] = event.trickIndex;
-    const values = remainingHand.map(cardId).sort((a, b) => a - b);
-    token.splice(12, 10, ...values, ...Array(10 - values.length).fill(52));
-  }
-  return token;
-};
-
-/** Build the exact schema-v6 actor stream used by the training project. */
-export function buildTokens(game, observer) {
-  const round = game.round;
-  const players = game.numPlayers;
-  const handSize = round.handSize;
-  const biddingPosition = relative(observer, round.biddingStart, players);
-  const initialHand = [...round.initialHands[observer]].sort(
-    (a, b) => cardId(a) - cardId(b),
-  );
-
-  const gameRow = baseToken(players, handSize);
-  gameRow[0] = TOKEN.GAME;
-  gameRow[7] = biddingPosition;
-  const tokens = [gameRow];
-
-  for (const card of initialHand) {
-    const token = baseToken(players, handSize);
-    token[0] = TOKEN.HAND;
-    token[1] = 0;
-    token[2] = card.rank - 2;
-    token[3] = SUITS.indexOf(card.suit);
-    token[4] = cardId(card);
-    tokens.push(token);
-  }
-
-  const firstActor = relative(round.biddingStart, observer, players);
-  // This model was trained with turn_token="bid".
-  tokens.push(turnToken(players, handSize, firstActor, NEXT.BID));
-
-  const remaining = new Map(initialHand.map((card) => [cardId(card), card]));
-  const remainingAtWin = new Map();
-  round.events.forEach((event, index) => {
-    if (event.type === "play" && event.player === observer) {
-      remaining.delete(cardId(event.card));
-    } else if (event.type === "trick_win") {
-      remainingAtWin.set(index, [...remaining.values()]);
-    }
-  });
-
-  round.events.forEach((event, index) => {
-    if (index > 0 && event.type === "bid") {
-      tokens.push(
-        turnToken(
-          players,
-          handSize,
-          relative(event.player, observer, players),
-          NEXT.BID,
-        ),
-      );
-    }
-    tokens.push(
-      eventToken(
-        event,
-        observer,
-        players,
-        handSize,
-        remainingAtWin.get(index) || [],
-      ),
-    );
-  });
-
-  // Each row announces an immediately following public action.
-  for (let position = Math.max(0, 1 + handSize); position < tokens.length - 1; position += 1) {
-    const upcoming = tokens[position + 1];
-    if (upcoming[0] === TOKEN.BID || upcoming[0] === TOKEN.PLAY) {
-      tokens[position][10] = upcoming[1];
-      tokens[position][11] = upcoming[0] === TOKEN.BID ? NEXT.BID : NEXT.PLAY;
-    } else if (upcoming[0] !== TOKEN.TURN) {
-      tokens[position][10] = 5;
-      tokens[position][11] = NEXT.NONE;
-    }
-  }
-
-  if (round.currentPlayer !== null && ["bidding", "playing"].includes(round.phase)) {
-    const actor = relative(round.currentPlayer, observer, players);
-    if (round.phase === "bidding") {
-      // Kept byte-for-byte compatible with the training policy builder,
-      // including its explicit pending-decision register.
-      tokens.push(turnToken(players, handSize, actor, NEXT.BID));
-    } else {
-      const trick = round.tricks.filter((item) => item.winner !== null).length;
-      const current = round.tricks.at(-1);
-      const position = current && current.winner === null ? current.plays.length : 0;
-      tokens.at(-1)[10] = actor;
-      tokens.at(-1)[11] = NEXT.PLAY;
-      // PLAY has no separate TURN token in this checkpoint.
-      void trick;
-      void position;
-    }
-  }
-
-  return tokens;
-}
-
-/** Build the perfect-information, absolute-seat stream used by the PPO oracle. */
-export function buildOracleTokens(game) {
-  const round = game.round;
-  const handSize = round.handSize;
-  const actorTokens = buildTokens(game, 0);
-  const oracleHands = round.initialHands.flatMap((hand, owner) =>
-    [...hand]
-      .sort((a, b) => cardId(a) - cardId(b))
-      .map((card) => {
-        const token = baseToken(game.numPlayers, handSize);
-        token[0] = TOKEN.HAND;
-        token[1] = owner;
-        token[2] = card.rank - 2;
-        token[3] = SUITS.indexOf(card.suit);
-        token[4] = cardId(card);
-        return token;
-      }),
-  );
-  const tokens = [
-    actorTokens[0],
-    ...oracleHands,
-    ...actorTokens.slice(1 + handSize),
-  ];
-  // Remaining-hand snapshots belong only to an observer stream. The oracle
-  // derives every current hand from its full-deal prefix and public plays.
-  tokens.forEach((token) => token.fill(52, 12));
-  return tokens;
-}
 
 const flattenInt64 = (rows) => {
   const values = new BigInt64Array(rows.length * WIDTH);
@@ -201,6 +22,23 @@ const flattenInt64 = (rows) => {
     for (const value of row) values[offset++] = BigInt(value);
   }
   return values;
+};
+
+/**
+ * Refuse a checkpoint whose token stream would differ from the one tokens.js
+ * builds. A mismatch has no runtime symptom of its own -- the agent would just
+ * play badly -- so it is worth failing loudly at load instead.
+ */
+const assertManifestMatchesBuilder = (manifest, label) => {
+  const config = manifest.modelConfig || {};
+  for (const [field, expected] of Object.entries(MODEL_LIMITS)) {
+    if (config[field] !== expected) {
+      throw new Error(
+        `The ${label} was trained with ${field}=${config[field]}, but this ` +
+          `build writes tokens for ${field}=${expected}. Update tokens.js.`,
+      );
+    }
+  }
 };
 
 export class BrowserPpoAgent {
@@ -231,6 +69,7 @@ export class BrowserPpoAgent {
       if (!response.ok) throw new Error("Could not read the model manifest.");
       return response.json();
     });
+    assertManifestMatchesBuilder(manifest, "policy checkpoint");
     const response = await fetch(`${MODEL_ROOT}${manifest.file}`);
     if (!response.ok || !response.body) {
       throw new Error("Could not download the model weights.");
@@ -350,6 +189,7 @@ export class BrowserPpoAgent {
         if (!response.ok) throw new Error("Could not read the oracle manifest.");
         return response.json();
       });
+      assertManifestMatchesBuilder(this.oracleManifest, "oracle critic");
       const response = await fetch(`${MODEL_ROOT}${this.oracleManifest.file}`);
       if (!response.ok) throw new Error("Could not download the oracle weights.");
       this.oracleModel = new Uint8Array(await response.arrayBuffer());
@@ -403,5 +243,6 @@ export class BrowserPpoAgent {
   }
 }
 
-export const modelCardId = cardId;
+// Re-exported so game.js keeps a single import site for everything model-side.
+export { buildTokens, buildOracleTokens, modelCardId };
 export const modelSuits = SUITS;
