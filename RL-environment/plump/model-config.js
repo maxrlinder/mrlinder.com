@@ -2,10 +2,10 @@
 export const PLUMP_MODEL_CONFIG = Object.freeze({
   actorPrecision: "fp32",
   actorManifests: Object.freeze({
-    fp32: "plump-ppo-38700-fp32.json",
-    fp16: "plump-ppo-38700-fp16.json",
+    fp32: "plump-ppo-42500-fp32.json",
+    fp16: "plump-ppo-42500-fp16.json",
   }),
-  oracleManifest: "plump-oracle-38700-fp32.json",
+  oracleManifest: "plump-oracle-42500-fp32.json",
   adminPrecisionQuery: "plump-model",
 });
 

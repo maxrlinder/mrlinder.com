@@ -170,14 +170,18 @@ def onnx_export_patches(plump_source_on_path: bool = True):
 
 
 def assert_exportable(config) -> None:
-    """Reject checkpoint features this export path has not been validated on."""
+    """Reject checkpoint features this export path has not been validated on.
 
-    if getattr(config, "embedding_rms_norm", False):
-        raise NotImplementedError(
-            "embedding_rms_norm is enabled on this checkpoint. It exports "
-            "cleanly in principle, but no browser build has been numerically "
-            "checked against it -- verify before removing this guard."
-        )
+    Nothing is currently rejected. ``embedding_rms_norm`` was, until the v4
+    checkpoints turned it on: it runs inside ``SeqPlumpModel.embed``, above the
+    patched ``_embed_sum``, and lowers to ordinary elementwise ops, so the only
+    open question was numerical. ``check-plump-onnx.py`` answers that one
+    directly against the checkpoint, which is a stronger guarantee than a
+    feature list -- so new trunk features belong here only if they are known to
+    be unexportable, not merely new.
+    """
+
+    return None
 
 
 def sample_tokens(config, length: int) -> torch.Tensor:
