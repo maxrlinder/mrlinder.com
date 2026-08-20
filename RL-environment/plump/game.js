@@ -253,23 +253,29 @@ function difficultyLabel(value) {
   return `Temperature ${temperature >= 10 ? temperature.toFixed(0) : temperature.toFixed(2)}`;
 }
 
-function legalDistribution(logits, legalIndices, difficulty) {
+// The action-probability readout always reports the policy at temperature 1,
+// i.e. the distribution the model itself produces. Difficulty warps how the
+// opponents *sample* that policy, but the readout is meant to answer "what does
+// the model think here", and that question has the same answer whether the
+// table is set to random or to argmax.
+const INSIGHT_TEMPERATURE = 1;
+
+function legalDistribution(logits, legalIndices, temperature) {
   const argmax = legalIndices.reduce((best, index) =>
     logits[index] > logits[best] ? index : best,
   );
-  if (difficulty <= 0) {
+  if (!Number.isFinite(temperature)) {
     return {
       argmax,
       probabilities: new Map(legalIndices.map((index) => [index, 1 / legalIndices.length])),
     };
   }
-  if (difficulty >= 100) {
+  if (temperature <= 0) {
     return {
       argmax,
       probabilities: new Map(legalIndices.map((index) => [index, index === argmax ? 1 : 0])),
     };
   }
-  const temperature = temperatureFor(difficulty);
   const maximum = Math.max(...legalIndices.map((index) => logits[index] / temperature));
   const weights = legalIndices.map((index) => Math.exp(logits[index] / temperature - maximum));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
@@ -631,11 +637,11 @@ async function sendHostInsights(peerId) {
     let policy = null;
     if (preferences.action && game.round.currentPlayer === seat) {
       policy = game.round.phase === "bidding"
-        ? legalDistribution(prediction.bidLogits, game.legalBids(), difficulty)
+        ? legalDistribution(prediction.bidLogits, game.legalBids(), INSIGHT_TEMPERATURE)
         : legalDistribution(
           prediction.cardLogits,
           game.legalCards(seat).map(modelCardId),
-          difficulty,
+          INSIGHT_TEMPERATURE,
         );
     }
     const oracle = preferences.oracle ? await oracleForCurrentRevision() : null;
@@ -1292,12 +1298,16 @@ async function refreshHumanPrediction() {
     humanPrediction = prediction;
     if (game.round.currentPlayer === localPlayer) {
       if (game.round.phase === "bidding") {
-        humanPolicy = legalDistribution(prediction.bidLogits, game.legalBids(), difficulty);
+        humanPolicy = legalDistribution(
+          prediction.bidLogits,
+          game.legalBids(),
+          INSIGHT_TEMPERATURE,
+        );
       } else {
         humanPolicy = legalDistribution(
           prediction.cardLogits,
           game.legalCards(localPlayer).map(modelCardId),
-          difficulty,
+          INSIGHT_TEMPERATURE,
         );
       }
     } else {
@@ -1366,14 +1376,18 @@ async function chooseBotAction(player) {
   try {
     const prediction = await agent.predict(game, player);
     if (game.round.phase === "bidding") {
-      const distribution = legalDistribution(prediction.bidLogits, game.legalBids(), difficulty);
+      const distribution = legalDistribution(
+        prediction.bidLogits,
+        game.legalBids(),
+        temperatureFor(difficulty),
+      );
       return { type: "bid", value: sampleDistribution(distribution) };
     }
     const legal = game.legalCards(player);
     const distribution = legalDistribution(
       prediction.cardLogits,
       legal.map(modelCardId),
-      difficulty,
+      temperatureFor(difficulty),
     );
     const choice = sampleDistribution(distribution);
     return { type: "play", card: legal.find((card) => modelCardId(card) === choice) };
