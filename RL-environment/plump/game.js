@@ -359,9 +359,9 @@ const dom = {
   bidOptions: $("[data-bid-options]"),
   scoreSheet: $("[data-score-sheet]"),
   probabilityToggle: $("[data-probability-toggle]"),
-  oracleToggle: $("[data-oracle-toggle]"),
+  beliefToggle: $("[data-belief-toggle]"),
   setupProbabilityToggle: $("[data-setup-probability-toggle]"),
-  setupOracleToggle: $("[data-setup-oracle-toggle]"),
+  setupBeliefToggle: $("[data-setup-belief-toggle]"),
   intelStrip: $("[data-intel-strip]"),
   intelTitle: $(".intel-title"),
   intelItems: $("[data-intel-items]"),
@@ -388,10 +388,8 @@ let dealing = false;
 let predictionRequest = 0;
 let humanPrediction = null;
 let humanPolicy = null;
-let oracleRequest = 0;
-let oraclePrediction = null;
-let oracleLoading = false;
-let oracleError = "";
+let beliefLoading = false;
+let beliefError = "";
 let lastStatus = "";
 let displayedCompletedTrick = null;
 let gameSequence = 0;
@@ -408,8 +406,6 @@ let peerToSeat = new Map();
 let seatToPeer = new Map();
 let guestNames = new Map();
 let insightPreferences = new Map();
-let hostOracleCacheRevision = -1;
-let hostOracleCachePromise = null;
 const mobileTableQuery = window.matchMedia("(max-width: 600px) and (orientation: portrait)");
 
 function setMobileDrawer(drawer = "", { focus = false } = {}) {
@@ -589,8 +585,6 @@ async function sendGameState(peerId, player) {
 async function broadcastGameState() {
   if (!isHost() || !multiplayer || !game) return;
   networkRevision += 1;
-  hostOracleCacheRevision = -1;
-  hostOracleCachePromise = null;
   await Promise.all(
     [...seatToPeer.entries()].map(([seat, peerId]) => sendGameState(peerId, seat)),
   );
@@ -613,22 +607,23 @@ function deserializePolicy(policy) {
   };
 }
 
-async function oracleForCurrentRevision() {
-  if (hostOracleCacheRevision === networkRevision && hostOracleCachePromise) {
-    return hostOracleCachePromise;
-  }
-  hostOracleCacheRevision = networkRevision;
-  hostOracleCachePromise = (async () => {
-    await agent.loadOracle();
-    return agent.predictOracle(game);
-  })();
-  return hostOracleCachePromise;
+function serializeActorBeliefs(prediction) {
+  if (!prediction) return null;
+  return {
+    value: Number(prediction.value),
+    trickLogits: Array.from(prediction.trickLogits),
+    suitLogits: Array.from(prediction.suitLogits),
+    bidHitLogits: Array.from(prediction.bidHitLogits),
+    rankBoundaryLogits: Array.from(prediction.rankBoundaryLogits),
+    nextWinnerLogits: Array.from(prediction.nextWinnerLogits),
+    playerValues: Array.from(prediction.playerValues),
+  };
 }
 
 async function sendHostInsights(peerId) {
   if (!isHost() || !game || !agent.session || !peerToSeat.has(peerId)) return;
   const preferences = insightPreferences.get(peerId);
-  if (!preferences || (!preferences.action && !preferences.oracle)) return;
+  if (!preferences || (!preferences.action && !preferences.beliefs)) return;
   const seat = peerToSeat.get(peerId);
   if (seat === undefined || !["bidding", "playing"].includes(game.round.phase)) return;
   const revision = networkRevision;
@@ -644,25 +639,20 @@ async function sendHostInsights(peerId) {
           INSIGHT_TEMPERATURE,
         );
     }
-    const oracle = preferences.oracle ? await oracleForCurrentRevision() : null;
     if (revision !== networkRevision) return;
     await multiplayer.send({
       type: "insights",
       revision,
       policy: serializePolicy(policy),
-      prediction: { suitLogits: Array.from(prediction.suitLogits) },
-      oracle: oracle ? {
-        values: Array.from(oracle.values),
-        trickLogits: Array.from(oracle.trickLogits),
-      } : null,
+      prediction: preferences.beliefs ? serializeActorBeliefs(prediction) : null,
     }, peerId);
   } catch (error) {
     if (revision !== networkRevision) return;
     await multiplayer.send({
       type: "insight_error",
       revision,
-      message: preferences.oracle
-        ? "The host could not produce the oracle readout for this turn."
+      message: preferences.beliefs
+        ? "The host could not produce the actor belief readout for this turn."
         : "The host could not produce action probabilities for this turn.",
     }, peerId).catch(() => {});
     console.error("Host insight inference failed.", error);
@@ -672,21 +662,19 @@ async function sendHostInsights(peerId) {
 function requestRemoteInsights() {
   if (multiplayerRole !== "guest" || !multiplayer || !hostPeerId || !game) return;
   predictionRequest += 1;
-  oracleRequest += 1;
   humanPrediction = null;
   humanPolicy = null;
-  oraclePrediction = null;
-  oracleError = "";
-  oracleLoading = dom.oracleToggle.checked;
+  beliefError = "";
+  beliefLoading = dom.beliefToggle.checked;
   render();
   multiplayer.send({
     type: "insight_preferences",
     action: dom.probabilityToggle.checked,
-    oracle: dom.oracleToggle.checked,
+    beliefs: dom.beliefToggle.checked,
     revision: appliedNetworkRevision,
   }, hostPeerId).catch(() => {
-    oracleLoading = false;
-    oracleError = "The host connection was interrupted.";
+    beliefLoading = false;
+    beliefError = "The host connection was interrupted.";
     render();
   });
 }
@@ -720,16 +708,15 @@ function applyNetworkState(message) {
   render();
   if (game.round.phase === "round_over") showRoundResult();
   if (game.round.phase === "game_over") showGameOver();
-  if (dom.probabilityToggle.checked || dom.oracleToggle.checked) requestRemoteInsights();
+  if (dom.probabilityToggle.checked || dom.beliefToggle.checked) requestRemoteInsights();
 }
 
 function applyRemoteInsights(message) {
   if (message.revision !== appliedNetworkRevision) return;
   humanPolicy = deserializePolicy(message.policy);
   humanPrediction = message.prediction;
-  oraclePrediction = message.oracle;
-  oracleLoading = false;
-  oracleError = "";
+  beliefLoading = false;
+  beliefError = "";
   render();
 }
 
@@ -804,7 +791,7 @@ function handleNetworkMessage(message, peerId) {
     if (message.type === "insight_preferences") {
       insightPreferences.set(peerId, {
         action: Boolean(message.action),
-        oracle: Boolean(message.oracle),
+        beliefs: Boolean(message.beliefs),
       });
       sendHostInsights(peerId);
     }
@@ -846,8 +833,8 @@ function handleNetworkMessage(message, peerId) {
     return;
   }
   if (message.type === "insight_error" && message.revision === appliedNetworkRevision) {
-    oracleLoading = false;
-    oracleError = message.message;
+    beliefLoading = false;
+    beliefError = message.message;
     render();
     return;
   }
@@ -901,12 +888,10 @@ function handleNetworkError(message) {
 
 function invalidatePredictionReadouts() {
   predictionRequest += 1;
-  oracleRequest += 1;
   humanPrediction = null;
   humanPolicy = null;
-  oraclePrediction = null;
-  oracleLoading = false;
-  oracleError = "";
+  beliefLoading = false;
+  beliefError = "";
 }
 
 function setStatus(message) {
@@ -1180,11 +1165,31 @@ function renderRoundPlaque() {
   dom.roundPlaque.innerHTML = `<strong>Round ${game.roundIndex + 1} / ${game.schedule.length}</strong>${game.round.handSize} cards · ${trickNumber}`;
 }
 
+function relativePlayerIndex(player) {
+  return (player - localPlayer + game.numPlayers) % game.numPlayers;
+}
+
+function normalizedProbabilities(logits) {
+  const maximum = Math.max(...logits);
+  const weights = logits.map((logit) => Math.exp(logit - maximum));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return weights.map((weight) => weight / total);
+}
+
+function signedValue(value) {
+  if (!Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+}
+
 function topFinalTrickProbabilities(player) {
   const completedTricks = game.round.tricks.filter((trick) => trick.winner !== null).length;
   const unresolved = game.round.handSize - completedTricks;
   const won = game.round.tricksWon[player];
-  const logits = oraclePrediction.trickLogits.slice(player * 11, player * 11 + 11);
+  const relativePlayer = relativePlayerIndex(player);
+  const logits = humanPrediction.trickLogits.slice(
+    relativePlayer * 11,
+    relativePlayer * 11 + 11,
+  );
   const counts = Array.from(
     { length: Math.min(won + unresolved, 10) - won + 1 },
     (_, index) => won + index,
@@ -1209,7 +1214,7 @@ function suitPresenceProbabilities(player) {
     }));
   }
   if (!humanPrediction) return null;
-  const relativePlayer = (player - localPlayer + game.numPlayers) % game.numPlayers;
+  const relativePlayer = relativePlayerIndex(player);
   if (relativePlayer === 0) return null;
   return modelSuits.map((suit, suitIndex) => ({
     suit,
@@ -1217,47 +1222,99 @@ function suitPresenceProbabilities(player) {
   }));
 }
 
+function rankBoundaryProbabilities(player = null) {
+  if (!humanPrediction) return null;
+  const boundaryRows = humanPrediction.rankBoundaryLogits.length / (4 * 2);
+  const row = player === null ? boundaryRows - 1 : relativePlayerIndex(player) - 1;
+  if (row < 0) return null;
+  const heldSuits = new Set(game.round.hands[localPlayer].map((card) => card.suit));
+  return modelSuits
+    .map((suit, suitIndex) => ({
+      suit,
+      lower: sigmoid(humanPrediction.rankBoundaryLogits[(row * 4 + suitIndex) * 2]),
+      higher: sigmoid(humanPrediction.rankBoundaryLogits[(row * 4 + suitIndex) * 2 + 1]),
+    }))
+    .filter((item) => heldSuits.has(item.suit));
+}
+
+function renderProbabilityBadges(items) {
+  return items
+    .map((item) => `<span class="belief-prob"><strong>${item.label}</strong> ${Math.round(item.probability * 100)}%</span>`)
+    .join("");
+}
+
+function renderSuitBadges(items) {
+  return items
+    .map((item) => {
+      const red = ["hearts", "diamonds"].includes(item.suit) ? " is-red" : "";
+      return `<span class="belief-suit${red}">${SUIT_SYMBOL[item.suit]} ${Math.round(item.probability * 100)}%</span>`;
+    })
+    .join("");
+}
+
+function renderRankBounds(items) {
+  if (!items?.length) return '<span class="belief-pending">No held suit has a rank boundary.</span>';
+  return items
+    .map((item) => {
+      const red = ["hearts", "diamonds"].includes(item.suit) ? " is-red" : "";
+      return `<span class="belief-bound${red}">${SUIT_SYMBOL[item.suit]} <em>↓</em>${Math.round(item.lower * 100)}% <em>↑</em>${Math.round(item.higher * 100)}%</span>`;
+    })
+    .join("");
+}
+
 function renderIntel() {
-  const visible = dom.oracleToggle.checked;
+  const visible = dom.beliefToggle.checked;
   dom.intelStrip.hidden = !visible;
   if (!visible) return;
-  dom.intelTitle.textContent = "Oracle + model beliefs";
+  dom.intelTitle.textContent = "Actor belief heads";
 
-  if (oracleLoading) {
-    dom.intelItems.innerHTML = '<span class="oracle-message">Loading the perfect-information oracle…</span>';
+  if (beliefLoading) {
+    dom.intelItems.innerHTML = '<span class="belief-message">Reading the actor belief heads…</span>';
     return;
   }
-  if (oracleError) {
-    dom.intelItems.innerHTML = `<span class="oracle-message is-error">${oracleError}</span>`;
+  if (beliefError) {
+    dom.intelItems.innerHTML = `<span class="belief-message is-error">${escapeHtml(beliefError)}</span>`;
     return;
   }
-  if (!oraclePrediction) {
-    dom.intelItems.innerHTML = '<span class="oracle-message">Oracle readout is available during bidding and play.</span>';
+  if (!humanPrediction) {
+    dom.intelItems.innerHTML = '<span class="belief-message">Actor beliefs are available during bidding and play.</span>';
     return;
   }
 
-  dom.intelItems.innerHTML = Array.from({ length: game.numPlayers }, (_, player) => {
-    const value = oraclePrediction.values[player];
+  const nextWinnerProbabilities = game.round.phase === "playing"
+    ? normalizedProbabilities(humanPrediction.nextWinnerLogits.slice(0, game.numPlayers))
+    : null;
+  const summary = `
+    <section class="belief-summary" aria-label="Actor table-level readout">
+      <header><strong>Your actor · table view</strong><span>Policy value ${signedValue(humanPrediction.value)}</span></header>
+      <div class="belief-line"><b>Any opponent beyond your ranks</b><span class="belief-values">${renderRankBounds(rankBoundaryProbabilities())}</span></div>
+      <div class="belief-line"><b>Rank key</b><span class="belief-note">↓ holds a card below your lowest; ↑ holds one above your highest in that suit.</span></div>
+      <div class="belief-line"><b>Policy heads</b><span class="belief-note">Bid and card probabilities appear on legal actions when Action probabilities is enabled.</span></div>
+    </section>
+  `;
+  const players = Array.from({ length: game.numPlayers }, (_, player) => {
+    const relativePlayer = relativePlayerIndex(player);
     const topTricks = topFinalTrickProbabilities(player)
-      .map((item) => `<span class="oracle-prob"><strong>${item.count}</strong> ${Math.round(item.probability * 100)}%</span>`)
-      .join("");
-    const suitPresence = suitPresenceProbabilities(player);
-    const suits = suitPresence
-      ? suitPresence
-        .map((item) => {
-          const red = ["hearts", "diamonds"].includes(item.suit) ? " is-red" : "";
-          return `<span class="oracle-suit${red}">${SUIT_SYMBOL[item.suit]} ${Math.round(item.probability * 100)}%</span>`;
-        })
-        .join("")
-      : '<span class="oracle-pending">Model belief loading…</span>';
+      .map((item) => ({ label: item.count, probability: item.probability }));
+    const nextWinner = nextWinnerProbabilities
+      ? `${Math.round(nextWinnerProbabilities[relativePlayer] * 100)}%`
+      : "After bidding";
+    const bidHit = `${Math.round(sigmoid(humanPrediction.bidHitLogits[relativePlayer]) * 100)}%`;
+    const rankBounds = player === localPlayer
+      ? '<span class="belief-pending">Visible hand; no opponent-bound row.</span>'
+      : renderRankBounds(rankBoundaryProbabilities(player));
     return `
-      <section class="oracle-player" aria-label="${escapeHtml(playerName(player))} prediction readout">
-        <header><strong>${escapeHtml(playerName(player))}</strong><span>EV ${value >= 0 ? "+" : ""}${value.toFixed(2)}</span></header>
-        <div class="oracle-line"><b>Final tricks · top 3</b><span class="oracle-values">${topTricks}</span></div>
-        <div class="oracle-line"><b>Suit presence · your model</b><span class="oracle-values">${suits}</span></div>
+      <section class="belief-player" aria-label="${escapeHtml(playerName(player))} actor belief readout">
+        <header><strong>${escapeHtml(playerName(player))}</strong><span>Actor EV ${signedValue(humanPrediction.playerValues[relativePlayer])}</span></header>
+        <div class="belief-line"><b>Exact bid</b><span class="belief-values"><span class="belief-prob"><strong>${bidHit}</strong> chance</span></span></div>
+        <div class="belief-line"><b>Final tricks · top 3</b><span class="belief-values">${renderProbabilityBadges(topTricks)}</span></div>
+        <div class="belief-line"><b>Next trick winner</b><span class="belief-values"><span class="belief-prob"><strong>${nextWinner}</strong></span></span></div>
+        <div class="belief-line"><b>${player === localPlayer ? "Known suits" : "Suit presence"}</b><span class="belief-values">${renderSuitBadges(suitPresenceProbabilities(player))}</span></div>
+        <div class="belief-line"><b>Outside your ranks</b><span class="belief-values">${rankBounds}</span></div>
       </section>
     `;
   }).join("");
+  dom.intelItems.innerHTML = summary + players;
 }
 
 function render() {
@@ -1281,21 +1338,29 @@ async function refreshHumanPrediction() {
     predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
+    beliefLoading = false;
+    beliefError = "";
     render();
     return;
   }
-  if (!dom.probabilityToggle.checked && !dom.oracleToggle.checked) {
+  if (!dom.probabilityToggle.checked && !dom.beliefToggle.checked) {
     predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
+    beliefLoading = false;
+    beliefError = "";
     render();
     return;
   }
   const request = ++predictionRequest;
+  beliefLoading = dom.beliefToggle.checked;
+  beliefError = "";
+  render();
   try {
     const prediction = await agent.predict(game, localPlayer);
     if (request !== predictionRequest) return;
     humanPrediction = prediction;
+    beliefLoading = false;
     if (game.round.currentPlayer === localPlayer) {
       if (game.round.phase === "bidding") {
         humanPolicy = legalDistribution(
@@ -1314,57 +1379,21 @@ async function refreshHumanPrediction() {
       humanPolicy = null;
     }
     render();
-  } catch {
+  } catch (error) {
     if (request !== predictionRequest) return;
+    console.error("Actor belief inference failed.", error);
     humanPrediction = null;
     humanPolicy = null;
-    render();
-  }
-}
-
-async function refreshOraclePrediction() {
-  if (multiplayerRole === "guest") return;
-  if (
-    !game ||
-    !dom.oracleToggle.checked ||
-    !["bidding", "playing"].includes(game.round.phase)
-  ) {
-    oracleRequest += 1;
-    oraclePrediction = null;
-    oracleLoading = false;
-    oracleError = "";
-    render();
-    return;
-  }
-  const request = ++oracleRequest;
-  oraclePrediction = null;
-  oracleLoading = true;
-  oracleError = "";
-  render();
-  try {
-    await agent.loadOracle();
-    const prediction = await agent.predictOracle(game);
-    if (request !== oracleRequest) return;
-    oraclePrediction = prediction;
-    oracleLoading = false;
-    render();
-  } catch (error) {
-    if (request !== oracleRequest) return;
-    console.error("Oracle inference failed after retrying.", error);
-    oraclePrediction = null;
-    oracleLoading = false;
-    oracleError = "Oracle readout hit a temporary inference error. Toggle it off and on to retry.";
+    beliefLoading = false;
+    beliefError = dom.beliefToggle.checked
+      ? "The actor belief readout hit a temporary inference error. Toggle it off and on to retry."
+      : "";
     render();
   }
 }
 
 async function refreshPredictions() {
-  if (multiplayerRole === "guest") {
-    requestRemoteInsights();
-    return;
-  }
   await refreshHumanPrediction();
-  await refreshOraclePrediction();
 }
 
 async function chooseBotAction(player) {
@@ -1473,13 +1502,7 @@ async function continueBots() {
 
 async function beginDeal() {
   dealing = true;
-  predictionRequest += 1;
-  oracleRequest += 1;
-  humanPrediction = null;
-  humanPolicy = null;
-  oraclePrediction = null;
-  oracleLoading = false;
-  oracleError = "";
+  invalidatePredictionReadouts();
   setStatus(`Dealing ${game.round.handSize} cards…`);
   render();
   await broadcastGameState();
@@ -1506,13 +1529,7 @@ async function playHumanCard(card) {
     return;
   }
   interactionLocked = true;
-  predictionRequest += 1;
-  oracleRequest += 1;
-  humanPrediction = null;
-  humanPolicy = null;
-  oraclePrediction = null;
-  oracleLoading = false;
-  oracleError = "";
+  invalidatePredictionReadouts();
   const result = game.play(card);
   displayedCompletedTrick = result.completedTrick || null;
   setStatus(`${statusPlayerName(localPlayer)} plays ${cardLabel(card)}.`);
@@ -1886,8 +1903,8 @@ dom.setupProbabilityToggle.addEventListener("change", () => {
   dom.probabilityToggle.checked = dom.setupProbabilityToggle.checked;
 });
 
-dom.setupOracleToggle.addEventListener("change", () => {
-  dom.oracleToggle.checked = dom.setupOracleToggle.checked;
+dom.setupBeliefToggle.addEventListener("change", () => {
+  dom.beliefToggle.checked = dom.setupBeliefToggle.checked;
 });
 
 dom.probabilityToggle.addEventListener("change", () => {
@@ -1895,15 +1912,13 @@ dom.probabilityToggle.addEventListener("change", () => {
   refreshHumanPrediction();
 });
 
-dom.oracleToggle.addEventListener("change", () => {
-  dom.setupOracleToggle.checked = dom.oracleToggle.checked;
-  refreshPredictions();
+dom.beliefToggle.addEventListener("change", () => {
+  dom.setupBeliefToggle.checked = dom.beliefToggle.checked;
+  refreshHumanPrediction();
 });
 
 dom.nextRound.addEventListener("click", async () => {
   if (isMultiplayer() && !isHost()) return;
-  predictionRequest += 1;
-  oracleRequest += 1;
   dom.roundDialog.hidden = true;
   game.startNextRound();
   await beginDeal();
@@ -1911,11 +1926,7 @@ dom.nextRound.addEventListener("click", async () => {
 
 $("[data-new-game]").addEventListener("click", async () => {
   setMobileDrawer("");
-  predictionRequest += 1;
-  oracleRequest += 1;
-  oraclePrediction = null;
-  oracleLoading = false;
-  oracleError = "";
+  invalidatePredictionReadouts();
   if (isMultiplayer()) {
     await leaveMultiplayer();
     window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
@@ -1931,11 +1942,7 @@ $("[data-new-game]").addEventListener("click", async () => {
 
 $("[data-play-again]").addEventListener("click", async () => {
   setMobileDrawer("");
-  predictionRequest += 1;
-  oracleRequest += 1;
-  oraclePrediction = null;
-  oracleLoading = false;
-  oracleError = "";
+  invalidatePredictionReadouts();
   if (isMultiplayer()) {
     await leaveMultiplayer();
     return;

@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Plump — RL Playground</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=mobile-table-2" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=actor-beliefs-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -122,10 +122,10 @@
                       </span>
                     </label>
                     <label>
-                      <input type="checkbox" data-setup-oracle-toggle />
+                      <input type="checkbox" data-setup-belief-toggle />
                       <span>
-                        <strong>Oracle view</strong>
-                        <small>Show perfect-information EV and trick predictions.</small>
+                        <strong>Actor beliefs</strong>
+                        <small>Show every value and belief head from your model's point of view.</small>
                       </span>
                     </label>
                     <p>Each player controls their own view and can change it during the game.</p>
@@ -264,14 +264,14 @@
                   Action probabilities
                 </label>
                 <label class="switch-label">
-                  <input type="checkbox" data-oracle-toggle />
-                  Oracle probabilities
+                  <input type="checkbox" data-belief-toggle />
+                  Actor beliefs
                 </label>
               </div>
             </div>
 
             <div class="intel-strip" data-intel-strip hidden>
-              <span class="intel-title">Oracle + model beliefs</span>
+              <span class="intel-title">Actor belief heads</span>
               <div class="intel-items" data-intel-items></div>
             </div>
           </div>
@@ -381,6 +381,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=checkpoint-46300"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=actor-beliefs-1"></script>
   </body>
 </html>
