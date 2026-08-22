@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Export the trained perfect-information Plump critic for browser inference.
 
-The checkpoint is read-only. Only the oracle critic trunk, per-player value
-head, and final-trick head are retained in the quantized ONNX output.
+The checkpoint is read-only. The oracle critic trunk and all trained oracle
+readouts are retained in the ONNX output: per-player value, final-trick count,
+remaining-card order, and next-trick winner.
 """
 
 from __future__ import annotations
@@ -19,6 +20,13 @@ from onnxruntime.quantization import QuantType, quantize_dynamic
 from onnxruntime.transformers.float16 import convert_float_to_float16
 from onnxruntime.transformers.onnx_model import OnnxModel
 from torch import nn
+
+ORACLE_OUTPUT_NAMES = (
+    "values",
+    "trick_logits",
+    "card_order_logits",
+    "next_winner_logits",
+)
 
 
 class BrowserPlumpOracle(nn.Module):
@@ -43,7 +51,9 @@ class BrowserPlumpOracle(nn.Module):
         trick_logits = model.trick_count_head(hidden).view(
             tokens.shape[0], config.max_players, config.bid_count
         )
-        return values, trick_logits
+        card_order_logits = critic.card_order_head(hidden)
+        next_winner_logits = model.next_winner_head(hidden)
+        return values, trick_logits, card_order_logits, next_winner_logits
 
 
 def sha256(path: Path) -> str:
@@ -107,7 +117,7 @@ def main() -> None:
             (sample,),
             fp32_output,
             input_names=["tokens"],
-            output_names=["values", "trick_logits"],
+            output_names=list(ORACLE_OUTPUT_NAMES),
             dynamic_axes={"tokens": {0: "batch", 1: "sequence"}},
             opset_version=18,
             dynamo=False,
@@ -141,6 +151,7 @@ def main() -> None:
         "modelFormatVersion": int(payload["model_format_version"]),
         "precision": args.precision,
         "quantization": "dynamic-int8" if args.precision == "int8" else "none",
+        "outputs": list(ORACLE_OUTPUT_NAMES),
         "modelConfig": payload["model_config"],
         "file": args.output.name,
         "bytes": args.output.stat().st_size,

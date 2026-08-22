@@ -22,6 +22,18 @@ from onnxruntime.quantization import QuantType, quantize_dynamic
 from onnxruntime.transformers.float16 import convert_float_to_float16
 from onnxruntime.transformers.onnx_model import OnnxModel
 
+ACTOR_OUTPUT_NAMES = (
+    "bid_logits",
+    "card_logits",
+    "value",
+    "trick_logits",
+    "suit_logits",
+    "bid_hit_logits",
+    "rank_boundary_logits",
+    "next_winner_logits",
+    "player_values",
+)
+
 
 class BrowserPlumpModel(nn.Module):
     """ONNX-friendly wrapper returning only the final sequence position.
@@ -59,6 +71,8 @@ class BrowserPlumpModel(nn.Module):
         rank_boundary_logits = model.rank_boundary_head(hidden).view(
             tokens.shape[0], config.belief_opponents + 1, 4, 2
         )
+        next_winner_logits = model.next_winner_head(hidden)
+        player_values = model.player_value_head(hidden)
         return (
             bid_logits,
             card_logits,
@@ -67,6 +81,8 @@ class BrowserPlumpModel(nn.Module):
             suit_logits,
             bid_hit_logits,
             rank_boundary_logits,
+            next_winner_logits,
+            player_values,
         )
 
 
@@ -130,15 +146,7 @@ def main() -> None:
             (sample,),
             fp32_output,
             input_names=["tokens"],
-            output_names=[
-                "bid_logits",
-                "card_logits",
-                "value",
-                "trick_logits",
-                "suit_logits",
-                "bid_hit_logits",
-                "rank_boundary_logits",
-            ],
+            output_names=list(ACTOR_OUTPUT_NAMES),
             dynamic_axes={"tokens": {0: "batch", 1: "sequence"}},
             opset_version=18,
             dynamo=False,
@@ -175,6 +183,7 @@ def main() -> None:
         "modelFormatVersion": int(payload["model_format_version"]),
         "precision": args.precision,
         "quantization": "dynamic-int8" if args.precision == "int8" else "none",
+        "outputs": list(ACTOR_OUTPUT_NAMES),
         "modelConfig": payload["model_config"],
         "file": args.output.name,
         "bytes": args.output.stat().st_size,

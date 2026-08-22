@@ -120,21 +120,49 @@ def main() -> None:
             actor_rows = np.asarray(case["expected"]["0"], dtype=np.int64)[None]
             oracle_rows = np.asarray(case["expectedOracle"], dtype=np.int64)[None]
 
-            reference = model.forward_full(torch.from_numpy(actor_rows))
-            ref_bid = reference.bid_logits[:, -1].numpy()
-            ref_card = reference.card_logits[:, -1].numpy()
-            ref_values, _ = critic.forward_value_and_trick(
-                torch.from_numpy(oracle_rows)
-            )
-            ref_values = ref_values[:, -1].numpy()
+            actor_tokens = torch.from_numpy(actor_rows)
+            actor_hidden = model.forward_hidden(actor_tokens)[:, -1]
+            actor_expected = {
+                "bid_logits": model.bid_head(actor_hidden).numpy(),
+                "card_logits": model._card_logits(actor_hidden).numpy(),
+                "value": model.value_head(actor_hidden).squeeze(-1).numpy(),
+                "trick_logits": model.trick_count_head(actor_hidden).view(
+                    actor_tokens.shape[0], config.max_players, config.bid_count
+                ).numpy(),
+                "suit_logits": model.suit_presence_head(actor_hidden).view(
+                    actor_tokens.shape[0], config.belief_opponents, 4
+                ).numpy(),
+                "bid_hit_logits": model.bid_hit_head(actor_hidden).numpy(),
+                "rank_boundary_logits": model.rank_boundary_head(actor_hidden).view(
+                    actor_tokens.shape[0], config.belief_opponents + 1, 4, 2
+                ).numpy(),
+                "next_winner_logits": model.next_winner_head(actor_hidden).numpy(),
+                "player_values": model.player_value_head(actor_hidden).numpy(),
+            }
+
+            oracle_tokens = torch.from_numpy(oracle_rows)
+            oracle_hidden = critic.backbone.forward_hidden(oracle_tokens)[:, -1]
+            oracle_expected = {
+                "values": critic.player_value_head(oracle_hidden).numpy(),
+                "trick_logits": critic.backbone.trick_count_head(oracle_hidden).view(
+                    oracle_tokens.shape[0], config.max_players, config.bid_count
+                ).numpy(),
+                "card_order_logits": critic.card_order_head(oracle_hidden).numpy(),
+                "next_winner_logits": critic.backbone.next_winner_head(
+                    oracle_hidden
+                ).numpy(),
+            }
 
             for key in ("fp32", "fp16"):
                 out = run_session(graphs[key], actor_rows)
                 tolerance = TOLERANCE[key]
-                for name, expected, actual in (
-                    ("bid", ref_bid, out["bid_logits"]),
-                    ("card", ref_card, out["card_logits"]),
-                ):
+                if set(out) != set(actor_expected):
+                    raise SystemExit(
+                        f"Actor {key} outputs {sorted(out)}, expected "
+                        f"{sorted(actor_expected)}."
+                    )
+                for name, expected in actor_expected.items():
+                    actual = out[name]
                     gap = float(np.abs(expected - actual).max())
                     worst[f"actor-{key}-{name}"] = max(
                         worst.get(f"actor-{key}-{name}", 0.0), gap
@@ -144,19 +172,28 @@ def main() -> None:
                             f"{case['name']}: actor {key} {name} logits differ "
                             f"by {gap:.3e} (limit {tolerance:.0e})"
                         )
-                    if expected.argmax(-1) != actual.argmax(-1):
+                    if name in {"bid_logits", "card_logits"} and not np.array_equal(
+                        expected.argmax(-1), actual.argmax(-1)
+                    ):
                         raise SystemExit(
                             f"{case['name']}: actor {key} {name} argmax differs "
                             f"-- the browser would pick a different action."
                         )
 
             out = run_session(graphs["oracleManifest"], oracle_rows)
-            gap = float(np.abs(ref_values - out["values"]).max())
-            worst["oracle-values"] = max(worst.get("oracle-values", 0.0), gap)
-            if gap > TOLERANCE["fp32"]:
+            if set(out) != set(oracle_expected):
                 raise SystemExit(
-                    f"{case['name']}: oracle values differ by {gap:.3e}"
+                    f"Oracle outputs {sorted(out)}, expected {sorted(oracle_expected)}."
                 )
+            for name, expected in oracle_expected.items():
+                gap = float(np.abs(expected - out[name]).max())
+                worst[f"oracle-{name}"] = max(
+                    worst.get(f"oracle-{name}", 0.0), gap
+                )
+                if gap > TOLERANCE["fp32"]:
+                    raise SystemExit(
+                        f"{case['name']}: oracle {name} differs by {gap:.3e}"
+                    )
 
     print(f"Checked {len(cases)} fixture states against {args.checkpoint.name}:")
     for name, gap in sorted(worst.items()):

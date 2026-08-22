@@ -2,7 +2,7 @@ import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/o
 import {
   PLUMP_MODEL_CONFIG,
   configuredActorPrecision,
-} from "./model-config.js";
+} from "./model-config.js?v=46300";
 import {
   MODEL_LIMITS,
   SUITS,
@@ -176,6 +176,8 @@ export class BrowserPpoAgent {
       suitLogits: [...output.suit_logits.data],
       bidHitLogits: [...output.bid_hit_logits.data],
       rankBoundaryLogits: [...output.rank_boundary_logits.data],
+      nextWinnerLogits: [...output.next_winner_logits.data],
+      playerValues: [...output.player_values.data],
     };
   }
 
@@ -239,6 +241,8 @@ export class BrowserPpoAgent {
     return {
       values: [...output.values.data],
       trickLogits: [...output.trick_logits.data],
+      cardOrderLogits: [...output.card_order_logits.data],
+      nextWinnerLogits: [...output.next_winner_logits.data],
     };
   }
 }

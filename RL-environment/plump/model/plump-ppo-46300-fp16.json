@@ -1,0 +1,39 @@
+{
+  "format": "onnx",
+  "checkpoint": "iter_046300.pt",
+  "iteration": 46300,
+  "schemaVersion": 6,
+  "modelFormatVersion": 6,
+  "precision": "fp16",
+  "quantization": "none",
+  "outputs": [
+    "bid_logits",
+    "card_logits",
+    "value",
+    "trick_logits",
+    "suit_logits",
+    "bid_hit_logits",
+    "rank_boundary_logits",
+    "next_winner_logits",
+    "player_values"
+  ],
+  "modelConfig": {
+    "schema_version": 6,
+    "max_players": 5,
+    "max_hand_size": 10,
+    "trick_win_token": true,
+    "turn_token": "bid",
+    "embedding_rms_norm": true,
+    "d_model": 384,
+    "n_layers": 6,
+    "n_heads": 12,
+    "n_kv_heads": 2,
+    "d_ff": 1152,
+    "dropout": 0.0,
+    "per_layer_embedding_dim": 128,
+    "value_embedding_mode": "alternating"
+  },
+  "file": "plump-ppo-46300-fp16.onnx",
+  "bytes": 17554445,
+  "sha256": "ca33fb16e1ba88fc5486cb52802d86620f29a9d43c3b8e6394c9132cdb533be8"
+}
