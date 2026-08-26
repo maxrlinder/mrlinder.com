@@ -28,7 +28,6 @@ ACTOR_OUTPUT_NAMES = (
     "value",
     "trick_logits",
     "suit_logits",
-    "bid_hit_logits",
     "rank_boundary_logits",
     "next_winner_logits",
     "player_values",
@@ -67,7 +66,6 @@ class BrowserPlumpModel(nn.Module):
         suit_logits = model.suit_presence_head(hidden).view(
             tokens.shape[0], config.belief_opponents, 4
         )
-        bid_hit_logits = model.bid_hit_head(hidden)
         rank_boundary_logits = model.rank_boundary_head(hidden).view(
             tokens.shape[0], config.belief_opponents + 1, 4, 2
         )
@@ -79,7 +77,6 @@ class BrowserPlumpModel(nn.Module):
             value,
             trick_logits,
             suit_logits,
-            bid_hit_logits,
             rank_boundary_logits,
             next_winner_logits,
             player_values,
@@ -154,7 +151,7 @@ def main() -> None:
 
     if args.precision == "int8":
         # Dynamic int8 weight quantization keeps the complete actor architecture
-        # and every auxiliary head while reducing the browser payload by ~73%.
+        # and every browser-consumed auxiliary head while reducing the payload.
         quantize_dynamic(
             fp32_output,
             args.output,

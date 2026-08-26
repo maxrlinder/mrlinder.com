@@ -132,7 +132,6 @@ def main() -> None:
                 "suit_logits": model.suit_presence_head(actor_hidden).view(
                     actor_tokens.shape[0], config.belief_opponents, 4
                 ).numpy(),
-                "bid_hit_logits": model.bid_hit_head(actor_hidden).numpy(),
                 "rank_boundary_logits": model.rank_boundary_head(actor_hidden).view(
                     actor_tokens.shape[0], config.belief_opponents + 1, 4, 2
                 ).numpy(),

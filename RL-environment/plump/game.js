@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=53000";
+} from "./model-client.js?v=57700";
 import {
   generateRoomCode,
   normalizeRoomCode,
@@ -613,7 +613,6 @@ function serializeActorBeliefs(prediction) {
     value: Number(prediction.value),
     trickLogits: Array.from(prediction.trickLogits),
     suitLogits: Array.from(prediction.suitLogits),
-    bidHitLogits: Array.from(prediction.bidHitLogits),
     rankBoundaryLogits: Array.from(prediction.rankBoundaryLogits),
     nextWinnerLogits: Array.from(prediction.nextWinnerLogits),
     playerValues: Array.from(prediction.playerValues),
@@ -1299,14 +1298,12 @@ function renderIntel() {
     const nextWinner = nextWinnerProbabilities
       ? `${Math.round(nextWinnerProbabilities[relativePlayer] * 100)}%`
       : "After bidding";
-    const bidHit = `${Math.round(sigmoid(humanPrediction.bidHitLogits[relativePlayer]) * 100)}%`;
     const rankBounds = player === localPlayer
       ? '<span class="belief-pending">Visible hand; no opponent-bound row.</span>'
       : renderRankBounds(rankBoundaryProbabilities(player));
     return `
       <section class="belief-player" aria-label="${escapeHtml(playerName(player))} actor belief readout">
         <header><strong>${escapeHtml(playerName(player))}</strong><span>Actor EV ${signedValue(humanPrediction.playerValues[relativePlayer])}</span></header>
-        <div class="belief-line"><b>Exact bid</b><span class="belief-values"><span class="belief-prob"><strong>${bidHit}</strong> chance</span></span></div>
         <div class="belief-line"><b>Final tricks · top 3</b><span class="belief-values">${renderProbabilityBadges(topTricks)}</span></div>
         <div class="belief-line"><b>Next trick winner</b><span class="belief-values"><span class="belief-prob"><strong>${nextWinner}</strong></span></span></div>
         <div class="belief-line"><b>${player === localPlayer ? "Known suits" : "Suit presence"}</b><span class="belief-values">${renderSuitBadges(suitPresenceProbabilities(player))}</span></div>
