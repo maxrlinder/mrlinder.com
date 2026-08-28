@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=68500";
+} from "./model-client.js?v=68500-ev1";
 import {
   generateRoomCode,
   normalizeRoomCode,
@@ -610,7 +610,6 @@ function deserializePolicy(policy) {
 function serializeActorBeliefs(prediction) {
   if (!prediction) return null;
   return {
-    value: Number(prediction.value),
     trickLogits: Array.from(prediction.trickLogits),
     suitLogits: Array.from(prediction.suitLogits),
     rankBoundaryLogits: Array.from(prediction.rankBoundaryLogits),
@@ -1285,7 +1284,7 @@ function renderIntel() {
     : null;
   const summary = `
     <section class="belief-summary" aria-label="Actor table-level readout">
-      <header><strong>Your actor · table view</strong><span>Policy value ${signedValue(humanPrediction.value)}</span></header>
+      <header><strong>Your actor · table view</strong><span>Zero-sum EV</span></header>
       <div class="belief-line"><b>Any opponent beyond your ranks</b><span class="belief-values">${renderRankBounds(rankBoundaryProbabilities())}</span></div>
       <div class="belief-line"><b>Rank key</b><span class="belief-note">↓ holds a card below your lowest; ↑ holds one above your highest in that suit.</span></div>
       <div class="belief-line"><b>Policy heads</b><span class="belief-note">Bid and card probabilities appear on legal actions when Action probabilities is enabled.</span></div>

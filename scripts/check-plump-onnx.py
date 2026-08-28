@@ -75,12 +75,13 @@ def main() -> None:
     args = parser.parse_args()
 
     sys.path.insert(0, str(args.plump_source.resolve()))
-    from plump.seq.config import SeqModelConfig
+    from plump.seq.config import SLOT_NUM_PLAYERS, SeqModelConfig
     from plump.seq.model import (
         SeqPPOOracleCritic,
         SeqPlumpModel,
         load_seq_model_state_dict,
     )
+    from plump.seq.ppo import center_zero_sum_values
 
     model_dir = root / "RL-environment" / "plump" / "model"
     manifests = live_manifests(root / "RL-environment" / "plump" / "model-config.js")
@@ -122,10 +123,10 @@ def main() -> None:
 
             actor_tokens = torch.from_numpy(actor_rows)
             actor_hidden = model.forward_hidden(actor_tokens)[:, -1]
+            actor_players = actor_tokens[:, -1, SLOT_NUM_PLAYERS]
             actor_expected = {
                 "bid_logits": model.bid_head(actor_hidden).numpy(),
                 "card_logits": model._card_logits(actor_hidden).numpy(),
-                "value": model.value_head(actor_hidden).squeeze(-1).numpy(),
                 "trick_logits": model.trick_count_head(actor_hidden).view(
                     actor_tokens.shape[0], config.max_players, config.bid_count
                 ).numpy(),
@@ -136,13 +137,18 @@ def main() -> None:
                     actor_tokens.shape[0], config.belief_opponents + 1, 4, 2
                 ).numpy(),
                 "next_winner_logits": model.next_winner_head(actor_hidden).numpy(),
-                "player_values": model.player_value_head(actor_hidden).numpy(),
+                "player_values": center_zero_sum_values(
+                    model.player_value_head(actor_hidden), actor_players
+                ).numpy(),
             }
 
             oracle_tokens = torch.from_numpy(oracle_rows)
             oracle_hidden = critic.backbone.forward_hidden(oracle_tokens)[:, -1]
+            oracle_players = oracle_tokens[:, -1, SLOT_NUM_PLAYERS]
             oracle_expected = {
-                "values": critic.player_value_head(oracle_hidden).numpy(),
+                "values": center_zero_sum_values(
+                    critic.player_value_head(oracle_hidden), oracle_players
+                ).numpy(),
                 "trick_logits": critic.backbone.trick_count_head(oracle_hidden).view(
                     oracle_tokens.shape[0], config.max_players, config.bid_count
                 ).numpy(),
@@ -178,6 +184,22 @@ def main() -> None:
                             f"{case['name']}: actor {key} {name} argmax differs "
                             f"-- the browser would pick a different action."
                         )
+                players = int(actor_rows[0, -1, SLOT_NUM_PLAYERS])
+                active_sum = float(abs(out["player_values"][0, :players].sum()))
+                padded_max = float(
+                    np.abs(out["player_values"][0, players:]).max(initial=0.0)
+                )
+                worst[f"actor-{key}-value-sum"] = max(
+                    worst.get(f"actor-{key}-value-sum", 0.0), active_sum
+                )
+                worst[f"actor-{key}-value-padding"] = max(
+                    worst.get(f"actor-{key}-value-padding", 0.0), padded_max
+                )
+                if active_sum > tolerance or padded_max > tolerance:
+                    raise SystemExit(
+                        f"{case['name']}: actor {key} EV output is not zero-sum "
+                        f"(sum {active_sum:.3e}, padding {padded_max:.3e})."
+                    )
 
             out = run_session(graphs["oracleManifest"], oracle_rows)
             if set(out) != set(oracle_expected):
@@ -193,6 +215,25 @@ def main() -> None:
                     raise SystemExit(
                         f"{case['name']}: oracle {name} differs by {gap:.3e}"
                     )
+            players = int(oracle_rows[0, -1, SLOT_NUM_PLAYERS])
+            active_sum = float(abs(out["values"][0, :players].sum()))
+            padded_max = float(
+                np.abs(out["values"][0, players:]).max(initial=0.0)
+            )
+            worst["oracle-value-sum"] = max(
+                worst.get("oracle-value-sum", 0.0), active_sum
+            )
+            worst["oracle-value-padding"] = max(
+                worst.get("oracle-value-padding", 0.0), padded_max
+            )
+            if (
+                active_sum > TOLERANCE["fp32"]
+                or padded_max > TOLERANCE["fp32"]
+            ):
+                raise SystemExit(
+                    f"{case['name']}: oracle EV output is not zero-sum "
+                    f"(sum {active_sum:.3e}, padding {padded_max:.3e})."
+                )
 
     print(f"Checked {len(cases)} fixture states against {args.checkpoint.name}:")
     for name, gap in sorted(worst.items()):

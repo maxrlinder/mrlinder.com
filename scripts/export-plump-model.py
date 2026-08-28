@@ -22,10 +22,11 @@ from onnxruntime.quantization import QuantType, quantize_dynamic
 from onnxruntime.transformers.float16 import convert_float_to_float16
 from onnxruntime.transformers.onnx_model import OnnxModel
 
+from plump_export_compat import center_active_player_values
+
 ACTOR_OUTPUT_NAMES = (
     "bid_logits",
     "card_logits",
-    "value",
     "trick_logits",
     "suit_logits",
     "rank_boundary_logits",
@@ -44,9 +45,10 @@ class BrowserPlumpModel(nn.Module):
     embeddings, and attention value embeddings.
     """
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: nn.Module, num_players_slot: int) -> None:
         super().__init__()
         self.model = model
+        self.num_players_slot = num_players_slot
 
     def forward(self, tokens: torch.Tensor):
         model = self.model
@@ -59,7 +61,6 @@ class BrowserPlumpModel(nn.Module):
             model.effective_card_output_weight(),
             model.card_head.bias,
         )
-        value = model.value_head(hidden).squeeze(-1)
         trick_logits = model.trick_count_head(hidden).view(
             tokens.shape[0], config.max_players, config.bid_count
         )
@@ -70,11 +71,15 @@ class BrowserPlumpModel(nn.Module):
             tokens.shape[0], config.belief_opponents + 1, 4, 2
         )
         next_winner_logits = model.next_winner_head(hidden)
-        player_values = model.player_value_head(hidden)
+        player_values = center_active_player_values(
+            model.player_value_head(hidden),
+            tokens,
+            num_players_slot=self.num_players_slot,
+            max_players=config.max_players,
+        )
         return (
             bid_logits,
             card_logits,
-            value,
             trick_logits,
             suit_logits,
             rank_boundary_logits,
@@ -115,7 +120,7 @@ def main() -> None:
         onnx_export_patches,
         sample_tokens,
     )
-    from plump.seq.config import SeqModelConfig
+    from plump.seq.config import SLOT_NUM_PLAYERS, SeqModelConfig
     from plump.seq.model import SeqPlumpModel, load_seq_model_state_dict
 
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
@@ -124,7 +129,7 @@ def main() -> None:
     model = SeqPlumpModel(config)
     load_seq_model_state_dict(model, payload["model_state_dict"])
     model.eval()
-    wrapper = BrowserPlumpModel(model).eval()
+    wrapper = BrowserPlumpModel(model, SLOT_NUM_PLAYERS).eval()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fp32_output = (

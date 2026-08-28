@@ -24,6 +24,27 @@ import torch
 import torch.nn.functional as F
 
 
+def center_active_player_values(
+    values: torch.Tensor,
+    tokens: torch.Tensor,
+    *,
+    num_players_slot: int,
+    max_players: int,
+) -> torch.Tensor:
+    """Apply the training-time zero-sum projection to browser EV outputs."""
+
+    player_counts = tokens[:, -1, num_players_slot]
+    active = (
+        torch.arange(max_players, device=values.device)[None, :]
+        < player_counts[:, None]
+    )
+    active_float = active.to(values.dtype)
+    mean = (values * active_float).sum(dim=-1, keepdim=True) / player_counts[
+        :, None
+    ].to(values.dtype)
+    return (values - mean) * active_float
+
+
 @contextmanager
 def onnx_export_patches(plump_source_on_path: bool = True):
     """Make ``SeqPlumpModel.forward_hidden`` traceable by ``torch.onnx.export``.

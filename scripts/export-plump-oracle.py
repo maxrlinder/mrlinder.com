@@ -21,6 +21,8 @@ from onnxruntime.transformers.float16 import convert_float_to_float16
 from onnxruntime.transformers.onnx_model import OnnxModel
 from torch import nn
 
+from plump_export_compat import center_active_player_values
+
 ORACLE_OUTPUT_NAMES = (
     "values",
     "trick_logits",
@@ -37,9 +39,10 @@ class BrowserPlumpOracle(nn.Module):
     drift-prone transcription of it.
     """
 
-    def __init__(self, critic: nn.Module) -> None:
+    def __init__(self, critic: nn.Module, num_players_slot: int) -> None:
         super().__init__()
         self.critic = critic
+        self.num_players_slot = num_players_slot
 
     def forward(self, tokens: torch.Tensor):
         critic = self.critic
@@ -47,7 +50,12 @@ class BrowserPlumpOracle(nn.Module):
         config = critic.config
 
         hidden = model.forward_hidden(tokens)[:, -1]
-        values = critic.player_value_head(hidden)
+        values = center_active_player_values(
+            critic.player_value_head(hidden),
+            tokens,
+            num_players_slot=self.num_players_slot,
+            max_players=config.max_players,
+        )
         trick_logits = model.trick_count_head(hidden).view(
             tokens.shape[0], config.max_players, config.bid_count
         )
@@ -88,7 +96,7 @@ def main() -> None:
         onnx_export_patches,
         sample_tokens,
     )
-    from plump.seq.config import SeqModelConfig
+    from plump.seq.config import SLOT_NUM_PLAYERS, SeqModelConfig
     from plump.seq.model import SeqPPOOracleCritic
 
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
@@ -99,7 +107,7 @@ def main() -> None:
     critic = SeqPPOOracleCritic(config)
     critic.load_state_dict(payload["critic_state_dict"])
     critic.eval()
-    wrapper = BrowserPlumpOracle(critic).eval()
+    wrapper = BrowserPlumpOracle(critic, SLOT_NUM_PLAYERS).eval()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fp32_output = (
