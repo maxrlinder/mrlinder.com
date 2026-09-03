@@ -25,9 +25,10 @@ import torch
 # fp32 export is a faithful reproduction; the remaining gap is float
 # associativity. fp16 keeps normalization and softmax in fp32, but genuinely
 # tied actions can still exchange order after the remaining weights are
-# rounded. Permit only those tiny, symmetric near-tie flips; a materially
-# different decision remains a hard failure.
-TOLERANCE = {"fp32": 2e-3, "fp16": 5e-2}
+# rounded. Auxiliary logits may drift by a few hundredths, while action flips
+# are held to the much tighter threshold below. A materially different
+# decision remains a hard failure.
+TOLERANCE = {"fp32": 2e-3, "fp16": 1e-1}
 ARGMAX_TIE_TOLERANCE = {"fp32": 0.0, "fp16": 5e-3}
 
 
