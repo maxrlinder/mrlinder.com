@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Plump — RL Playground</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=actor-beliefs-1" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=ai-replay-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -334,6 +334,10 @@
               <p class="score-legend">
                 During a round, cells show the bid. After scoring: 11 = hit a
                 bid of 1, 12 = hit 2, 05 = hit zero, 00 = missed bid.
+                <span class="score-legend-ai"><strong>AI</strong> scores in the
+                top-right replay that exact deal with the agent controlling
+                every seat at argmax. They are a benchmark and never change
+                the real score.</span>
               </p>
             </aside>
           </div>
@@ -381,6 +385,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=97100-ev1"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=97100-ev2"></script>
   </body>
 </html>

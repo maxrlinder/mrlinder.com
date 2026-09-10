@@ -1242,6 +1242,7 @@
 
 .score-table th,
 .score-table td {
+  position: relative;
   height: 34px;
   padding: 4px 2px;
   border-right: 1px dotted var(--rule);
@@ -1270,6 +1271,30 @@
 .score-table td.is-hit { color: #006e2d; font-weight: bold; }
 .score-table td.is-miss { color: var(--red); }
 
+.score-table td.has-ai-score {
+  padding-top: 9px;
+}
+
+.score-cell-value {
+  display: inline-block;
+}
+
+.score-ai {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #55554f;
+  font: bold 7px/1 var(--mono);
+  letter-spacing: -.04em;
+  white-space: nowrap;
+}
+
+.score-ai.is-pending,
+.score-ai.is-unavailable {
+  color: var(--muted);
+  font-weight: normal;
+}
+
 .score-bid {
   display: inline-block;
   min-width: 18px;
@@ -1290,6 +1315,11 @@
   border-top: 1px solid var(--ink);
   color: var(--muted);
   font: 9px/1.45 var(--mono);
+}
+
+.score-legend-ai {
+  display: block;
+  margin-top: 6px;
 }
 
 .game-loading {
