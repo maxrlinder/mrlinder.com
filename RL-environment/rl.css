@@ -874,7 +874,7 @@
   width: 62px;
   aspect-ratio: 90 / 126;
   filter: drop-shadow(3px 3px 0 rgba(0,0,0,.3));
-  animation: card-to-table 820ms cubic-bezier(.22,.7,.22,1) both;
+  animation: card-to-table 410ms cubic-bezier(.22,.7,.22,1) both;
 }
 
 .trick-card > img { display: block; width: 100%; }

@@ -15,9 +15,9 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const wait = (milliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const BOT_THINK_MS = 440;
-const CARD_SETTLE_MS = 900;
-const TRICK_RESULT_HOLD_MS = 1200;
+const BOT_THINK_MS = 220;
+const CARD_SETTLE_MS = 450;
+const TRICK_RESULT_HOLD_MS = 600;
 
 const SUIT_SYMBOL = {
   spades: "♠",
@@ -399,6 +399,7 @@ let beliefError = "";
 let lastStatus = "";
 let displayedCompletedTrick = null;
 let gameSequence = 0;
+let aiReplayTasks = new Map();
 let localPlayer = 0;
 let playerNames = [];
 let aiPlayers = new Set();
@@ -758,7 +759,7 @@ async function handleRemotePlayerAction(message, peerId) {
   }
   interactionLocked = false;
   if (["round_over", "game_over"].includes(game.round.phase)) {
-    await ensureAiComparison();
+    finalizeAiComparison();
   }
   if (game.round.phase === "round_over") {
     setStatus("Round complete. Entered on the score sheet.");
@@ -1493,12 +1494,14 @@ function createAiReplayGame(sourceGame) {
   });
 }
 
-async function replayRoundWithArgmaxAi(sourceGame) {
+async function replayRoundWithArgmaxAi(sourceGame, isCancelled = () => false) {
   if (!agent.session) throw new Error("The policy checkpoint is not available.");
   const replay = createAiReplayGame(sourceGame);
   while (["bidding", "playing"].includes(replay.round.phase)) {
+    if (isCancelled()) return null;
     const player = replay.round.currentPlayer;
     const prediction = await agent.predict(replay, player);
+    if (isCancelled()) return null;
     if (replay.round.phase === "bidding") {
       const action = legalDistribution(
         prediction.bidLogits,
@@ -1506,6 +1509,7 @@ async function replayRoundWithArgmaxAi(sourceGame) {
         0,
       ).argmax;
       replay.bid(action);
+      await wait(0);
       continue;
     }
 
@@ -1518,39 +1522,94 @@ async function replayRoundWithArgmaxAi(sourceGame) {
     const card = legal.find((candidate) => modelCardId(candidate) === action);
     if (!card) throw new Error("The policy selected a card outside its legal hand.");
     replay.play(card);
+    await wait(0);
   }
   return replay.completedRounds[0];
 }
 
-async function ensureAiComparison() {
-  if (!game || multiplayerRole === "guest") return;
-  const comparisonGame = game;
-  const completed = comparisonGame.completedRounds.at(-1);
-  if (!completed || completed.aiComparison?.status !== "pending") return;
+function recalculateAiScores(targetGame) {
+  const totals = Array(targetGame.numPlayers).fill(0);
+  for (const round of targetGame.completedRounds) {
+    if (round.aiComparison?.status !== "complete") continue;
+    round.aiComparison.points.forEach((points, player) => {
+      totals[player] += points;
+    });
+    round.aiComparison.cumulative = [...totals];
+  }
+  targetGame.aiScores = totals;
+}
 
-  setStatus("Round complete · replaying the same deal with AI at argmax…");
-  render();
-  await broadcastGameState();
-  try {
-    const replay = await replayRoundWithArgmaxAi(comparisonGame);
-    if (game !== comparisonGame) return;
-    comparisonGame.aiScores = comparisonGame.aiScores.map(
-      (total, player) => total + replay.points[player],
-    );
+function applyAiReplayTask(task) {
+  if (task.applied || task.status === "pending") return false;
+  const completed = task.game.completedRounds[task.roundIndex];
+  if (!completed) return false;
+
+  task.applied = true;
+  if (task.status === "complete") {
     completed.aiComparison = {
       status: "complete",
-      bids: [...replay.bids],
-      tricksWon: [...replay.tricksWon],
-      points: [...replay.points],
-      cumulative: [...comparisonGame.aiScores],
+      bids: [...task.result.bids],
+      tricksWon: [...task.result.tricksWon],
+      points: [...task.result.points],
+      cumulative: [],
     };
-  } catch (error) {
-    if (game !== comparisonGame) return;
+    recalculateAiScores(task.game);
+  } else {
     completed.aiComparison = { status: "unavailable" };
-    console.error("Argmax AI round replay failed.", error);
   }
-  render();
-  await broadcastGameState();
+  return true;
+}
+
+function startAiReplayForCurrentRound() {
+  if (
+    !game ||
+    multiplayerRole === "guest" ||
+    aiReplayTasks.has(game.roundIndex)
+  ) return;
+  const task = {
+    game,
+    roundIndex: game.roundIndex,
+    status: "pending",
+    result: null,
+    applied: false,
+    cancelled: false,
+  };
+  aiReplayTasks.set(task.roundIndex, task);
+  task.promise = replayRoundWithArgmaxAi(task.game, () => task.cancelled)
+    .then((result) => {
+      if (!result || task.cancelled) {
+        task.status = "cancelled";
+        return;
+      }
+      task.status = "complete";
+      task.result = result;
+    })
+    .catch((error) => {
+      task.status = "unavailable";
+      console.error("Argmax AI round replay failed.", error);
+    })
+    .then(() => {
+      if (task.cancelled || game !== task.game || !applyAiReplayTask(task)) return;
+      render();
+      broadcastGameState().catch(() => {});
+    });
+}
+
+function resetAiReplayTasks() {
+  for (const task of aiReplayTasks.values()) task.cancelled = true;
+  aiReplayTasks = new Map();
+}
+
+function finalizeAiComparison() {
+  if (!game || multiplayerRole === "guest") return;
+  const task = aiReplayTasks.get(game.roundIndex);
+  const completed = game.completedRounds.at(-1);
+  if (!completed || completed.aiComparison?.status !== "pending") return;
+  if (!task) {
+    completed.aiComparison = { status: "unavailable" };
+    return;
+  }
+  applyAiReplayTask(task);
 }
 
 function showRoundResult() {
@@ -1609,7 +1668,7 @@ async function continueBots() {
   }
   interactionLocked = false;
   if (["round_over", "game_over"].includes(game.round.phase)) {
-    await ensureAiComparison();
+    finalizeAiComparison();
   }
   if (game.round.phase === "round_over") {
     setStatus("Round complete. Entered on the score sheet.");
@@ -1634,6 +1693,7 @@ async function beginDeal() {
   invalidatePredictionReadouts();
   setStatus(`Dealing ${game.round.handSize} cards…`);
   render();
+  startAiReplayForCurrentRound();
   await broadcastGameState();
   await wait(reducedMotion ? 0 : 720);
   dealing = false;
@@ -1668,7 +1728,7 @@ async function playHumanCard(card) {
   interactionLocked = false;
   render();
   if (["round_over", "game_over"].includes(game.round.phase)) {
-    await ensureAiComparison();
+    finalizeAiComparison();
   }
   if (game.round.phase === "round_over") {
     showRoundResult();
@@ -1749,6 +1809,7 @@ async function startSoloGame(form) {
   aiPlayers = new Set(Array.from({ length: opponents }, (_, index) => index + 1));
   dom.liveTableBadge.hidden = true;
   const fallback = await loadHostAgent();
+  resetAiReplayTasks();
   gameSequence += 1;
   game = new PlumpGame({
     opponents,
@@ -1871,6 +1932,7 @@ async function startHostedGame() {
   multiplayerPhase = "playing";
   networkRevision = 0;
   appliedNetworkRevision = -1;
+  resetAiReplayTasks();
   gameSequence += 1;
   game = new PlumpGame({ numPlayers: totalPlayers, minimum, maximum });
   dom.setup.hidden = true;
@@ -1901,6 +1963,7 @@ async function leaveMultiplayer({ preserveError = false } = {}) {
   seatToPeer = new Map();
   guestNames = new Map();
   insightPreferences = new Map();
+  resetAiReplayTasks();
   game = null;
   localPlayer = 0;
   aiPlayers = new Set();
@@ -2068,6 +2131,7 @@ $("[data-new-game]").addEventListener("click", async () => {
   dom.setup.hidden = false;
   dom.roundDialog.hidden = true;
   dom.gameOver.hidden = true;
+  resetAiReplayTasks();
   game = null;
   window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
 });
@@ -2082,6 +2146,7 @@ $("[data-play-again]").addEventListener("click", async () => {
   dom.gameOver.hidden = true;
   dom.game.hidden = true;
   dom.setup.hidden = false;
+  resetAiReplayTasks();
   game = null;
 });
 
