@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=97900-ev1";
+} from "./model-client.js?v=98300-ev1";
 import {
   generateRoomCode,
   normalizeRoomCode,

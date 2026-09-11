@@ -1382,6 +1382,91 @@
   .score-table th:first-child, .score-table td:first-child { width: 64px; }
 }
 
+@media (min-width: 921px) {
+  .plump-game {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .game-toolbar {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
+  .game-layout {
+    min-width: 0;
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .table-felt {
+    width: min(820px, 90%);
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) {
+    grid-template-columns: clamp(250px, 21vw, 310px) minmax(0, 1fr);
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .intel-strip {
+    min-height: calc(100vh - 74px);
+    max-height: calc(100vh - 74px);
+    padding: 10px;
+    overflow-y: auto;
+    border-right: 1px solid var(--ink);
+    border-bottom: 0;
+    align-content: start;
+    grid-row: 2;
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    overscroll-behavior: contain;
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .intel-title {
+    padding: 2px 1px 5px;
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .intel-items {
+    display: grid;
+    overflow: visible;
+    padding: 0 2px 3px 0;
+    gap: 8px;
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .belief-player,
+  .plump-game:has(.intel-strip:not([hidden])) .belief-summary {
+    width: 100%;
+    box-sizing: border-box;
+    flex-basis: auto;
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .belief-line {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .game-layout {
+    grid-row: 2;
+    grid-column: 2;
+  }
+}
+
+@media (min-width: 921px) and (max-width: 1279px) {
+  .plump-game:has(.intel-strip:not([hidden])) .game-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .table-panel {
+    min-height: 700px;
+  }
+
+  .plump-game:has(.intel-strip:not([hidden])) .score-panel {
+    border-top: 1px solid var(--ink);
+    border-left: 0;
+  }
+}
+
 @media (max-width: 760px) {
   .rl-directory-frame { padding-top: 58px; }
   .rl-directory-intro { padding: 34px 26px; }
