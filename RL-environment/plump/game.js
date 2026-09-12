@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=98300-ev1";
+} from "./model-client.js?v=99100-ev1";
 import {
   generateRoomCode,
   normalizeRoomCode,
@@ -711,8 +711,10 @@ function applyNetworkState(message) {
   dom.roundDialog.hidden = true;
   dom.gameOver.hidden = true;
   render();
-  if (game.round.phase === "round_over") showRoundResult();
-  if (game.round.phase === "game_over") showGameOver();
+  const comparisonReady =
+    game.completedRounds.at(-1)?.aiComparison?.status !== "pending";
+  if (game.round.phase === "round_over" && comparisonReady) showRoundResult();
+  if (game.round.phase === "game_over" && comparisonReady) showGameOver();
   if (dom.probabilityToggle.checked || dom.beliefToggle.checked) requestRemoteInsights();
 }
 
@@ -759,7 +761,7 @@ async function handleRemotePlayerAction(message, peerId) {
   }
   interactionLocked = false;
   if (["round_over", "game_over"].includes(game.round.phase)) {
-    finalizeAiComparison();
+    if (!(await finishAiComparisonBeforeResults())) return;
   }
   if (game.round.phase === "round_over") {
     setStatus("Round complete. Entered on the score sheet.");
@@ -1612,6 +1614,30 @@ function finalizeAiComparison() {
   applyAiReplayTask(task);
 }
 
+async function finishAiComparisonBeforeResults() {
+  if (!game || multiplayerRole === "guest") return true;
+  const targetGame = game;
+  const completed = targetGame.completedRounds.at(-1);
+  if (!completed || completed.aiComparison?.status !== "pending") return true;
+  const task = aiReplayTasks.get(targetGame.roundIndex);
+  if (!task) {
+    completed.aiComparison = { status: "unavailable" };
+    render();
+    return true;
+  }
+
+  if (task.status === "pending") {
+    setStatus("Round complete · finishing the AI benchmark…");
+    render();
+    await broadcastGameState();
+    await task.promise;
+  }
+  if (game !== targetGame) return false;
+  finalizeAiComparison();
+  render();
+  return completed.aiComparison?.status !== "pending";
+}
+
 function showRoundResult() {
   const completed = game.completedRounds.at(-1);
   const humanHit = completed.bids[localPlayer] === completed.tricksWon[localPlayer];
@@ -1668,7 +1694,7 @@ async function continueBots() {
   }
   interactionLocked = false;
   if (["round_over", "game_over"].includes(game.round.phase)) {
-    finalizeAiComparison();
+    if (!(await finishAiComparisonBeforeResults())) return;
   }
   if (game.round.phase === "round_over") {
     setStatus("Round complete. Entered on the score sheet.");
@@ -1728,7 +1754,7 @@ async function playHumanCard(card) {
   interactionLocked = false;
   render();
   if (["round_over", "game_over"].includes(game.round.phase)) {
-    finalizeAiComparison();
+    if (!(await finishAiComparisonBeforeResults())) return;
   }
   if (game.round.phase === "round_over") {
     showRoundResult();
