@@ -1272,21 +1272,43 @@
 .score-table td.is-miss { color: var(--red); }
 
 .score-table td.has-ai-score {
-  padding-top: 9px;
+  height: 42px;
+  padding: 19px 2px 2px;
 }
 
 .score-cell-value {
-  display: inline-block;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+}
+
+.score-cell-value strong {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.score-cell-value small {
+  color: #55554f;
+  font: normal 7px/1 var(--mono);
+  white-space: nowrap;
 }
 
 .score-ai {
   position: absolute;
   top: 2px;
   right: 2px;
+  display: grid;
+  justify-items: end;
   color: #55554f;
   font: bold 7px/1 var(--mono);
   letter-spacing: -.04em;
   white-space: nowrap;
+}
+
+.score-ai small {
+  margin-top: 1px;
+  font: normal 6.5px/1 var(--mono);
+  letter-spacing: 0;
 }
 
 .score-ai.is-pending,

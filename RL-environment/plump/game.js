@@ -1138,29 +1138,54 @@ function scoreValue(completed, player) {
   return completed ? formatScore(completed.points[player]) : "";
 }
 
+function relativeScoreValue(scores, player) {
+  if (!Array.isArray(scores) || !scores.length) return 0;
+  const ownScore = Number(scores[player] || 0);
+  if (scores.length === 1) return ownScore;
+  const opponentTotal = scores.reduce(
+    (total, score, index) => total + (index === player ? 0 : Number(score || 0)),
+    0,
+  );
+  return ownScore - opponentTotal / (scores.length - 1);
+}
+
+function formatRelativeScoreValue(value) {
+  const rounded = Math.round(value * 10) / 10;
+  const normalized = Object.is(rounded, -0) ? 0 : rounded;
+  if (normalized > 0) return `+${normalized.toFixed(1)}`;
+  if (normalized < 0) return `−${Math.abs(normalized).toFixed(1)}`;
+  return "0.0";
+}
+
+function scoreAndValueMarkup(score, value) {
+  return `<span class="score-cell-value"><strong>${score}</strong><small>V ${formatRelativeScoreValue(value)}</small></span>`;
+}
+
 function aiScoreBadge(completed, player) {
   const comparison = completed?.aiComparison;
   if (!comparison) return "";
   if (comparison.status === "pending") {
-    return '<span class="score-ai is-pending" title="AI replay in progress">AI …</span>';
+    return '<span class="score-ai is-pending" title="AI replay in progress"><strong>AI …</strong><small>V …</small></span>';
   }
   if (comparison.status !== "complete") {
-    return '<span class="score-ai is-unavailable" title="AI replay unavailable">AI —</span>';
+    return '<span class="score-ai is-unavailable" title="AI replay unavailable"><strong>AI —</strong><small>V —</small></span>';
   }
   const score = formatScore(comparison.points[player]);
-  return `<span class="score-ai" title="Argmax AI bid ${comparison.bids[player]}, won ${comparison.tricksWon[player]}, scored ${score}">AI ${score}</span>`;
+  const value = formatRelativeScoreValue(relativeScoreValue(comparison.points, player));
+  return `<span class="score-ai" title="Argmax AI bid ${comparison.bids[player]}, won ${comparison.tricksWon[player]}, scored ${score}, value ${value}"><strong>AI ${score}</strong><small>V ${value}</small></span>`;
 }
 
 function aiTotalBadge(player) {
   if (!game.completedRounds.length) return "";
   if (game.completedRounds.some((round) => round.aiComparison?.status === "pending")) {
-    return '<span class="score-ai is-pending" title="AI replay in progress">AI …</span>';
+    return '<span class="score-ai is-pending" title="AI replay in progress"><strong>AI …</strong><small>V …</small></span>';
   }
   if (game.completedRounds.some((round) => round.aiComparison?.status !== "complete")) {
-    return '<span class="score-ai is-unavailable" title="AI comparison total unavailable">AI —</span>';
+    return '<span class="score-ai is-unavailable" title="AI comparison total unavailable"><strong>AI —</strong><small>V —</small></span>';
   }
   const total = game.aiScores[player];
-  return `<span class="score-ai" title="Argmax AI self-play total ${total}">AI ${total}</span>`;
+  const value = formatRelativeScoreValue(relativeScoreValue(game.aiScores, player));
+  return `<span class="score-ai" title="Argmax AI self-play total ${total}, total value ${value}"><strong>AI ${total}</strong><small>V ${value}</small></span>`;
 }
 
 function renderScoreSheet() {
@@ -1174,7 +1199,9 @@ function renderScoreSheet() {
     const cells = Array.from({ length: game.numPlayers }, (_, player) => {
       if (completed) {
         const hit = completed.bids[player] === completed.tricksWon[player];
-        return `<td class="${hit ? "is-hit" : "is-miss"} has-ai-score" title="Bid ${completed.bids[player]}, won ${completed.tricksWon[player]}"><span class="score-cell-value">${scoreValue(completed, player)}</span>${aiScoreBadge(completed, player)}</td>`;
+        const score = scoreValue(completed, player);
+        const value = relativeScoreValue(completed.points, player);
+        return `<td class="${hit ? "is-hit" : "is-miss"} has-ai-score" title="Bid ${completed.bids[player]}, won ${completed.tricksWon[player]}, scored ${score}, value ${formatRelativeScoreValue(value)}">${scoreAndValueMarkup(score, value)}${aiScoreBadge(completed, player)}</td>`;
       }
       if (active) {
         const bid = activeBids.find((item) => item.player === player)?.value;
@@ -1186,7 +1213,10 @@ function renderScoreSheet() {
     return `<tr class="${active ? "is-active" : ""}"><td>${handSize}${direction}</td>${cells}</tr>`;
   }).join("");
   const totals = game.scores
-    .map((total, player) => `<td class="has-ai-score"><span class="score-cell-value">${total}</span>${aiTotalBadge(player)}</td>`)
+    .map((total, player) => {
+      const value = relativeScoreValue(game.scores, player);
+      return `<td class="has-ai-score" title="Total score ${total}, total value ${formatRelativeScoreValue(value)}">${scoreAndValueMarkup(total, value)}${aiTotalBadge(player)}</td>`;
+    })
     .join("");
   dom.scoreSheet.innerHTML = `
     <table class="score-table">
