@@ -11,9 +11,9 @@ pass by hand. That transcription then silently fell behind the model: it knows
 nothing about the bid-pressure fields, the NA-pattern row, per-layer embeddings,
 or attention value embeddings that schema-v6 format-6 checkpoints rely on.
 
-So instead of a second copy of the architecture, this module patches exactly the
-three offending operations and lets the real ``SeqPlumpModel`` code run. Anything
-added to the trunk from here on is exported without touching this file.
+So instead of a second copy of the architecture, this module patches those
+operations and lets the real ``SeqPlumpModel`` code run. Its embedding patches
+also follow the model's factored-card and absolute-position settings.
 """
 
 from __future__ import annotations
@@ -89,10 +89,11 @@ def onnx_export_patches(plump_source_on_path: bool = True):
         pressure = tokens[..., CORE_TOKEN_WIDTH:BASE_TOKEN_WIDTH]
         core_na = self.base_slot_na_ids[:CORE_TOKEN_WIDTH]
         pressure_na = self.base_slot_na_ids[CORE_TOKEN_WIDTH:BASE_TOKEN_WIDTH]
+        core_active = self.base_slot_active[:CORE_TOKEN_WIDTH]
         x = embedding_bag_sum(
-            core + self.slot_offsets,
+            core * core_active + self.slot_offsets,
             self.slot_embedding.weight,
-            valid=(core_na < 0) | (core != core_na),
+            valid=((core_na < 0) | (core != core_na)) & (core_active > 0),
         )
         x = x + embedding_bag_sum(
             pressure + self.bid_pressure_offsets,
@@ -113,33 +114,32 @@ def onnx_export_patches(plump_source_on_path: bool = True):
         is_trick_win = (core[..., SLOT_TYPE] == TOKEN_TRICK_WIN).unsqueeze(-1)
         x = x + hand_sum * is_trick_win.to(hand_sum.dtype)
 
-        positions = torch.arange(
-            start, start + tokens.shape[1], device=tokens.device
-        )
+        if self.pos_embedding is None:
+            return x
+        positions = torch.arange(start, start + tokens.shape[1], device=tokens.device)
         return x + self.pos_embedding(positions)
 
     def packed_token_conditioning(self, tokens, table, na_patterns):
         base = tokens[..., :BASE_TOKEN_WIDTH]
         packed = embedding_bag_sum(
-            base + self.conditioning_slot_offsets,
+            base * self.base_slot_active + self.conditioning_slot_offsets,
             table.weight,
-            valid=(self.base_slot_na_ids < 0) | (base != self.base_slot_na_ids),
+            valid=((self.base_slot_na_ids < 0) | (base != self.base_slot_na_ids))
+            & (self.base_slot_active > 0),
         )
         packed = packed + na_patterns(tokens[..., SLOT_NA_PATTERN])
 
         remaining = tokens[..., SLOT_REMAINING_HAND_START:SLOT_NA_PATTERN]
         valid = remaining < NUM_CARDS
         safe = remaining.clamp_max(NUM_CARDS - 1)
-        card_rows = torch.stack(
-            (
-                safe + self.conditioning_slot_offsets[SLOT_CARD],
-                safe.remainder(NUM_RANKS)
-                + self.conditioning_slot_offsets[SLOT_RANK],
-                safe.div(NUM_RANKS, rounding_mode="floor")
-                + self.conditioning_slot_offsets[SLOT_SUIT],
-            ),
-            dim=-1,
-        )
+        card_columns = [
+            safe.remainder(NUM_RANKS) + self.conditioning_slot_offsets[SLOT_RANK],
+            safe.div(NUM_RANKS, rounding_mode="floor")
+            + self.conditioning_slot_offsets[SLOT_SUIT],
+        ]
+        if not self.config.card_embedding_factored:
+            card_columns.insert(0, safe + self.conditioning_slot_offsets[SLOT_CARD])
+        card_rows = torch.stack(tuple(card_columns), dim=-1)
         hand_sum = embedding_bag_sum(
             card_rows.flatten(-2),
             table.weight,

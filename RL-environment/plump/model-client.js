@@ -2,7 +2,7 @@ import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/o
 import {
   PLUMP_MODEL_CONFIG,
   configuredActorPrecision,
-} from "./model-config.js?v=100500-ev1";
+} from "./model-config.js?v=rl6-14100-1";
 import {
   MODEL_LIMITS,
   SUITS,
@@ -43,6 +43,7 @@ const assertManifestMatchesBuilder = (manifest, label) => {
 
 export class BrowserPpoAgent {
   constructor() {
+    this.modelId = null;
     this.session = null;
     this.manifest = null;
     this.backend = "not loaded";
@@ -53,6 +54,27 @@ export class BrowserPpoAgent {
     this.oracleBackend = "not loaded";
     this.oracleLoadPromise = null;
     this.inferenceQueue = Promise.resolve();
+  }
+
+  async selectModel(modelId) {
+    if (!Object.hasOwn(PLUMP_MODEL_CONFIG.models, modelId)) {
+      throw new Error("Unknown Plump agent model.");
+    }
+    if (this.modelId === modelId) return;
+    await this.inferenceQueue;
+    await this.oracleLoadPromise?.catch(() => {});
+    await this.session?.release();
+    await this.oracleSession?.release();
+    this.session = null;
+    this.manifest = null;
+    this.backend = "not loaded";
+    this.precision = "not loaded";
+    this.oracleSession = null;
+    this.oracleModel = null;
+    this.oracleManifest = null;
+    this.oracleBackend = "not loaded";
+    this.oracleLoadPromise = null;
+    this.modelId = modelId;
   }
 
   enqueueInference(callback) {
@@ -94,7 +116,8 @@ export class BrowserPpoAgent {
     return { manifest, model };
   }
 
-  async load(onProgress = () => {}) {
+  async load(onProgress = () => {}, modelId = PLUMP_MODEL_CONFIG.defaultModel) {
+    await this.selectModel(modelId);
     if (this.session) return this;
     onProgress(2, "Reading model manifest…");
     ort.env.wasm.wasmPaths = RUNTIME_ROOT;
@@ -104,8 +127,9 @@ export class BrowserPpoAgent {
     const selectedPrecision = requestedPrecision === "fp16" && prefersGpu
       ? "fp16"
       : "fp32";
+    const modelConfig = PLUMP_MODEL_CONFIG.models[this.modelId];
     let bundle = await this.downloadModel(
-      PLUMP_MODEL_CONFIG.actorManifests[selectedPrecision],
+      modelConfig.actorManifests[selectedPrecision],
       (received, total) => {
         const percentage = Math.round((received / total) * 100);
         onProgress(
@@ -130,7 +154,7 @@ export class BrowserPpoAgent {
       } catch {
         onProgress(8, "FP16 unavailable; downloading the full-precision policy…");
         bundle = await this.downloadModel(
-          PLUMP_MODEL_CONFIG.actorManifests.fp32,
+          modelConfig.actorManifests.fp32,
           (received, total) => {
             const percentage = Math.round((received / total) * 100);
             onProgress(
@@ -184,7 +208,7 @@ export class BrowserPpoAgent {
     if (this.oracleLoadPromise) return this.oracleLoadPromise;
     this.oracleLoadPromise = (async () => {
       this.oracleManifest = await fetch(
-        `${MODEL_ROOT}${PLUMP_MODEL_CONFIG.oracleManifest}`,
+        `${MODEL_ROOT}${PLUMP_MODEL_CONFIG.models[this.modelId].oracleManifest}`,
       ).then((response) => {
         if (!response.ok) throw new Error("Could not read the oracle manifest.");
         return response.json();

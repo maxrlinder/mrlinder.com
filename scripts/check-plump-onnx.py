@@ -32,7 +32,7 @@ TOLERANCE = {"fp32": 2e-3, "fp16": 1e-1}
 ARGMAX_TIE_TOLERANCE = {"fp32": 0.0, "fp16": 5e-3}
 
 
-def live_manifests(model_config_js: Path) -> dict[str, str]:
+def live_manifests(model_config_js: Path, model_id: str) -> dict[str, str]:
     """Read the manifest filenames the site actually serves.
 
     Parsed out of model-config.js rather than passed in, so this checks what is
@@ -40,8 +40,15 @@ def live_manifests(model_config_js: Path) -> dict[str, str]:
     """
 
     source = model_config_js.read_text(encoding="utf-8")
+    model = re.search(
+        rf"\b{re.escape(model_id)}:\s*Object\.freeze\(\{{(.*?)\n    \}}\)",
+        source,
+        re.S,
+    )
+    if model is None:
+        raise SystemExit(f"Could not find model {model_id!r} in {model_config_js}")
     found = dict(
-        re.findall(r'(fp32|fp16|oracleManifest):\s*"([^"]+\.json)"', source)
+        re.findall(r'(fp32|fp16|oracleManifest):\s*"([^"]+\.json)"', model.group(1))
     )
     missing = {"fp32", "fp16", "oracleManifest"} - set(found)
     if missing:
@@ -62,6 +69,7 @@ def main() -> None:
     root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--model", choices=("deeper", "wider"), default="deeper")
     parser.add_argument(
         "--plump-source", type=Path, default=root.parent / "plump-bot"
     )
@@ -88,7 +96,9 @@ def main() -> None:
     from plump.seq.ppo import center_zero_sum_values
 
     model_dir = root / "RL-environment" / "plump" / "model"
-    manifests = live_manifests(root / "RL-environment" / "plump" / "model-config.js")
+    manifests = live_manifests(
+        root / "RL-environment" / "plump" / "model-config.js", args.model
+    )
 
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = SeqModelConfig(**payload["model_config"])

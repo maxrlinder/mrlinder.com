@@ -134,6 +134,13 @@
 
                 <div data-host-settings>
                   <div class="control-row">
+                    <label for="agent-model">AI model</label>
+                    <select id="agent-model" name="agentModel">
+                      <option value="deeper" selected>Deeper · RL6 (16 layers)</option>
+                      <option value="wider">Wider · v4.5 (6 layers)</option>
+                    </select>
+                  </div>
+                  <div class="control-row">
                     <label for="opponents" data-opponents-label>Opponents</label>
                     <select id="opponents" name="opponents">
                       <option value="2">2 opponents</option>
@@ -386,6 +393,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=100500-ev1"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=rl6-14100-1"></script>
   </body>
 </html>

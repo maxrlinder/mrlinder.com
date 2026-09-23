@@ -2,7 +2,8 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=100500-ev1";
+} from "./model-client.js?v=rl6-14100-1";
+import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-14100-1";
 import {
   generateRoomCode,
   normalizeRoomCode,
@@ -350,6 +351,7 @@ const dom = {
   loadPercent: $("[data-load-percent]"),
   loadProgress: $("[data-load-progress]"),
   difficulty: $("#difficulty"),
+  agentModel: $("#agent-model"),
   difficultyOutput: $("[data-difficulty-output]"),
   maxCards: $("#max-cards"),
   minCards: $("#min-cards"),
@@ -464,6 +466,10 @@ function selectedMultiplayerRole() {
   return dom.setupForm.elements.multiplayerRole.value;
 }
 
+function modelLabel(modelId) {
+  return PLUMP_MODEL_CONFIG.models[modelId]?.label || "AI agent";
+}
+
 function setOpponentOptions(mode, preferredValue = null) {
   const previous = preferredValue ?? Number(dom.opponents.value);
   const maximum = mode === "multiplayer" ? Math.max(0, 5 - (1 + guestNames.size)) : 4;
@@ -551,6 +557,7 @@ async function broadcastLobby(target = null) {
   await multiplayer.send({
     type: "lobby",
     code: multiplayer.code,
+    modelId: dom.agentModel.value,
     hostName: roster[0],
     guests: roster.slice(1),
     aiCount: Number(dom.opponents.value),
@@ -580,6 +587,8 @@ function statePacketFor(player) {
     dealing,
     displayedCompletedTrick,
     difficulty,
+    modelId: agent.modelId,
+    modelReady: Boolean(agent.session),
     code: multiplayer?.code || "",
   };
 }
@@ -706,8 +715,12 @@ function applyNetworkState(message) {
   dom.game.hidden = false;
   dom.liveTableBadge.hidden = false;
   dom.liveTableBadge.textContent = `Live table · ${message.code}`;
-  dom.modelState.textContent = "Host inference connected";
-  dom.modelState.className = "model-state is-ready";
+  dom.modelState.textContent = message.modelReady
+    ? `${modelLabel(message.modelId)} · host inference`
+    : "Strategic fallback active";
+  dom.modelState.className = message.modelReady
+    ? "model-state is-ready"
+    : "model-state is-fallback";
   dom.roundDialog.hidden = true;
   dom.gameOver.hidden = true;
   render();
@@ -825,7 +838,7 @@ function handleNetworkMessage(message, peerId) {
       hostName: message.hostName,
       guests: message.guests,
       aiCount: message.aiCount,
-      status: "Connected. Waiting for the host to deal.",
+      status: `Connected · ${modelLabel(message.modelId)}. Waiting for the host to deal.`,
     });
     return;
   }
@@ -1832,14 +1845,14 @@ function validateHandRange(data) {
   return { data, maximum, minimum };
 }
 
-async function loadHostAgent() {
+async function loadHostAgent(modelId) {
   dom.gameLoading.hidden = false;
-  updateLoadProgress(1, "Waking the agent…");
+  updateLoadProgress(1, `Waking ${modelLabel(modelId)}…`);
   let fallback = false;
   try {
-    await agent.load(updateLoadProgress);
-    updateLoadProgress(100, `Agent ready · ${agent.backend}`);
-    dom.modelState.textContent = `Agent ready · ${agent.backend}`;
+    await agent.load(updateLoadProgress, modelId);
+    updateLoadProgress(100, `${modelLabel(modelId)} ready · ${agent.backend}`);
+    dom.modelState.textContent = `${modelLabel(modelId)} · ${agent.backend}`;
     dom.modelState.className = "model-state is-ready";
   } catch (error) {
     fallback = true;
@@ -1864,7 +1877,7 @@ async function startSoloGame(form) {
   playerNames = ["You", ...Array.from({ length: opponents }, (_, index) => `Agent ${index + 2}`)];
   aiPlayers = new Set(Array.from({ length: opponents }, (_, index) => index + 1));
   dom.liveTableBadge.hidden = true;
-  const fallback = await loadHostAgent();
+  const fallback = await loadHostAgent(String(data.get("agentModel")));
   resetAiReplayTasks();
   gameSequence += 1;
   game = new PlumpGame({
@@ -1962,7 +1975,7 @@ async function startHostedGame() {
   dom.startMultiplayer.disabled = true;
   multiplayer.send({ type: "starting" }).catch(() => {});
   difficulty = Number(data.get("difficulty"));
-  const fallback = await loadHostAgent();
+  const fallback = await loadHostAgent(String(data.get("agentModel")));
   if (guestNames.size < 1) {
     dom.gameLoading.hidden = true;
     multiplayerPhase = "lobby";
@@ -2039,7 +2052,9 @@ async function leaveMultiplayer({ preserveError = false } = {}) {
   });
   dom.roundDialog.hidden = true;
   dom.gameOver.hidden = true;
-  dom.modelState.textContent = agent.session ? `Agent ready · ${agent.backend}` : "Agent not loaded";
+  dom.modelState.textContent = agent.session
+    ? `${modelLabel(agent.modelId)} · ${agent.backend}`
+    : "Agent not loaded";
   dom.modelState.className = agent.session ? "model-state is-ready" : "model-state";
   configureSetupMode();
   if (error) setSetupError(error);
@@ -2067,6 +2082,10 @@ dom.joinCode.addEventListener("input", () => {
 
 dom.opponents.addEventListener("change", () => {
   if (isHost() && multiplayerPhase === "lobby") updateHostLobby();
+});
+
+dom.agentModel.addEventListener("change", () => {
+  if (isHost() && multiplayerPhase === "lobby") broadcastLobby();
 });
 
 $("[data-copy-code]").addEventListener("click", async () => {
