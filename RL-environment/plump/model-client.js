@@ -2,7 +2,7 @@ import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/o
 import {
   PLUMP_MODEL_CONFIG,
   configuredActorPrecision,
-} from "./model-config.js?v=rl6-15300-1";
+} from "./model-config.js?v=rl6-17500-1";
 import {
   MODEL_LIMITS,
   SUITS,

@@ -1,0 +1,37 @@
+{
+  "format": "onnx",
+  "kind": "perfect-information-oracle-critic",
+  "checkpoint": "iter_017500.pt",
+  "iteration": 17500,
+  "schemaVersion": 6,
+  "modelFormatVersion": 6,
+  "precision": "fp32",
+  "quantization": "none",
+  "outputs": [
+    "values",
+    "trick_logits",
+    "card_order_logits",
+    "next_winner_logits"
+  ],
+  "modelConfig": {
+    "schema_version": 6,
+    "max_players": 5,
+    "max_hand_size": 10,
+    "trick_win_token": true,
+    "turn_token": "bid",
+    "embedding_rms_norm": true,
+    "d_model": 240,
+    "n_layers": 16,
+    "n_heads": 10,
+    "n_kv_heads": 2,
+    "d_ff": 720,
+    "dropout": 0.0,
+    "per_layer_embedding_dim": 64,
+    "value_embedding_mode": "alternating",
+    "card_embedding_mode": "factored",
+    "absolute_position_embedding": false
+  },
+  "file": "plump-rl6-oracle-17500-ev-fp32.onnx",
+  "bytes": 34092856,
+  "sha256": "4a6b0279ae7eb77cd8c2ca502a0bd52b22b7506e3d5cd771100e1f56699e43a7"
+}
