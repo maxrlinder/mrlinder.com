@@ -5,10 +5,10 @@ export const PLUMP_MODEL_CONFIG = Object.freeze({
     deeper: Object.freeze({
       label: "Deeper · RL6",
       actorManifests: Object.freeze({
-        fp32: "plump-rl6-17500-ev-fp32.json",
-        fp16: "plump-rl6-17500-ev-fp16.json",
+        fp32: "plump-rl6-19200-ev-fp32.json",
+        fp16: "plump-rl6-19200-ev-fp16.json",
       }),
-      oracleManifest: "plump-rl6-oracle-17500-ev-fp32.json",
+      oracleManifest: "plump-rl6-oracle-19200-ev-fp32.json",
     }),
     wider: Object.freeze({
       label: "Wider · v4.5",
