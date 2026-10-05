@@ -137,8 +137,8 @@
                   <div class="control-row">
                     <label for="agent-model">AI model</label>
                     <select id="agent-model" name="agentModel">
-                      <option value="deeper" selected>Deeper · RL6 (16 layers)</option>
-                      <option value="wider">Wider · v4.5 (6 layers)</option>
+                      <option value="deeper" selected>Deeper model · 16 layers</option>
+                      <option value="wider">Wider model · 6 layers</option>
                     </select>
                   </div>
                   <div class="control-row">
@@ -298,17 +298,17 @@
 
               <ol class="training-lineage" aria-label="Training lineage">
                 <li>
-                  <span class="section-label">V4.5 · 6 LAYERS × 384</span>
+                  <span class="section-label">WIDER MODEL · 6 LAYERS × 384</span>
                   <strong>PPO from scratch</strong>
                   <small>100,500 updates · ~24 days</small>
                 </li>
                 <li>
                   <span class="section-label">DISTILLATION</span>
                   <strong>Copied into a deeper net</strong>
-                  <small>16 layers × 240. The student plays and v4.5 labels every move · 5,600 updates</small>
+                  <small>16 layers × 240. The student plays and the wider model labels every move · 5,600 updates</small>
                 </li>
                 <li>
-                  <span class="section-label">RL6 · 16 LAYERS × 240</span>
+                  <span class="section-label">DEEPER MODEL · 16 LAYERS × 240</span>
                   <strong>PPO self-play continues</strong>
                   <small>696 games per update · checkpoint 34,800 is live</small>
                 </li>
@@ -316,7 +316,7 @@
 
               <figure class="training-chart training-chart-hero">
                 <figcaption>
-                  <strong>RL6 round robin</strong>
+                  <strong>Deeper model round robin</strong>
                   <span>Every checkpoint plays mixed tables against the other
                   23, about 100,000 rounds each across 3–5 players and 3–10
                   cards. Points per round above the field average; the band is
@@ -356,8 +356,8 @@
                 </figure>
               </div>
               <p class="training-footnote">
-                x-axis: training updates. RL6 continues from update 5,600 of the
-                distillation. The round robin covers checkpoints up to 27,700.
+                x-axis: training updates. The deeper model continues from update
+                5,600 of the distillation. The round robin covers checkpoints up to 27,700.
               </p>
             </div>
           </section>
@@ -527,7 +527,7 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=rl6-34800-1"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=rl6-34800-2"></script>
     <script type="module" src="/RL-environment/plump/training-charts.js?v=1"></script>
   </body>
 </html>

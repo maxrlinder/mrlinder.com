@@ -2,8 +2,8 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=rl6-34800-1";
-import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-34800-1";
+} from "./model-client.js?v=rl6-34800-2";
+import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-34800-2";
 import {
   generateRoomCode,
   normalizeRoomCode,
