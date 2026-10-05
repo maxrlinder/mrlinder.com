@@ -21,6 +21,8 @@ const required = [
   "RL-environment/plump/model-config.js",
   "RL-environment/plump/model-client.js",
   "RL-environment/plump/tokens.js",
+  "RL-environment/plump/training-charts.js",
+  "RL-environment/plump/training-data.js",
   "RL-environment/plump/model/plump-ppo-100500-ev-fp32.onnx",
   "RL-environment/plump/model/plump-ppo-100500-ev-fp32.json",
   "RL-environment/plump/model/plump-ppo-100500-ev-fp16.onnx",

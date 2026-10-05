@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Plump — RL Playground</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=score-value-1" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=training-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -61,6 +61,7 @@
                   <li>The highest card in the led suit wins and leads the next trick.</li>
                   <li>A correct bid scores 10 + bid. A correct zero scores 05. A miss scores 00.</li>
                 </ol>
+                <a class="training-jump" href="#training">How the agent was trained ↓</a>
               </article>
 
               <form class="plump-controls" data-setup-form>
@@ -227,6 +228,139 @@
               </form>
             </div>
           </div>
+
+          <section class="mac-window plump-training-window" id="training" aria-labelledby="training-title">
+            <div class="window-titlebar">
+              <span class="window-control"></span>
+              <strong>How the agent was trained</strong>
+              <span class="window-control window-control-double"></span>
+            </div>
+            <div class="plump-training">
+              <header class="training-intro">
+                <p class="section-label">UNDER THE HOOD</p>
+                <h2 id="training-title">How the agent was trained.</h2>
+                <p class="training-lead">
+                  The AI you play is a small transformer, 8.6M parameters, that
+                  learned Plump by playing against itself: about a month on one
+                  Mac GPU and roughly 3.4 billion decisions. It only sees what
+                  you see, which is its own hand and the public table.
+                </p>
+              </header>
+
+              <div class="training-columns">
+                <article class="training-block">
+                  <p class="section-label">01 · ARCHITECTURE</p>
+                  <h3>Every card and every action is a token.</h3>
+                  <div class="token-strip" role="img" aria-label="A round as a token sequence: table, the three cards in hand, three bids, the first trick and its winner, then the next action the model predicts.">
+                    <span class="token-group"><span class="token-row"><span class="token">3P·3C</span></span><small>table</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">A♠</span><span class="token is-red">9♥</span><span class="token is-red">4♦</span></span><small>your hand</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">BID 1</span><span class="token">BID 0</span><span class="token">BID 1</span></span><small>bids</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">A♠</span><span class="token">7♠</span><span class="token">2♠</span><span class="token is-win">WIN</span></span><small>trick 1</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>next</small></span>
+                  </div>
+                  <p>
+                    A round is written down like a sentence: the table, the cards
+                    in your hand, each bid, each card played and who won each
+                    trick. A 16-layer causal transformer reads that sequence and
+                    predicts the next token, which is either a bid or one of the
+                    legal cards.
+                  </p>
+                  <p>
+                    Because the model is autoregressive, every move just appends
+                    one token. In self-play it keeps a key-value cache and
+                    decodes one token per move for hundreds of games at once.
+                    In training, a single forward and backward pass over a
+                    finished game updates every decision in it.
+                  </p>
+                </article>
+
+                <article class="training-block">
+                  <p class="section-label">02 · OBJECTIVE</p>
+                  <h3>Beat the table average.</h3>
+                  <p>
+                    The reward is your round score minus the average opponent
+                    score. Every seat is played by the same network, and it is
+                    trained with PPO. Actions that ended better than expected
+                    become more likely and worse ones less likely. Each step is
+                    clipped so the policy changes gradually, and an entropy floor
+                    keeps it exploring.
+                  </p>
+                  <p>
+                    The “expected” score comes from an oracle critic, a second
+                    transformer that sees every hand. It only exists during
+                    training, to cut the noise in the reward signal. Side heads
+                    also learn to predict opponents’ suits, card ranges and trick
+                    counts. Those are the <em>Actor beliefs</em> you can switch
+                    on in the game.
+                  </p>
+                </article>
+              </div>
+
+              <ol class="training-lineage" aria-label="Training lineage">
+                <li>
+                  <span class="section-label">V4.5 · 6 LAYERS × 384</span>
+                  <strong>PPO from scratch</strong>
+                  <small>100,500 updates · ~24 days</small>
+                </li>
+                <li>
+                  <span class="section-label">DISTILLATION</span>
+                  <strong>Copied into a deeper net</strong>
+                  <small>16 layers × 240. The student plays and v4.5 labels every move · 5,600 updates</small>
+                </li>
+                <li>
+                  <span class="section-label">RL6 · 16 LAYERS × 240</span>
+                  <strong>PPO self-play continues</strong>
+                  <small>696 games per update · checkpoint 34,800 is live</small>
+                </li>
+              </ol>
+
+              <figure class="training-chart training-chart-hero">
+                <figcaption>
+                  <strong>RL6 round robin</strong>
+                  <span>Every checkpoint plays mixed tables against the other
+                  23, about 100,000 rounds each across 3–5 players and 3–10
+                  cards. Points per round above the field average; the band is
+                  a 95% interval.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="round-robin"></div>
+                <details class="chart-table">
+                  <summary>Show as table</summary>
+                  <div data-chart-table="round-robin"></div>
+                </details>
+              </figure>
+
+              <div class="training-multiples">
+                <figure class="training-chart">
+                  <figcaption>
+                    <strong>Distillation loss</strong>
+                    <span>KL from teacher to student, nats. Top-move agreement
+                    rose from 50% to 91%.</span>
+                  </figcaption>
+                  <div class="chart-plot" data-chart="distill"></div>
+                </figure>
+                <figure class="training-chart">
+                  <figcaption>
+                    <strong>Value error</strong>
+                    <span>RMSE of the predicted round margin, in points. The gap
+                    between the two lines is the hidden cards.</span>
+                  </figcaption>
+                  <div class="chart-plot" data-chart="value"></div>
+                </figure>
+                <figure class="training-chart">
+                  <figcaption>
+                    <strong>Belief losses</strong>
+                    <span>Cross-entropy of two actor belief heads about
+                    opponents’ hands.</span>
+                  </figcaption>
+                  <div class="chart-plot" data-chart="beliefs"></div>
+                </figure>
+              </div>
+              <p class="training-footnote">
+                x-axis: training updates. RL6 continues from update 5,600 of the
+                distillation. The round robin covers checkpoints up to 27,700.
+              </p>
+            </div>
+          </section>
         </section>
 
         <section class="plump-game" data-game hidden aria-label="Plump game table">
@@ -394,5 +528,6 @@
     </dialog>
 
     <script type="module" src="/RL-environment/plump/game.js?v=rl6-34800-1"></script>
+    <script type="module" src="/RL-environment/plump/training-charts.js?v=1"></script>
   </body>
 </html>
