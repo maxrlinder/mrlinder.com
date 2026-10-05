@@ -2,8 +2,8 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=rl6-30800-1";
-import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-30800-1";
+} from "./model-client.js?v=rl6-34800-1";
+import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-34800-1";
 import {
   generateRoomCode,
   normalizeRoomCode,
@@ -73,6 +73,7 @@ function sortHand(cards) {
 export class PlumpGame {
   constructor({ opponents, numPlayers, minimum, maximum }) {
     this.numPlayers = numPlayers ?? opponents + 1;
+    this.startingPlayer = Math.floor(Math.random() * this.numPlayers);
     this.schedule = schedule(minimum, maximum);
     this.scores = Array(this.numPlayers).fill(0);
     this.aiScores = Array(this.numPlayers).fill(0);
@@ -93,7 +94,7 @@ export class PlumpGame {
       }
     }
     hands.forEach((hand) => hand.sort((a, b) => modelCardId(a) - modelCardId(b)));
-    const biddingStart = this.roundIndex % this.numPlayers;
+    const biddingStart = ((this.startingPlayer ?? 0) + this.roundIndex) % this.numPlayers;
     this.round = {
       roundIndex: this.roundIndex,
       handSize,
