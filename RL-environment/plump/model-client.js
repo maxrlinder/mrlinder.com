@@ -188,19 +188,47 @@ export class BrowserPpoAgent {
   }
 
   async predict(game, observer) {
+    const [prediction] = await this.predictMany(game, [observer]);
+    return prediction;
+  }
+
+  /**
+   * Read several seats' views of one game state in a single forward pass.
+   *
+   * An actor stream's length depends only on the hand size and the public
+   * events, never on whose view it is, so every observer of the same state
+   * stacks into one [batch, sequence, width] tensor without padding. The
+   * export's batch axis is dynamic and batched rows match single runs to
+   * float precision, which lets a bot's decision and the local player's
+   * belief readout share one inference instead of queueing two.
+   */
+  async predictMany(game, observers) {
     if (!this.session) throw new Error("The PPO agent is not loaded.");
-    const rows = buildTokens(game, observer);
-    const tensor = new ort.Tensor("int64", flattenInt64(rows), [1, rows.length, WIDTH]);
+    const streams = observers.map((observer) => buildTokens(game, observer));
+    const length = streams[0].length;
+    if (streams.some((rows) => rows.length !== length)) {
+      throw new Error("Observer streams of one state must share a length.");
+    }
+    const tensor = new ort.Tensor(
+      "int64",
+      flattenInt64(streams.flat()),
+      [streams.length, length, WIDTH],
+    );
     const output = await this.enqueueInference(() => this.session.run({ tokens: tensor }));
-    return {
-      bidLogits: [...output.bid_logits.data],
-      cardLogits: [...output.card_logits.data],
-      trickLogits: [...output.trick_logits.data],
-      suitLogits: [...output.suit_logits.data],
-      rankBoundaryLogits: [...output.rank_boundary_logits.data],
-      nextWinnerLogits: [...output.next_winner_logits.data],
-      playerValues: [...output.player_values.data],
+    const row = (name, index) => {
+      const data = output[name].data;
+      const size = data.length / streams.length;
+      return [...data.subarray(index * size, (index + 1) * size)];
     };
+    return streams.map((_, index) => ({
+      bidLogits: row("bid_logits", index),
+      cardLogits: row("card_logits", index),
+      trickLogits: row("trick_logits", index),
+      suitLogits: row("suit_logits", index),
+      rankBoundaryLogits: row("rank_boundary_logits", index),
+      nextWinnerLogits: row("next_winner_logits", index),
+      playerValues: row("player_values", index),
+    }));
   }
 
   async loadOracle() {

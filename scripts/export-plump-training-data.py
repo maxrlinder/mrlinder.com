@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Export the training curves shown under "How the agent was trained".
 
-Reads the distillation run, the RL6 PPO run, and the RL6 lineage round robin
-from a plump-bot checkout and writes a small ES module of smoothed series.
+Reads the distillation run, the RL6 PPO run, the RL6 lineage round robin and
+the compute totals of the whole lineage
+from a plump-bot checkout, and writes a small ES module of smoothed series.
 Standard library only, so it runs without the training environment.
 """
 
@@ -58,6 +59,32 @@ def smoothed(
     return series
 
 
+# The deployed deeper model's whole ancestry, as (run, first, last iteration).
+# Each fork resumes its parent's iteration count, so the spans do not overlap.
+LINEAGE = (
+    ("ppo-oracle-mps-768-v2", 0, 35900),
+    ("ppo-oracle-mps-768-v3", 35900, 38700),
+    ("ppo-oracle-mps-768-v4", 38700, 47600),
+    ("ppo-oracle-mps-768-v4-5", 47600, 100500),
+    ("distill-v5", 0, 5600),
+    ("rl-v6", 5600, None),
+)
+
+
+def lineage_totals(runs: Path) -> dict[str, float]:
+    """Wall-clock days and decisions trained across the deployed lineage."""
+    seconds = 0.0
+    decisions = 0
+    for run, first, last in LINEAGE:
+        for row in read_rows(runs / run / "metrics.csv"):
+            iteration = int(row["iteration"])
+            if iteration <= first or (last is not None and iteration > last):
+                continue
+            seconds += float(row["total_sec"] or 0)
+            decisions += int(float(row.get("decisions") or 0))
+    return {"days": round(seconds / 86400, 1), "decisions": decisions}
+
+
 def round_robin(path: Path) -> list[dict[str, float]]:
     return [
         {
@@ -77,7 +104,7 @@ def main() -> None:
     parser.add_argument("--plump-bot", type=Path, default=DEFAULT_PLUMP_BOT)
     parser.add_argument(
         "--tournament",
-        default="rr-5600-to-27700-stride1000.csv",
+        default="rr-5600-to-47300-stride1000.csv",
         help="Round-robin CSV under runs/rl-v6/tournaments/.",
     )
     parser.add_argument("--output", type=Path, default=OUTPUT)
@@ -110,7 +137,19 @@ def main() -> None:
             rl6, "loss_rank_boundary", window=400, stride=100, start=rl6_start
         ),
         "roundRobin": round_robin(runs / "rl-v6" / "tournaments" / args.tournament),
+        "totals": lineage_totals(runs),
     }
+    ci_missing = [
+        row["iteration"]
+        for row in data["roundRobin"]
+        if not row["low"] < row["reward"] < row["high"]
+    ]
+    if ci_missing:
+        # A tournament still in progress writes placeholder intervals.
+        raise SystemExit(
+            f"{args.tournament} has no bootstrap interval for {len(ci_missing)} "
+            "checkpoints; wait for the tournament to finish."
+        )
 
     body = json.dumps(data, separators=(",", ":"))
     args.output.write_text(

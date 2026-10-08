@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=rl6-44300-1";
+} from "./model-client.js?v=rl6-44300-2";
 import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-44300-1";
 import {
   generateRoomCode,
@@ -19,6 +19,16 @@ const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matc
 const BOT_THINK_MS = 220;
 const CARD_SETTLE_MS = 450;
 const TRICK_RESULT_HOLD_MS = 600;
+// The speed slider's centre is the pacing above. Its ends reach 0.3x and 2x
+// that speed on a log scale, so each half of the track feels even.
+const SPEED_SLOWEST = 0.3;
+const SPEED_FASTEST = 2;
+const speedForSlider = (value) => {
+  const offset = (Number(value) - 50) / 50;
+  return offset < 0 ? SPEED_SLOWEST ** -offset : SPEED_FASTEST ** offset;
+};
+let pace = 1;
+const pause = (milliseconds) => wait(reducedMotion ? 0 : milliseconds * pace);
 
 const SUIT_SYMBOL = {
   spades: "♠",
@@ -368,6 +378,10 @@ const dom = {
   bidOptions: $("[data-bid-options]"),
   scoreSheet: $("[data-score-sheet]"),
   probabilityToggle: $("[data-probability-toggle]"),
+  speedControl: $("[data-speed-control]"),
+  autoPlay: $("[data-autoplay]"),
+  speed: $("[data-speed]"),
+  speedOutput: $("[data-speed-output]"),
   beliefToggle: $("[data-belief-toggle]"),
   setupProbabilityToggle: $("[data-setup-probability-toggle]"),
   setupBeliefToggle: $("[data-setup-belief-toggle]"),
@@ -396,6 +410,8 @@ let interactionLocked = false;
 let dealing = false;
 let predictionRequest = 0;
 let humanPrediction = null;
+let humanPredictionRound = null;
+let autoPlayRound = null;
 let humanPolicy = null;
 let beliefLoading = false;
 let beliefError = "";
@@ -677,7 +693,6 @@ async function sendHostInsights(peerId) {
 function requestRemoteInsights() {
   if (multiplayerRole !== "guest" || !multiplayer || !hostPeerId || !game) return;
   predictionRequest += 1;
-  humanPrediction = null;
   humanPolicy = null;
   beliefError = "";
   beliefLoading = dom.beliefToggle.checked;
@@ -710,7 +725,7 @@ function applyNetworkState(message) {
   interactionLocked = false;
   multiplayerPhase = "playing";
   if (firstState) gameSequence += 1;
-  invalidatePredictionReadouts();
+  invalidatePredictionReadouts({ keepBeliefs: true });
   dom.setup.hidden = true;
   dom.gameLoading.hidden = true;
   dom.game.hidden = false;
@@ -735,7 +750,7 @@ function applyNetworkState(message) {
 function applyRemoteInsights(message) {
   if (message.revision !== appliedNetworkRevision) return;
   humanPolicy = deserializePolicy(message.policy);
-  humanPrediction = message.prediction;
+  setHumanPrediction(message.prediction);
   beliefLoading = false;
   beliefError = "";
   render();
@@ -749,20 +764,20 @@ async function handleRemotePlayerAction(message, peerId) {
     return;
   }
   interactionLocked = true;
-  invalidatePredictionReadouts();
+  invalidatePredictionReadouts({ keepBeliefs: true });
   try {
     if (message.action === "bid" && game.round.phase === "bidding") {
       const value = Number(message.value);
       game.bid(value);
-      setStatus(`${statusPlayerName(player)} bids ${value}.`);
+      setStatus(`${statusAction(player, "bid")} ${value}.`);
       render();
       await broadcastGameState();
-      await wait(reducedMotion ? 0 : 180);
+      await pause(180);
     } else if (message.action === "play" && game.round.phase === "playing") {
       const card = { suit: message.card?.suit, rank: Number(message.card?.rank) };
       const result = game.play(card);
       displayedCompletedTrick = result.completedTrick || null;
-      setStatus(`${statusPlayerName(player)} plays ${cardLabel(card)}.`);
+      setStatus(`${statusAction(player, "play")} ${cardLabel(card)}.`);
       render();
       await broadcastGameState();
       await settlePlayedCard(result);
@@ -910,12 +925,41 @@ function handleNetworkError(message) {
   }
 }
 
-function invalidatePredictionReadouts() {
+function invalidatePredictionReadouts({ keepBeliefs = false } = {}) {
   predictionRequest += 1;
-  humanPrediction = null;
+  if (!keepBeliefs) humanPrediction = null;
   humanPolicy = null;
   beliefLoading = false;
   beliefError = "";
+}
+
+function readoutRound() {
+  return game ? `${gameSequence}:${game.roundIndex}` : null;
+}
+
+function setHumanPrediction(prediction) {
+  humanPrediction = prediction;
+  humanPredictionRound = readoutRound();
+}
+
+/** Solo auto-play: the agent plays the local seat, argmax, until the round ends. */
+function autoPlaying() {
+  return (
+    autoPlayRound !== null &&
+    autoPlayRound === readoutRound() &&
+    ["bidding", "playing"].includes(game.round.phase)
+  );
+}
+
+function agentControls(player) {
+  return isAiPlayer(player) || (player === localPlayer && autoPlaying());
+}
+
+/** The belief readout for this round, or null if the last one was for another. */
+function currentBeliefs() {
+  return humanPrediction && humanPredictionRound === readoutRound()
+    ? humanPrediction
+    : null;
 }
 
 function setStatus(message) {
@@ -953,6 +997,12 @@ function statusPlayerName(player) {
   return isHost() ? publicPlayerName(player) : playerName(player);
 }
 
+/** "Agent 3 plays" but "You play": status lines conjugate for the local seat. */
+function statusAction(player, verb) {
+  const name = statusPlayerName(player);
+  return name === "You" ? `You ${verb}` : `${name} ${verb}s`;
+}
+
 function playerBid(player) {
   return game.round.bids.find((item) => item.player === player)?.value;
 }
@@ -969,7 +1019,7 @@ function renderSeats() {
     const backs = hand
       .map(
         (_, index) =>
-          `<span class="opponent-card${dealing ? " is-dealing" : ""}" style="animation-delay:${index * 42}ms"></span>`,
+          `<span class="opponent-card${dealing ? " is-dealing" : ""}" style="animation-delay:${Math.round(index * 42 * pace)}ms"></span>`,
       )
       .join("");
     return `
@@ -1094,7 +1144,7 @@ function renderHumanHand() {
 
     button.className = `hand-card-button${unavailable ? " is-illegal" : ""}${dealing ? " is-dealing" : ""}`;
     button.disabled = disabled;
-    button.style.animationDelay = `${index * 48}ms`;
+    button.style.animationDelay = `${Math.round(index * 48 * pace)}ms`;
     button.setAttribute(
       "aria-label",
       `Play ${cardLabel(card)}${unavailable ? ", unavailable" : ""}`,
@@ -1349,7 +1399,9 @@ function renderIntel() {
   if (!visible) return;
   dom.intelTitle.textContent = "Actor belief heads";
 
-  if (beliefLoading) {
+  const beliefs = currentBeliefs();
+  dom.intelItems.classList.toggle("is-updating", beliefLoading && Boolean(beliefs));
+  if (beliefLoading && !beliefs) {
     dom.intelItems.innerHTML = '<span class="belief-message">Reading the actor belief heads…</span>';
     return;
   }
@@ -1357,7 +1409,7 @@ function renderIntel() {
     dom.intelItems.innerHTML = `<span class="belief-message is-error">${escapeHtml(beliefError)}</span>`;
     return;
   }
-  if (!humanPrediction) {
+  if (!beliefs || !["bidding", "playing"].includes(game.round.phase)) {
     dom.intelItems.innerHTML = '<span class="belief-message">Actor beliefs are available during bidding and play.</span>';
     return;
   }
@@ -1398,6 +1450,12 @@ function renderIntel() {
 
 function render() {
   if (!game) return;
+  dom.speedControl.hidden = multiplayerRole === "guest";
+  const active = autoPlaying();
+  dom.autoPlay.hidden = isMultiplayer();
+  dom.autoPlay.disabled = !["bidding", "playing"].includes(game.round.phase);
+  dom.autoPlay.setAttribute("aria-pressed", String(active));
+  dom.autoPlay.textContent = active ? "Stop auto-play" : "Auto-play round";
   renderSeats();
   renderTrick();
   renderHumanHand();
@@ -1438,7 +1496,7 @@ async function refreshHumanPrediction() {
   try {
     const prediction = await agent.predict(game, localPlayer);
     if (request !== predictionRequest) return;
-    humanPrediction = prediction;
+    setHumanPrediction(prediction);
     beliefLoading = false;
     if (game.round.currentPlayer === localPlayer) {
       if (game.round.phase === "bidding") {
@@ -1481,23 +1539,45 @@ async function chooseBotAction(player) {
       ? { type: "bid", value: fallbackBid(game, player) }
       : { type: "play", card: fallbackCard(game, player) };
   }
+  // While someone else is deciding, the local actor's view of the same state
+  // rides along as a second batch row, so its beliefs update after every move
+  // at no extra inference cost.
+  const autopilot = player === localPlayer;
+  const temperature = autopilot ? 0 : temperatureFor(difficulty);
+  const readBeliefs =
+    dom.beliefToggle.checked && multiplayerRole !== "guest" && !autopilot;
+  const request = readBeliefs ? ++predictionRequest : null;
   try {
-    const prediction = await agent.predict(game, player);
+    const [prediction, observerPrediction] = await agent.predictMany(
+      game,
+      readBeliefs ? [player, localPlayer] : [player],
+    );
+    const localView = autopilot ? prediction : observerPrediction;
+    if (localView && (autopilot || request === predictionRequest)) {
+      setHumanPrediction(localView);
+      humanPolicy = null;
+      beliefLoading = false;
+      beliefError = "";
+      render();
+    }
     if (game.round.phase === "bidding") {
       const distribution = legalDistribution(
         prediction.bidLogits,
         game.legalBids(),
-        temperatureFor(difficulty),
+        temperature,
       );
-      return { type: "bid", value: sampleDistribution(distribution) };
+      return {
+        type: "bid",
+        value: autopilot ? distribution.argmax : sampleDistribution(distribution),
+      };
     }
     const legal = game.legalCards(player);
     const distribution = legalDistribution(
       prediction.cardLogits,
       legal.map(modelCardId),
-      temperatureFor(difficulty),
+      temperature,
     );
-    const choice = sampleDistribution(distribution);
+    const choice = autopilot ? distribution.argmax : sampleDistribution(distribution);
     return { type: "play", card: legal.find((card) => modelCardId(card) === choice) };
   } catch {
     return game.round.phase === "bidding"
@@ -1706,31 +1786,57 @@ function showGameOver() {
   dom.gameOver.hidden = false;
 }
 
+/**
+ * Run every agent-controlled turn until a human must act. Single-flight: the
+ * auto-play button can ask for a run while the deal or a previous run is
+ * still winding down, and two loops acting on one state would make illegal
+ * moves. A request that arrives mid-run is picked up by the re-check below.
+ */
+let botLoopRunning = false;
 async function continueBots() {
-  if (multiplayerRole === "guest") return;
+  if (multiplayerRole === "guest" || botLoopRunning) return;
+  botLoopRunning = true;
+  try {
+    await runAgentTurns();
+  } finally {
+    botLoopRunning = false;
+  }
+  if (
+    game &&
+    !dealing &&
+    ["bidding", "playing"].includes(game.round.phase) &&
+    agentControls(game.round.currentPlayer)
+  ) {
+    await continueBots();
+  }
+}
+
+async function runAgentTurns() {
   interactionLocked = true;
   render();
   while (
-    isAiPlayer(game.round.currentPlayer) &&
+    agentControls(game.round.currentPlayer) &&
     ["bidding", "playing"].includes(game.round.phase)
   ) {
     const player = game.round.currentPlayer;
     const phase = game.round.phase;
-    setStatus(`${statusPlayerName(player)} is ${phase === "bidding" ? "considering a bid" : "choosing a card"}…`);
+    setStatus(player === localPlayer
+      ? `Auto-play is choosing your ${phase === "bidding" ? "bid" : "card"}…`
+      : `${statusPlayerName(player)} is ${phase === "bidding" ? "considering a bid" : "choosing a card"}…`);
     render();
     const action = await chooseBotAction(player);
-    await wait(reducedMotion ? 0 : BOT_THINK_MS);
-    invalidatePredictionReadouts();
+    await pause(BOT_THINK_MS);
+    invalidatePredictionReadouts({ keepBeliefs: true });
     if (action.type === "bid") {
       game.bid(action.value);
-      setStatus(`${statusPlayerName(player)} bids ${action.value}.`);
+      setStatus(`${statusAction(player, "bid")} ${action.value}.`);
       render();
       await broadcastGameState();
-      await wait(reducedMotion ? 0 : 180);
+      await pause(180);
     } else {
       const result = game.play(action.card);
       displayedCompletedTrick = result.completedTrick || null;
-      setStatus(`${statusPlayerName(player)} plays ${cardLabel(action.card)}.`);
+      setStatus(`${statusAction(player, "play")} ${cardLabel(action.card)}.`);
       render();
       await broadcastGameState();
       await settlePlayedCard(result);
@@ -1765,9 +1871,9 @@ async function beginDeal() {
   render();
   startAiReplayForCurrentRound();
   await broadcastGameState();
-  await wait(reducedMotion ? 0 : 720);
+  await pause(720);
   dealing = false;
-  setStatus(`Round ${game.roundIndex + 1}. Bidding begins with ${statusPlayerName(game.round.biddingStart)}.`);
+  setStatus(`Round ${game.roundIndex + 1}. Bidding begins with ${statusPlayerName(game.round.biddingStart).replace(/^You$/, "you")}.`);
   render();
   await broadcastGameState();
   await continueBots();
@@ -1788,10 +1894,10 @@ async function playHumanCard(card) {
     return;
   }
   interactionLocked = true;
-  invalidatePredictionReadouts();
+  invalidatePredictionReadouts({ keepBeliefs: true });
   const result = game.play(card);
   displayedCompletedTrick = result.completedTrick || null;
-  setStatus(`${statusPlayerName(localPlayer)} plays ${cardLabel(card)}.`);
+  setStatus(`${statusAction(localPlayer, "play")} ${cardLabel(card)}.`);
   render();
   await broadcastGameState();
   await settlePlayedCard(result);
@@ -1812,12 +1918,12 @@ async function playHumanCard(card) {
 }
 
 async function settlePlayedCard(result) {
-  await wait(reducedMotion ? 0 : CARD_SETTLE_MS);
+  await pause(CARD_SETTLE_MS);
   if (!result.trickComplete) return;
-  setStatus(`${statusPlayerName(result.winner)} takes the trick.`);
+  setStatus(`${statusAction(result.winner, "take")} the trick.`);
   render();
   await broadcastGameState();
-  await wait(reducedMotion ? 0 : TRICK_RESULT_HOLD_MS);
+  await pause(TRICK_RESULT_HOLD_MS);
   displayedCompletedTrick = null;
   render();
   await broadcastGameState();
@@ -2137,9 +2243,9 @@ dom.game.addEventListener("click", async (event) => {
       }
       return;
     }
-    invalidatePredictionReadouts();
+    invalidatePredictionReadouts({ keepBeliefs: true });
     game.bid(value);
-    setStatus(`${statusPlayerName(localPlayer)} bids ${value}.`);
+    setStatus(`${statusAction(localPlayer, "bid")} ${value}.`);
     render();
     await broadcastGameState();
     await continueBots();
@@ -2187,6 +2293,38 @@ dom.beliefToggle.addEventListener("change", () => {
   dom.setupBeliefToggle.checked = dom.beliefToggle.checked;
   refreshHumanPrediction();
 });
+
+dom.autoPlay.addEventListener("click", () => {
+  if (!game || isMultiplayer()) return;
+  setMobileDrawer("");
+  if (autoPlaying()) {
+    // Control returns at the local seat's next turn.
+    autoPlayRound = null;
+    render();
+    return;
+  }
+  if (!["bidding", "playing"].includes(game.round.phase)) return;
+  autoPlayRound = readoutRound();
+  render();
+  // Otherwise the deal or the running loop reaches the local seat on its own.
+  if (!interactionLocked && !dealing && game.round.currentPlayer === localPlayer) continueBots();
+});
+
+function applySpeed() {
+  const speed = speedForSlider(dom.speed.value);
+  pace = 1 / speed;
+  document.documentElement.style.setProperty("--pace", pace.toFixed(3));
+  dom.speedOutput.textContent = `${speed.toFixed(speed < 1 ? 2 : 1)}×`;
+  dom.speed.setAttribute("aria-valuetext", `${speed.toFixed(2)} times normal speed`);
+}
+
+dom.speed.addEventListener("input", () => {
+  // A small detent at the centre makes normal speed easy to find again.
+  if (Math.abs(Number(dom.speed.value) - 50) <= 3) dom.speed.value = "50";
+  applySpeed();
+});
+
+applySpeed();
 
 dom.nextRound.addEventListener("click", async () => {
   if (isMultiplayer() && !isHost()) return;

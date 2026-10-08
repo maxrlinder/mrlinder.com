@@ -1036,6 +1036,40 @@
 
 .switch-label input { accent-color: #000080; }
 
+.speed-control {
+  display: flex;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 1px solid var(--rule);
+  background: #fff;
+  align-items: center;
+  gap: 6px;
+  font: 10px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.speed-control[hidden] { display: none; }
+.autoplay-button[hidden] { display: none; }
+.autoplay-button[aria-pressed="true"] { background: var(--yellow); }
+.speed-control + .game-toggles { margin-left: 0; }
+.speed-control[hidden] + .game-toggles { margin-left: auto; }
+.speed-title { font-weight: bold; }
+.speed-end { color: var(--muted); font-size: 9px; }
+
+.speed-control input {
+  width: 92px;
+  margin: 0;
+  accent-color: #000080;
+}
+
+.speed-control output {
+  min-width: 4.5ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.intel-items.is-updating { opacity: 0.6; transition: opacity 120ms linear; }
+
 .game-layout {
   display: grid;
   min-height: calc(100vh - 74px);
@@ -1144,7 +1178,7 @@
 }
 
 .opponent-card:first-child { margin-left: 0; }
-.opponent-card.is-dealing { animation: deal-to-hand 460ms cubic-bezier(.17,.8,.3,1.12) both; }
+.opponent-card.is-dealing { animation: deal-to-hand calc(460ms * var(--pace, 1)) cubic-bezier(.17,.8,.3,1.12) both; }
 
 .players-2 .seat-player-1 { top: -24px; left: 50%; transform: translateX(-50%); }
 .players-2 .seat-player-1.is-current { transform: translateX(-50%) translateY(-3px); }
@@ -1179,7 +1213,7 @@
   width: 62px;
   aspect-ratio: 90 / 126;
   filter: drop-shadow(3px 3px 0 rgba(0,0,0,.3));
-  animation: card-to-table 410ms cubic-bezier(.22,.7,.22,1) both;
+  animation: card-to-table calc(410ms * var(--pace, 1)) cubic-bezier(.22,.7,.22,1) both;
 }
 
 .trick-card > img { display: block; width: 100%; }
@@ -1279,7 +1313,7 @@
 
 .hand-card-button:disabled { cursor: default; }
 .hand-card-button.is-illegal { filter: grayscale(.85) contrast(.86); }
-.hand-card-button.is-dealing { animation: deal-to-hand 460ms cubic-bezier(.17,.8,.3,1.12) both; }
+.hand-card-button.is-dealing { animation: deal-to-hand calc(460ms * var(--pace, 1)) cubic-bezier(.17,.8,.3,1.12) both; }
 
 @keyframes deal-to-hand {
   from { opacity: 0; transform: translate(0,-330px) rotate(16deg) scale(.65); }
@@ -1812,6 +1846,8 @@
   .game-toolbar { align-items: stretch; flex-wrap: wrap; }
   .game-toggles { width: 100%; margin-left: 0; }
   .switch-label { flex: 1; justify-content: center; }
+  .speed-control { flex: 1; }
+  .speed-control input { flex: 1; width: auto; min-width: 70px; }
   .intel-strip { grid-template-columns: 1fr; }
   .table-panel { min-height: 660px; padding: 54px 5px 20px; overflow-x: auto; }
   .table-felt { width: 650px; height: 520px; margin-left: max(0px, calc((100vw - 650px) / 2)); }
@@ -2016,6 +2052,14 @@
   .game-tools-drawer .switch-label {
     min-height: 42px;
     justify-content: flex-start;
+  }
+
+  .game-tools-drawer .autoplay-button { grid-column: 1 / -1; }
+
+  .game-tools-drawer .speed-control {
+    min-height: 42px;
+    margin: 0;
+    grid-column: 1 / -1;
   }
 
   .game-tools-drawer .intel-strip {

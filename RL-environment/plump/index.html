@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Plump — RL Playground</title>
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=training-1" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=speed-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -241,9 +241,10 @@
                 <h2 id="training-title">How the agent was trained.</h2>
                 <p class="training-lead">
                   The AI you play is a small transformer, 8.6M parameters, that
-                  learned Plump by playing against itself: about a month on one
-                  Mac GPU and roughly 3.4 billion decisions. It only sees what
-                  you see, which is its own hand and the public table.
+                  learned Plump by playing against itself: <span data-training-days>about
+                  five weeks</span> on one Mac GPU and roughly
+                  <span data-training-decisions>3.7 billion</span> decisions. It only
+                  sees what you see, which is its own hand and the public table.
                 </p>
               </header>
 
@@ -310,7 +311,7 @@
                 <li>
                   <span class="section-label">DEEPER MODEL · 16 LAYERS × 240</span>
                   <strong>PPO self-play continues</strong>
-                  <small>696 games per update · checkpoint 34,800 is live</small>
+                  <small>696 games per update · checkpoint <span data-live-checkpoint>44,300</span> is live</small>
                 </li>
               </ol>
 
@@ -318,8 +319,8 @@
                 <figcaption>
                   <strong>Deeper model round robin</strong>
                   <span>Every checkpoint plays mixed tables against the other
-                  23, about 100,000 rounds each across 3–5 players and 3–10
-                  cards. Points per round above the field average; the band is
+                  <span data-rr-others>42</span>, about 100,000 rounds each across
+                  3–5 players and 3–10 cards. Points per round above the field average; the band is
                   a 95% interval.</span>
                 </figcaption>
                 <div class="chart-plot" data-chart="round-robin"></div>
@@ -357,7 +358,7 @@
               </div>
               <p class="training-footnote">
                 x-axis: training updates. The deeper model continues from update
-                5,600 of the distillation. The round robin covers checkpoints up to 27,700.
+                5,600 of the distillation. The round robin covers checkpoints up to <span data-rr-last>47,300</span>.
               </p>
             </div>
           </section>
@@ -398,7 +399,15 @@
             <div class="game-toolbar">
               <button class="game-button" type="button" data-new-game>New game…</button>
               <button class="game-button" type="button" data-rules-button>Rules</button>
+              <button class="game-button autoplay-button" type="button" data-autoplay aria-pressed="false" hidden>Auto-play round</button>
               <span class="live-table-badge" data-live-table-badge hidden></span>
+              <label class="speed-control" data-speed-control>
+                <span class="speed-title">Speed</span>
+                <span class="speed-end" aria-hidden="true">Slower</span>
+                <input type="range" min="0" max="100" step="1" value="50" data-speed aria-label="Game speed" />
+                <span class="speed-end" aria-hidden="true">Faster</span>
+                <output data-speed-output>1.0×</output>
+              </label>
               <div class="game-toggles">
                 <label class="switch-label">
                   <input type="checkbox" data-probability-toggle />
@@ -527,7 +536,7 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=rl6-44300-1"></script>
-    <script type="module" src="/RL-environment/plump/training-charts.js?v=1"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=rl6-44300-2"></script>
+    <script type="module" src="/RL-environment/plump/training-charts.js?v=2"></script>
   </body>
 </html>
