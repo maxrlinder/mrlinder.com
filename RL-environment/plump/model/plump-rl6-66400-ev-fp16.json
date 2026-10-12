@@ -1,7 +1,7 @@
 {
   "format": "onnx",
-  "checkpoint": "iter_044300.pt",
-  "iteration": 44300,
+  "checkpoint": "iter_066400.pt",
+  "iteration": 66400,
   "schemaVersion": 6,
   "modelFormatVersion": 6,
   "precision": "fp16",
@@ -33,7 +33,7 @@
     "card_embedding_mode": "factored",
     "absolute_position_embedding": false
   },
-  "file": "plump-rl6-44300-ev-fp16.onnx",
+  "file": "plump-rl6-66400-ev-fp16.onnx",
   "bytes": 17370073,
-  "sha256": "098fd88cc740afc1af112ad7832fcfeaafcab110b692a5eb5deee9fd203b5061"
+  "sha256": "26733cba5c2126623a28b79f65dbe94744ddaa4e4283e2480ff07cf698e59526"
 }

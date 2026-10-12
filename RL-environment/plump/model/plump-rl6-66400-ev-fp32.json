@@ -1,17 +1,19 @@
 {
   "format": "onnx",
-  "kind": "perfect-information-oracle-critic",
-  "checkpoint": "iter_044300.pt",
-  "iteration": 44300,
+  "checkpoint": "iter_066400.pt",
+  "iteration": 66400,
   "schemaVersion": 6,
   "modelFormatVersion": 6,
   "precision": "fp32",
   "quantization": "none",
   "outputs": [
-    "values",
+    "bid_logits",
+    "card_logits",
     "trick_logits",
-    "card_order_logits",
-    "next_winner_logits"
+    "suit_logits",
+    "rank_boundary_logits",
+    "next_winner_logits",
+    "player_values"
   ],
   "modelConfig": {
     "schema_version": 6,
@@ -31,7 +33,7 @@
     "card_embedding_mode": "factored",
     "absolute_position_embedding": false
   },
-  "file": "plump-rl6-oracle-44300-ev-fp32.onnx",
-  "bytes": 34092856,
-  "sha256": "669874959cccb9d814d1cc5f2c947ef35684c1f5b728444c9bbaafa892a4282b"
+  "file": "plump-rl6-66400-ev-fp32.onnx",
+  "bytes": 34157337,
+  "sha256": "4d7d86d29268ff7142d3f8ddcc6e3139654c3b048fe6344143bf5115961eb695"
 }
