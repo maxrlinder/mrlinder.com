@@ -177,6 +177,10 @@
   background: #d2d2cc;
 }
 
+.plump-page:has(.plump-setup:not([hidden])) {
+  background: var(--desktop-bg);
+}
+
 .plump-shell {
   width: 100%;
   min-height: 100vh;
@@ -233,7 +237,9 @@
 .plump-setup {
   width: min(1060px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 40px 0 70px;
+  padding: 28px 0 48px;
+  color: var(--ink);
+  font-family: var(--sans);
 }
 
 .plump-setup-window {
@@ -246,67 +252,72 @@
 }
 
 .plump-rules {
-  padding: 42px 44px 46px;
+  padding: 30px 34px 34px;
   border-right: 1px solid var(--ink);
-  background: var(--screen-light);
+  background: var(--paper);
 }
 
 .plump-rules h1 {
   margin: 0;
-  font: clamp(48px, 6vw, 64px) / 1 var(--system);
+  font: 44px/1.1 var(--system);
   font-weight: normal;
 }
 
-.plump-rules .spectrum-rule {
-  margin: 20px 0 30px;
+.plump-subtitle {
+  margin: 6px 0 20px;
+  font: 19px/1.3 var(--serif);
 }
 
 .plump-rules-lead {
-  max-width: 37ch;
-  margin: 0 0 28px;
-  font: 20px/1.45 var(--serif);
+  max-width: 38ch;
+  margin: 0 0 22px;
+  font: 19px/1.5 var(--serif);
 }
 
 .rule-list {
   margin: 0;
   padding: 0;
+  counter-reset: rule;
   list-style: none;
 }
 
 .rule-list li {
   display: grid;
-  padding: 9px 0;
+  padding: 8px 0;
   border-top: 1px dotted var(--rule);
-  grid-template-columns: 24px 1fr;
+  counter-increment: rule;
+  grid-template-columns: 26px 1fr;
   gap: 8px;
-  font-size: 13px;
+  font: 16px/1.45 var(--serif);
 }
 
 .rule-list li::before {
   display: grid;
   width: 18px;
   height: 18px;
+  margin-top: 2px;
   border: 1px solid var(--ink);
-  background: var(--chrome);
+  background: var(--paper);
   place-items: center;
-  content: counter(list-item);
-  font: 10px/1 var(--mono);
+  content: counter(rule);
+  font: 11px/1 var(--system);
 }
 
 .plump-controls {
-  padding: 40px 38px 42px;
-  background: #e7e7e0;
+  padding: 30px 30px 34px;
+  background: var(--chrome);
 }
 
 .plump-controls h2 {
   margin: 0 0 4px;
-  font: bold 29px/1.05 var(--serif);
+  font: 22px/1.15 var(--system);
+  font-weight: normal;
 }
 
 .setup-caption {
-  margin: 0 0 28px;
-  font: 11px/1.4 var(--mono);
-  text-transform: uppercase;
+  margin: 0 0 24px;
+  color: var(--muted);
+  font: 12px/1.4 var(--sans);
 }
 
 .play-mode-picker,
@@ -322,7 +333,7 @@
 .multiplayer-role-picker legend {
   width: 100%;
   margin-bottom: 8px;
-  font: bold 12px/1.2 var(--sans);
+  font: 13px/1.2 var(--system);
 }
 
 .play-mode-picker label,
@@ -340,32 +351,37 @@
 .play-mode-picker span,
 .multiplayer-role-picker span {
   display: block;
-  padding: 8px 9px;
-  border: 2px outset #fff;
-  background: var(--chrome);
-  font: 11px/1.2 var(--sans);
+  padding: 4px 9px;
+  border: 1px solid var(--ink);
+  border-radius: 7px 0 0 7px;
+  background: var(--paper);
+  font: 13px/18px var(--system);
   text-align: center;
+}
+
+.play-mode-picker label + label span,
+.multiplayer-role-picker label + label span {
+  margin-left: -1px;
+  border-radius: 0 7px 7px 0;
 }
 
 .play-mode-picker input:checked + span,
 .multiplayer-role-picker input:checked + span {
-  border-style: inset;
-  background: #000080;
-  color: #fff;
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .play-mode-picker input:focus-visible + span,
 .multiplayer-role-picker input:focus-visible + span {
-  outline: 2px solid #000080;
+  outline: 1px dotted var(--ink);
   outline-offset: 2px;
 }
 
 .multiplayer-setup {
   margin: -4px 0 22px;
-  padding: 15px;
+  padding: 14px;
   border: 1px solid var(--ink);
-  background: #f5f5ef;
-  box-shadow: inset 2px 2px 0 #b7b7b0;
+  background: var(--paper);
 }
 
 .multiplayer-setup[hidden],
@@ -378,16 +394,17 @@
 .join-code-row input {
   width: 150px;
   min-width: 0;
-  padding: 6px 7px;
-  border: 2px inset #fff;
+  padding: 4px 6px;
+  border: 1px solid var(--ink);
   border-radius: 0;
-  background: #fff;
+  background: var(--paper);
+  box-shadow: inset 1px 1px 0 var(--rule);
   color: var(--ink);
-  font: 12px/1 var(--sans);
+  font: 13px/1.2 var(--sans);
 }
 
 .join-code-row input {
-  font: bold 13px/1 var(--mono);
+  font: bold 13px/1.2 var(--mono);
   letter-spacing: .1em;
   text-transform: uppercase;
 }
@@ -399,7 +416,7 @@
 .multiplayer-note {
   margin: 4px 0 0;
   color: var(--muted);
-  font: 9px/1.45 var(--mono);
+  font: 11px/1.45 var(--sans);
 }
 
 .multiplayer-insights {
@@ -412,7 +429,7 @@
 
 .multiplayer-insights legend {
   margin-bottom: 1px;
-  font: bold 12px/1.2 var(--sans);
+  font: 13px/1.2 var(--system);
 }
 
 .multiplayer-insights label {
@@ -428,15 +445,15 @@
 }
 
 .multiplayer-insights label:has(input:checked) {
-  border-color: #000080;
-  box-shadow: inset 3px 0 0 #000080;
+  border-color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--ink);
 }
 
 .multiplayer-insights input {
   width: 15px;
   height: 15px;
   margin: 0;
-  accent-color: #000080;
+  accent-color: var(--ink);
 }
 
 .multiplayer-insights strong,
@@ -446,14 +463,14 @@
 
 .multiplayer-insights strong {
   margin-bottom: 2px;
-  font: bold 10px/1.1 var(--mono);
-  text-transform: uppercase;
+  font: 13px/1.2 var(--system);
+  font-weight: normal;
 }
 
 .multiplayer-insights small,
 .multiplayer-insights > p {
   color: var(--muted);
-  font: 9px/1.35 var(--mono);
+  font: 11px/1.4 var(--sans);
 }
 
 .multiplayer-insights > p {
@@ -463,9 +480,9 @@
 .multiplayer-lobby {
   margin-top: 14px;
   padding: 14px;
-  border: 2px solid var(--ink);
-  background: #f7f2d5;
-  box-shadow: 4px 4px 0 #8d8d86;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 1px 1px 0 var(--ink);
 }
 
 .lobby-code {
@@ -479,12 +496,12 @@
 }
 
 .lobby-code > span {
-  font: bold 9px/1 var(--mono);
+  font: 12px/1 var(--system);
 }
 
 .lobby-code > strong {
   grid-column: 1;
-  color: #000080;
+  color: var(--ink);
   font: bold 23px/1 var(--mono);
   letter-spacing: .13em;
 }
@@ -497,7 +514,7 @@
 
 .lobby-status {
   margin: 12px 0 8px;
-  font: 10px/1.4 var(--mono);
+  font: 12px/1.4 var(--sans);
 }
 
 .lobby-roster {
@@ -513,12 +530,11 @@
   border-bottom: 1px dotted var(--rule);
   justify-content: space-between;
   gap: 10px;
-  font: 10px/1.2 var(--mono);
+  font: 12px/1.3 var(--sans);
 }
 
 .lobby-roster li span:last-child {
   color: var(--muted);
-  text-transform: uppercase;
 }
 
 .multiplayer-lobby .start-game-button { margin-top: 5px; }
@@ -535,7 +551,7 @@
   border: 1px solid #940000;
   background: #fff;
   color: #940000;
-  font: bold 10px/1.35 var(--mono);
+  font: bold 12px/1.4 var(--sans);
 }
 
 .control-row {
@@ -548,17 +564,21 @@
 
 .control-row label,
 .difficulty-header label {
-  font: bold 12px/1.2 var(--sans);
+  font: 13px/1.2 var(--system);
 }
 
 .control-row select {
-  min-width: 145px;
-  padding: 5px 24px 5px 7px;
-  border: 2px inset #fff;
+  min-width: 170px;
+  padding: 3px 26px 3px 8px;
+  border: 1px solid var(--ink);
   border-radius: 0;
-  background: #fff;
+  background: var(--paper)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0h9L4.5 5z'/%3E%3C/svg%3E")
+    right 9px center no-repeat;
+  box-shadow: 1px 1px 0 var(--ink);
   color: var(--ink);
-  font: 12px/1 var(--sans);
+  appearance: none;
+  font: 13px/18px var(--system);
 }
 
 .difficulty-control {
@@ -576,22 +596,21 @@
 }
 
 .difficulty-header output {
-  color: #000080;
-  font: bold 11px/1 var(--mono);
+  color: var(--ink);
+  font: 12px/1 var(--mono);
 }
 
 .difficulty-control input[type="range"] {
   width: 100%;
-  accent-color: #000080;
+  accent-color: var(--ink);
 }
 
 .slider-labels {
   display: grid;
   margin-top: 4px;
   color: var(--muted);
-  font: 9px/1.25 var(--mono);
+  font: 11px/1.3 var(--sans);
   grid-template-columns: 1fr 1fr;
-  text-transform: uppercase;
 }
 
 .slider-labels span:last-child { text-align: right; }
@@ -623,6 +642,43 @@
 .game-button:disabled,
 .bid-button:disabled { color: var(--rule); cursor: not-allowed; }
 
+/* Setup buttons are Macintosh push buttons; the start button is the default. */
+.plump-setup .start-game-button,
+.plump-setup .game-button {
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 13px/18px var(--system);
+  font-weight: normal;
+}
+
+.plump-setup .start-game-button {
+  width: calc(100% - 8px);
+  margin: 4px;
+  padding: 6px 15px;
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
+  font-size: 14px;
+}
+
+.plump-setup .start-game-button:focus-visible {
+  outline-style: double;
+  outline-width: 5px;
+}
+
+.plump-setup .start-game-button:active,
+.plump-setup .game-button:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.plump-setup .start-game-button:disabled,
+.plump-setup .game-button:disabled {
+  background: var(--paper);
+  color: var(--rule);
+}
+
 .model-download {
   margin-top: 13px;
 }
@@ -633,59 +689,57 @@
   display: flex;
   margin: 0 0 7px;
   justify-content: space-between;
-  font: 10px/1.3 var(--mono);
-  text-transform: uppercase;
+  font: 12px/1.3 var(--sans);
 }
 
 .model-download-track {
   height: 12px;
-  padding: 2px;
   border: 1px solid var(--ink);
-  background: #fff;
+  background: var(--paper);
 }
 
 .model-download-track span {
   display: block;
   width: 0;
   height: 100%;
-  background: repeating-linear-gradient(90deg, #000080 0 7px, transparent 7px 9px);
+  background: #555;
   transition: width 120ms linear;
 }
 
 .model-note {
   margin: 18px 0 0;
   color: var(--muted);
-  font: 10px/1.45 var(--mono);
+  font: 11px/1.45 var(--sans);
 }
 
 /* How the agent was trained */
 
 .training-jump {
   display: inline-block;
-  margin-top: 22px;
-  font: bold 12px/1.3 var(--sans);
+  margin-top: 18px;
+  font: 16px/1.3 var(--serif);
 }
 
 .plump-training-window {
-  margin-top: 28px;
+  margin-top: 24px;
   scroll-margin-top: 50px;
 }
 
 .plump-training {
-  padding: 42px 44px 40px;
-  background: var(--screen-light);
+  padding: 30px 34px 34px;
+  background: var(--paper);
 }
 
 .training-intro h2 {
   margin: 0;
-  font: clamp(28px, 3.6vw, 38px) / 1.1 var(--system);
+  font: 32px/1.15 var(--system);
   font-weight: normal;
 }
 
 .training-lead {
   max-width: 62ch;
-  margin: 18px 0 30px;
-  font: 19px/1.45 var(--serif);
+  margin: 14px 0 26px;
+  font: 19px/1.5 var(--serif);
 }
 
 .training-columns {
@@ -696,7 +750,7 @@
 
 .training-block {
   padding: 24px 28px 6px 0;
-  font-size: 14px;
+  font: 16px/1.5 var(--serif);
 }
 
 .training-block + .training-block {
@@ -706,7 +760,7 @@
 
 .training-block h3 {
   margin: 0 0 14px;
-  font: bold 24px/1.1 var(--serif);
+  font: bold 20px/1.25 var(--serif);
 }
 
 .training-block p:not(.section-label) {
@@ -736,7 +790,7 @@
 
 .token-group small {
   color: var(--muted);
-  font: 9px/1.2 var(--mono);
+  font: 10px/1.2 var(--sans);
   text-align: center;
 }
 
@@ -779,7 +833,8 @@
   display: grid;
   padding: 12px 13px 13px;
   border: 1px solid var(--ink);
-  background: #e7e7e0;
+  background: var(--paper);
+  box-shadow: 1px 1px 0 var(--ink);
   align-content: start;
   gap: 3px;
 }
@@ -795,7 +850,7 @@
 
 .training-lineage .section-label { margin: 0; color: var(--muted); }
 .training-lineage strong { font: bold 17px/1.2 var(--serif); }
-.training-lineage small { color: var(--muted); font: 10px/1.4 var(--mono); }
+.training-lineage small { color: var(--muted); font: 11px/1.4 var(--sans); }
 
 .training-chart {
   min-width: 0;
@@ -808,13 +863,13 @@
   display: grid;
   padding: 8px 10px;
   border-bottom: 1px solid var(--ink);
-  background: var(--chrome);
+  background: var(--paper);
   gap: 3px;
 }
 
 .training-chart figcaption strong {
-  font: bold 10px/1.2 var(--mono);
-  text-transform: uppercase;
+  font: 13px/1.2 var(--system);
+  font-weight: normal;
 }
 
 .training-chart figcaption span {
@@ -845,7 +900,7 @@
   outline-offset: 2px;
 }
 
-.chart-grid line { stroke: #e6e6df; stroke-width: 1; }
+.chart-grid line { stroke: #e6e6e6; stroke-width: 1; }
 .chart-grid line.is-zero { stroke: var(--rule); }
 .chart-baseline { stroke: var(--rule); stroke-width: 1; }
 .chart-axis text { fill: var(--muted); font: 10px var(--mono); font-variant-numeric: tabular-nums; }
@@ -898,7 +953,7 @@
   padding: 6px 8px;
   border: 1px solid var(--ink);
   background: #fff;
-  box-shadow: 2px 2px 0 #8c8c86;
+  box-shadow: 1px 1px 0 var(--ink);
   pointer-events: none;
   font: 10px/1.45 var(--mono);
   gap: 2px;
@@ -936,12 +991,12 @@
 
 .chart-table th:first-child,
 .chart-table td:first-child { text-align: left; }
-.chart-table th { background: #000080; color: #fff; font-size: 9px; text-transform: uppercase; }
+.chart-table th { background: var(--ink); color: #fff; font-size: 9px; text-transform: uppercase; }
 
 .training-footnote {
   margin: 14px 0 0;
   color: var(--muted);
-  font: 10px/1.45 var(--mono);
+  font: 11px/1.45 var(--sans);
 }
 
 @media (max-width: 920px) {
@@ -949,7 +1004,7 @@
 }
 
 @media (max-width: 760px) {
-  .plump-training { padding: 30px 22px 28px; }
+  .plump-training { padding: 22px 18px 24px; }
   .training-lead { font-size: 17px; }
   .training-columns { grid-template-columns: 1fr; }
   .training-block,
@@ -960,7 +1015,7 @@
 }
 
 @media (max-width: 500px) {
-  .plump-training { padding: 26px 14px 24px; }
+  .plump-training { padding: 20px 14px 22px; }
 }
 
 /* Game table */
@@ -1829,8 +1884,8 @@
   .plump-menubar > strong { display: none; }
   .plump-setup { width: min(100% - 22px, 650px); padding-top: 18px; }
   .plump-setup-grid { grid-template-columns: 1fr; }
-  .plump-rules { padding: 31px 25px; border-right: 0; border-bottom: 1px solid var(--ink); }
-  .plump-controls { padding: 29px 24px; }
+  .plump-rules { padding: 22px 18px 24px; border-right: 0; border-bottom: 1px solid var(--ink); }
+  .plump-controls { padding: 22px 18px 24px; }
   .game-toolbar { align-items: stretch; flex-wrap: wrap; }
   .game-toggles { width: 100%; margin-left: 0; }
   .switch-label { flex: 1; justify-content: center; }
@@ -1846,7 +1901,7 @@
 }
 
 @media (max-width: 500px) {
-  .plump-rules h1 { font-size: 48px; }
+  .plump-rules h1 { font-size: 36px; }
   .control-row { grid-template-columns: 1fr; }
   .control-row select { width: 100%; }
   .multiplayer-name-row input,
