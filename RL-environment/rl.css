@@ -1,7 +1,7 @@
 /* RL playground — an interactive branch of the site's System 7 language. */
 
 .rl-directory-frame {
-  width: min(1050px, calc(100% - 42px));
+  width: min(940px, 100%);
 }
 
 .rl-directory-window {
@@ -9,72 +9,55 @@
 }
 
 .rl-directory-intro {
-  position: relative;
-  padding: 46px 50px 42px;
-  background:
-    linear-gradient(90deg, transparent 0 97%, rgba(17, 17, 15, 0.05) 97%),
-    var(--screen-light);
-  background-size: 18px 18px;
+  padding: 30px 34px 30px;
+  background: var(--paper);
 }
 
 .rl-directory-intro h1 {
-  max-width: 760px;
   margin: 0;
-  font: bold clamp(56px, 9vw, 104px) / 0.83 var(--serif);
-  letter-spacing: -0.055em;
-}
-
-.rl-directory-intro .spectrum-rule {
-  width: min(700px, 100%);
-  margin: 27px 0 30px;
+  font: 34px/1.15 var(--system);
+  font-weight: normal;
 }
 
 .rl-directory-lead {
-  max-width: 700px;
-  margin: 0;
-  font: 20px/1.52 var(--serif);
+  max-width: 640px;
+  margin: 14px 0 0;
+  font: 19px/1.5 var(--serif);
 }
 
 .rl-early-note {
-  margin: 24px 0 0;
-  font: 11px/1.4 var(--mono);
-  text-transform: uppercase;
+  margin: 18px 0 0;
+  font: 12px/1.4 var(--sans);
 }
 
 .game-directory {
   border-top: 1px solid var(--ink);
-  background: #d8d8d1;
+  background: var(--paper);
 }
 
 .game-directory-bar {
   display: flex;
-  min-height: 34px;
-  padding: 7px 12px;
+  margin-bottom: 3px;
+  padding: 3px 10px 2px;
   border-bottom: 1px solid var(--ink);
-  background: var(--chrome);
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 2px 0 var(--paper), 0 3px 0 var(--ink);
 }
 
 .game-directory-bar h2,
 .game-directory-bar span {
   margin: 0;
-  font: bold 11px/1.2 var(--mono);
-  text-transform: uppercase;
-}
-
-.game-directory-bar span {
-  font-weight: normal;
+  font: 11px/1.4 var(--sans);
 }
 
 .game-file {
   display: grid;
-  min-height: 190px;
   padding: 18px;
-  background: var(--screen-light);
+  background: var(--paper);
   color: var(--ink);
-  grid-template-columns: minmax(240px, 360px) 1fr auto;
-  gap: 28px;
+  grid-template-columns: minmax(220px, 320px) 1fr auto;
+  gap: 26px;
   align-items: center;
   text-decoration: none;
 }
@@ -83,44 +66,48 @@
   color: var(--ink);
 }
 
-.game-file:hover,
-.game-file:focus-visible {
-  outline: 3px solid #000080;
-  outline-offset: -7px;
-  background: #fff;
+.game-file:hover {
+  background: #eee;
   color: var(--ink);
+}
+
+.game-file:focus-visible {
+  outline: 1px dotted var(--ink);
+  outline-offset: -6px;
 }
 
 .game-file img {
   display: block;
   width: 100%;
   border: 1px solid var(--ink);
-  box-shadow: 3px 3px 0 #8c8c86;
-  transition: transform 160ms ease-out;
-}
-
-.game-file:hover img,
-.game-file:focus-visible img {
-  transform: rotate(-1deg) translateY(-2px);
+  box-shadow: 1px 1px 0 var(--ink);
 }
 
 .game-file-copy strong {
   display: block;
-  margin-bottom: 8px;
-  font: bold 40px/1 var(--serif);
+  margin-bottom: 6px;
+  font: 28px/1.1 var(--system);
+  font-weight: normal;
 }
 
 .game-file-copy small {
   display: block;
-  font: 11px/1.5 var(--mono);
-  text-transform: uppercase;
+  font: 13px/1.5 var(--sans);
 }
 
 .game-file-open {
-  padding: 7px 10px;
-  border: 2px outset #fff;
-  background: var(--chrome);
-  font: 12px/1 var(--sans);
+  min-width: 72px;
+  padding: 2px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  background: var(--paper);
+  font: 13px/18px var(--system);
+  text-align: center;
+}
+
+.game-file:active .game-file-open {
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .rl-boot {
@@ -128,14 +115,12 @@
   z-index: 1100;
   inset: 0;
   display: grid;
-  background: var(--screen);
+  background: var(--desktop-bg);
   place-items: center;
 }
 
 .rl-boot.is-finished {
-  opacity: 0;
   visibility: hidden;
-  transition: opacity 180ms linear, visibility 0s 180ms;
 }
 
 .rl-boot-table {
@@ -146,17 +131,21 @@
   border: 2px solid var(--ink);
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 5px 5px 0 #77776f, inset 0 0 0 6px var(--yellow);
+  box-shadow: 3px 3px 0 var(--ink), inset 0 0 0 6px var(--yellow);
   place-items: center;
 }
 
 .rl-boot-table strong {
   position: absolute;
   top: calc(100% + 22px);
-  width: 330px;
-  font: bold 12px/1 var(--mono);
-  text-align: center;
-  text-transform: uppercase;
+  left: 50%;
+  padding: 1px 7px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font: 13px/1.4 var(--system);
+  font-weight: normal;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .rl-boot-card {
@@ -200,26 +189,26 @@
   display: grid;
   min-height: 34px;
   padding: 0 10px;
-  border-top: 1px solid #fff;
   border-bottom: 1px solid var(--ink);
-  background: var(--chrome);
+  background: #fff;
   align-items: center;
   grid-template-columns: 1fr auto 1fr;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.16);
 }
 
 .plump-home-link {
   width: max-content;
+  padding: 4px 6px;
   color: var(--ink);
-  font: 12px/1 var(--sans);
+  font: 13px/1 var(--system);
   text-decoration: none;
 }
 
 .plump-home-link:visited { color: var(--ink); }
-.plump-home-link:hover { color: #0000aa; text-decoration: underline; }
+.plump-home-link:hover { background: var(--ink); color: #fff; }
 
 .plump-menubar > strong {
-  font: bold 13px/1 var(--sans);
+  font: 14px/1 var(--system);
+  font-weight: normal;
 }
 
 .model-state {
@@ -264,8 +253,8 @@
 
 .plump-rules h1 {
   margin: 0;
-  font: bold clamp(64px, 9vw, 106px) / 0.82 var(--serif);
-  letter-spacing: -0.06em;
+  font: clamp(48px, 6vw, 64px) / 1 var(--system);
+  font-weight: normal;
 }
 
 .plump-rules .spectrum-rule {
@@ -689,8 +678,8 @@
 
 .training-intro h2 {
   margin: 0;
-  font: bold clamp(40px, 6vw, 64px) / 0.9 var(--serif);
-  letter-spacing: -0.05em;
+  font: clamp(28px, 3.6vw, 38px) / 1.1 var(--system);
+  font-weight: normal;
 }
 
 .training-lead {
@@ -1829,13 +1818,12 @@
 }
 
 @media (max-width: 760px) {
-  .rl-directory-frame { padding-top: 58px; }
-  .rl-directory-intro { padding: 34px 26px; }
-  .rl-directory-intro h1 { font-size: clamp(51px, 15vw, 76px); }
+  .rl-directory-intro { padding: 20px 18px 22px; }
+  .rl-directory-intro h1 { font-size: 28px; }
   .rl-directory-lead { font-size: 18px; }
   .game-file { grid-template-columns: 1fr; gap: 16px; }
   .game-file-open { display: none; }
-  .game-file-copy strong { font-size: 32px; }
+  .game-file-copy strong { font-size: 26px; }
 
   .plump-menubar { grid-template-columns: 1fr auto; }
   .plump-menubar > strong { display: none; }
@@ -1858,7 +1846,7 @@
 }
 
 @media (max-width: 500px) {
-  .plump-rules h1 { font-size: 64px; }
+  .plump-rules h1 { font-size: 48px; }
   .control-row { grid-template-columns: 1fr; }
   .control-row select { width: 100%; }
   .multiplayer-name-row input,
@@ -1881,7 +1869,7 @@
     padding-left: max(8px, env(safe-area-inset-left));
   }
 
-  .plump-home-link { font-size: 10px; }
+  .plump-home-link { font-size: 12px; }
 
   .model-state {
     max-width: 46vw;

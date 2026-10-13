@@ -7,7 +7,7 @@
       name="description"
       content="The personal website of Max Rehman Linder — AI researcher, applied mathematician, and occasional sailor."
     />
-    <meta name="theme-color" content="#f4f3ed" />
+    <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Max Rehman Linder" />
     <meta
@@ -30,6 +30,13 @@
       content="https://mrlinder.com/resources/og-name-only.png"
     />
     <title>Max Rehman Linder</title>
+    <link
+      rel="preload"
+      href="/resources/fonts/ChicagoFLF.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="/styles.css" />
     <script src="/site-config.js"></script>
     <script src="/site-navigation.js" defer></script>
@@ -40,19 +47,9 @@
 
     <div class="boot-screen" data-boot-screen aria-hidden="true">
       <div class="boot-window">
-        <div class="window-titlebar">
-          <span class="window-control"></span>
-          <strong>Starting up</strong>
-          <span class="window-control window-control-double"></span>
-        </div>
-        <div class="boot-body">
-          <div class="boot-mark">M</div>
-          <div>
-            <strong>mrlinder.com</strong>
-            <p>Loading home page...</p>
-            <div class="boot-progress"><span></span></div>
-          </div>
-        </div>
+        <div class="boot-computer"></div>
+        <strong>Welcome to mrlinder.com</strong>
+        <div class="boot-progress"><span></span></div>
       </div>
     </div>
 
@@ -74,12 +71,6 @@
         <div class="front-page">
           <div class="front-copy">
             <h1>Max Rehman Linder</h1>
-            <div class="spectrum-rule" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span
-              ><span></span><span></span>
-            </div>
-
-            <p class="section-label">WELCOME</p>
             <p class="lead">
               My name is Max, and I’m an AI researcher at Ericsson, based in
               Stockholm. I create data pipelines, fine-tune foundation models,
@@ -100,7 +91,6 @@
               >
             </p>
           </div>
-
         </div>
       </section>
     </main>

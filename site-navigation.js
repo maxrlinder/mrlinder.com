@@ -128,56 +128,60 @@ class SiteSidebar extends HTMLElement {
       .join("");
 
     this.innerHTML = `
-      <div class="mobile-toolbar">
+      <header class="menubar">
         <a
-          class="mobile-home-button"
+          class="menubar-logo"
           href="/"
           aria-label="Go to the home page"
           data-skip-boot
         >
           <span class="system-mark" aria-hidden="true"></span>
         </a>
+        <a class="menubar-title" href="/" data-skip-boot>mrlinder.com</a>
         <button
-          class="sidebar-toggle"
+          class="menubar-toggle"
           type="button"
           aria-controls="site-directory"
           aria-expanded="false"
           data-sidebar-toggle
         >
-          <span class="toggle-lines" aria-hidden="true"></span>
           Directory
         </button>
-      </div>
+        <span class="menubar-clock" title="Local time in Stockholm" data-local-time
+          >--:--</span
+        >
+      </header>
       <div class="sidebar-backdrop" data-sidebar-backdrop></div>
       <aside class="site-sidebar" id="site-directory" aria-label="Site directory">
-        <div class="sidebar-menubar">
-          <a
-            class="sidebar-home-link"
-            href="/"
-            aria-label="Go to the home page"
-            data-skip-boot
-          >
-            <span class="system-mark" aria-hidden="true"></span>
-          </a>
-          <strong>mrlinder.com</strong>
-        </div>
         <div class="window-titlebar">
           <span class="window-control"></span>
-          <strong>Directory</strong>
+          <strong>mrlinder.com</strong>
           <span class="window-control window-control-double"></span>
         </div>
+        <div class="finder-info">
+          <span>${navigationItems.length} items</span>
+          <span>Stockholm, SE</span>
+        </div>
         <nav class="directory-tree" aria-label="Directory tree">
-          <div class="tree-drive-row">
-            <span class="drive-icon" aria-hidden="true"></span>
-            <strong>mrlinder.com</strong>
-          </div>
           <ul class="tree-root">${items}</ul>
         </nav>
-        <div class="sidebar-status">
-          <span><span class="status-light" aria-hidden="true"></span>online</span>
-          <span data-local-time>--:--</span>
-        </div>
       </aside>
+      <div class="desktop-icons">
+        <a class="desktop-icon" href="/" data-skip-boot>
+          <span class="desktop-icon-image icon-disk" aria-hidden="true"></span>
+          <span class="desktop-icon-label">mrlinder.com</span>
+        </a>
+        <a class="desktop-icon" href="/resources/CV_Max_R_Linder.pdf" download>
+          <span class="desktop-icon-image icon-document" aria-hidden="true"></span>
+          <span class="desktop-icon-label">CV.pdf</span>
+        </a>
+      </div>
+      <div class="desktop-trash" aria-hidden="true">
+        <span class="desktop-icon">
+          <span class="desktop-icon-image icon-trash"></span>
+          <span class="desktop-icon-label">Trash</span>
+        </span>
+      </div>
     `;
   }
 }

@@ -40,6 +40,7 @@ const required = [
   "site-navigation.js",
   "script.js",
   "resources/CV_Max_R_Linder.pdf",
+  "resources/fonts/ChicagoFLF.woff2",
   "resources/og-name-only.png",
   "resources/og-plump.png",
   "resources/about/web/portrait.jpg",
