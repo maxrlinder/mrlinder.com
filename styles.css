@@ -10,19 +10,21 @@
 }
 
 :root {
-  --desktop: #a3a3c2;
+  --desktop: #b2b2cc;
   --desktop-bg:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect width='4' height='4' fill='%23a3a3c2'/%3E%3Crect width='1' height='1' fill='%238c8cb0'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%238c8cb0'/%3E%3C/svg%3E")
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect width='4' height='4' fill='%23b2b2cc'/%3E%3Crect width='1' height='1' fill='%23a7a7c4'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23a7a7c4'/%3E%3C/svg%3E")
     0 0 / 4px 4px repeat var(--desktop);
   --paper: #fff;
   --screen: #fff;
   --screen-light: #fff;
-  --chrome: #ddd;
+  --chrome: #e6e6e6;
   --chrome-dark: #808080;
-  --ink: #000;
+  --ink: #1a1a1a;
   --muted: #555;
-  --rule: #999;
-  --link: #0000ee;
+  --rule: #b4b4b4;
+  --hairline: #dedede;
+  --stripe: #a8a8a8;
+  --link: #1a1ab8;
   --link-visited: #551a8b;
   --link-active: #ee0000;
   --red: #c73b32;
@@ -33,7 +35,7 @@
   --violet: #725393;
   --brown: #6d4a3d;
   --system: "ChicagoFLF", Charcoal, Geneva, Tahoma, sans-serif;
-  --serif: "Times New Roman", Times, serif;
+  --serif: Georgia, "Times New Roman", Times, serif;
   --sans: Geneva, Tahoma, Verdana, sans-serif;
   --mono: Monaco, "Courier New", Courier, monospace;
   --menubar-height: 24px;
@@ -84,6 +86,8 @@ html[data-animations="off"] *::after {
 a {
   color: var(--link);
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
 }
 
 a:visited {
@@ -457,7 +461,7 @@ site-sidebar {
   background-color: var(--paper);
   background-image: repeating-linear-gradient(
     to bottom,
-    var(--ink) 0 1px,
+    var(--stripe) 0 1px,
     transparent 1px 2px
   );
   background-position: 2px 4px;
@@ -535,12 +539,12 @@ site-sidebar {
 .lead {
   max-width: 600px;
   margin: 14px 0 0;
-  font: 19px/1.5 var(--serif);
+  font: 18px/1.6 var(--serif);
 }
 
 .plain-links {
   margin: 24px 0 0;
-  font: 17px/1.5 var(--serif);
+  font: 16px/1.5 var(--serif);
 }
 
 .plain-links span {
@@ -597,7 +601,7 @@ site-sidebar {
 
 .empty-directory > p:last-child {
   max-width: 48ch;
-  font: 18px/1.5 var(--serif);
+  font: 17px/1.6 var(--serif);
 }
 
 .site-footer {
@@ -676,7 +680,7 @@ site-sidebar {
   background-color: var(--paper);
   background-image: repeating-linear-gradient(
     to bottom,
-    var(--ink) 0 1px,
+    var(--stripe) 0 1px,
     transparent 1px 2px
   );
   background-position: 2px 4px;
@@ -818,7 +822,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 .cv-heading {
   display: grid;
   padding-bottom: 20px;
-  border-bottom: 1px solid var(--ink);
+  border-bottom: 1px solid var(--hairline);
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 36px;
   align-items: end;
@@ -826,7 +830,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
 .cv-subtitle {
   margin: 8px 0 0;
-  font: 19px/1.3 var(--serif);
+  font: 18px/1.35 var(--serif);
 }
 
 .cv-contact {
@@ -844,9 +848,9 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
 .cv-toc,
 .about-toc {
-  margin: 0 0 30px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--ink);
+  margin: 0 0 32px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
   font: 15px/1.6 var(--serif);
 }
 
@@ -879,8 +883,8 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
 .resume-row {
   display: grid;
-  padding: 14px 0;
-  border-bottom: 1px dotted var(--rule);
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hairline);
   grid-template-columns: 150px minmax(0, 1fr);
   gap: 24px;
 }
@@ -905,7 +909,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
 .resume-row h3 {
   margin: 0;
-  font: bold 18px/1.25 var(--serif);
+  font: bold 17px/1.3 var(--serif);
 }
 
 .resume-row h3 small,
@@ -920,7 +924,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
 .resume-row h4 {
   margin: 12px 0 2px;
-  font: bold italic 16px/1.35 var(--serif);
+  font: italic 16px/1.35 var(--serif);
 }
 
 .resume-row h4 small {
@@ -931,7 +935,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 .resume-row p:not(.resume-date) {
   max-width: 640px;
   margin: 4px 0;
-  font: 16px/1.5 var(--serif);
+  font: 15px/1.6 var(--serif);
 }
 
 /* About */
@@ -947,7 +951,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 .about-lead {
   max-width: 30ch;
   margin: 16px 0 0;
-  font: 22px/1.45 var(--serif);
+  font: 20px/1.5 var(--serif);
 }
 
 .bio-figure {
@@ -969,7 +973,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 }
 
 .about-toc {
-  border-top: 1px solid var(--ink);
+  border-top: 1px solid var(--hairline);
 }
 
 .about-section {
@@ -982,9 +986,9 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 }
 
 .bio-copy p {
-  max-width: 70ch;
+  max-width: 68ch;
   margin: 0 auto 26px;
-  font: 18px/1.6 var(--serif);
+  font: 16.5px/1.7 var(--serif);
 }
 
 .bio-split {
@@ -1172,7 +1176,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   }
 
   .lead {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .cv-heading {
@@ -1194,7 +1198,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   }
 
   .about-lead {
-    font-size: 19px;
+    font-size: 18px;
   }
 
   .about-portrait {
@@ -1202,7 +1206,7 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
   }
 
   .bio-copy p {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .bio-split,
