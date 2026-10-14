@@ -44,6 +44,7 @@ const navigationItems = [
     accent: "green",
     children: [
       { label: "Plump", href: "/RL-environment/plump/" },
+      { label: "Rummy", href: "/RL-environment/rummy/" },
     ],
   },
   {

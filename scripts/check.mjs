@@ -17,6 +17,15 @@ const required = [
   "RL-environment/plump/index.html",
   "RL-environment/rl.css",
   "RL-environment/plump/game.js",
+  "RL-environment/rummy/index.html",
+  "RL-environment/rummy/rummy.css",
+  "RL-environment/rummy/rummy.svg",
+  "RL-environment/rummy/game.js",
+  "RL-environment/rummy/engine.js",
+  "RL-environment/rummy/rules-data.js",
+  "RL-environment/rummy/model-client.js",
+  "RL-environment/rummy/model-worker.js",
+  "RL-environment/rummy/model/manifest.json",
   "RL-environment/plump/multiplayer.js",
   "RL-environment/plump/model-config.js",
   "RL-environment/plump/model-client.js",
@@ -64,6 +73,7 @@ const pages = await Promise.all(
     "about/index.html",
     "RL-environment/index.html",
     "RL-environment/plump/index.html",
+    "RL-environment/rummy/index.html",
   ].map((file) =>
     readFile(resolve(root, file), "utf8"),
   ),
@@ -86,3 +96,4 @@ console.log("Checked routes, assets, metadata, and accessibility hooks.");
 // The Plump agent only plays well on the exact token stream it was trained on,
 // and a mismatch is silent at runtime. Importing this runs the comparison.
 await import("./check-plump-tokens.mjs");
+await import("./check-rummy.mjs");

@@ -1,0 +1,160 @@
+/* Rummy uses the same System 7 tokens, window chrome and card pack as Plump. */
+.rummy-page{padding:0;min-height:100vh;font:14px/1.5 var(--sans);background:var(--desktop-bg)}
+.rummy-page [hidden]{display:none!important}
+.rummy-page #main{scroll-margin-top:48px}
+.rummy-page button,.rummy-page select{color:var(--ink);background:var(--paper);border:1px solid var(--ink);font:13px/18px var(--system);min-height:32px}
+.rummy-page button{border-radius:8px;padding:5px 12px;cursor:pointer}
+.rummy-page button:hover:not(:disabled){background:#eee}
+.rummy-page button:active:not(:disabled){background:var(--ink);color:var(--paper)}
+.rummy-page button:disabled{color:#888;cursor:default}
+.rummy-page select{border-radius:0;padding:5px 8px;font-family:var(--sans)}
+.rummy-page .primary{outline:3px solid var(--ink);outline-offset:1px;margin:4px}
+.rummy-page .primary:disabled{outline-color:#aaa}
+.rummy-page button:focus-visible,.rummy-page select:focus-visible{outline:2px dotted var(--ink);outline-offset:3px}
+.rummy-menubar{position:sticky;z-index:20;top:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:34px;padding:0 10px;border-bottom:1px solid var(--ink);background:white}
+.rummy-menubar a{color:var(--ink);font:13px/1 var(--system);text-decoration:none;width:max-content;padding:4px 6px}
+.rummy-menubar a:hover{color:white;background:var(--ink)}
+.rummy-menubar>strong{font:14px/1 var(--system);font-weight:normal}
+.rummy-menubar>strong span{display:none}
+.rummy-menubar button{justify-self:end;border:0;border-radius:0;font:12px var(--system);min-height:28px}
+.page-footer{display:flex;justify-content:space-between;gap:12px;max-width:1380px;margin:auto;padding:20px;color:#353542;font:11px var(--sans)}
+.eyebrow{font:11px/1.4 var(--system);color:var(--ink);letter-spacing:0}
+.setup{width:min(1060px,calc(100% - 40px));margin:28px auto 35px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(350px,.95fr)}
+.setup-titlebar{grid-column:1/-1}
+.welcome{padding:30px 34px 34px;background:var(--paper);border-right:1px solid var(--ink)}
+.welcome h1{margin:0;font:44px/1.1 var(--system);font-weight:normal}
+.rummy-subtitle{font:19px/1.3 var(--serif);margin:6px 0 20px}
+.intro{font:19px/1.5 var(--serif);margin:0 0 20px;max-width:38ch}
+.sample-meld{display:flex;gap:6px;align-items:center;justify-content:center;margin:20px 0 24px}
+.sample-meld .playing-card{width:72px;height:auto}
+.quick-rules{counter-reset:rule;list-style:none;padding:0;margin:0}
+.quick-rules li{display:grid;grid-template-columns:24px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--hairline);font:13px/1.5 var(--sans);counter-increment:rule}
+.quick-rules li::before{display:grid;place-items:center;width:18px;height:18px;margin-top:2px;border:1px solid var(--ink);font:11px var(--system);content:counter(rule)}
+.setup-panel{background:var(--chrome)}
+.setup-content{padding:30px 30px 34px}
+.setup-content h2{font:22px/1.15 var(--system);font-weight:normal;margin:0 0 4px}
+.setup-content>p{font:12px/1.5 var(--sans);color:var(--muted);margin:8px 0 24px}
+.setup-content>label{display:block;margin:22px 0 8px;font:13px var(--system)}
+.setup-content>select{width:100%;min-height:35px;font-size:12px}
+.deal-note{display:flex;gap:12px;align-items:center;margin:23px 0;font-size:11px;color:var(--muted)}
+.deal-note>span:first-child{font:17px var(--serif);letter-spacing:2px;color:var(--ink)}
+.rummy-page .deal-button{width:calc(100% - 8px);padding:8px 10px;font-size:14px}
+.agent-note{display:flex;gap:9px;margin-top:26px;padding-top:18px;border-top:1px solid #b8b8b8;font:11px/1.5 var(--sans);color:var(--muted)}
+.agent-note strong{font-weight:normal;font-family:var(--system);color:var(--ink)}
+.agent-note p{margin:7px 0}
+.agent-note small{font-size:10px}
+.status-dot{width:7px;height:7px;flex:none;border:1px solid var(--ink);background:var(--yellow);margin-top:4px}
+progress{width:100%;height:12px;margin-top:18px;accent-color:#555}
+#load-message{font:11px var(--sans)}
+.error{color:#a32626!important;font-size:12px!important}
+.noscript{padding:25px;background:white}
+/* A spacious meld table, framed as a Macintosh window. */
+.game{width:min(1380px,calc(100% - 32px));margin:20px auto 0}
+.table-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--ink);background:var(--paper)}
+.table-toolbar>div:first-child{display:flex;align-items:center;gap:12px}
+.table-toolbar .eyebrow{display:none}
+.table-toolbar strong{font:14px var(--system);font-weight:normal}
+.table-settings{display:flex;align-items:center;gap:9px;font:11px var(--sans)}
+.table-settings select{font-size:11px;min-height:28px;padding:3px 5px}
+.table-settings button{font-size:11px;min-height:28px;padding:3px 10px}
+.watch{display:flex;align-items:center;gap:5px;margin:0 8px}
+.watch input{accent-color:var(--ink);margin:0}
+.felt{padding:21px 26px 26px;background:#f1f1f1;border-bottom:1px solid var(--ink);min-height:340px}
+.opponents{display:flex;justify-content:center;gap:clamp(20px,6vw,95px);min-height:68px}
+.opponent{display:flex;gap:12px;align-items:center;padding:9px 14px;border:1px solid var(--rule);background:white}
+.opponent.active{border-color:var(--ink);box-shadow:2px 2px 0 var(--ink)}
+.opponent-name{display:flex;gap:7px;align-items:center;font:12px var(--system)}
+.opponent.active .opponent-name{background:var(--ink);color:white;padding:3px 5px;margin:-3px -5px}
+.opponent-avatar{font:16px var(--serif)}
+.opponent-status{font:10px var(--mono);margin-top:7px;color:var(--muted)}
+.opponent-hand{display:flex;padding-right:9px}
+.opponent-hand .card-back+.card-back{margin-left:-15px}
+.turn-banner{display:flex;align-items:center;gap:8px;padding:8px 10px;margin:18px 0;border:1px solid var(--ink);background:white;font:12px/1.4 var(--system)}
+.turn-banner p{margin:0;flex:1}
+.turn-dot{width:7px;height:7px;background:var(--green);border:1px solid var(--ink);flex:none}
+#turn-count{font:10px var(--mono);color:var(--muted);white-space:nowrap}
+.play-area{display:grid;grid-template-columns:190px minmax(0,1fr);gap:22px;min-height:170px}
+.draw-area{border-right:1px solid var(--rule);padding-right:20px}
+.piles{display:flex;gap:22px;margin-top:13px}
+.rummy-page .pile{display:flex;flex-direction:column;align-items:center;gap:7px;border:0;padding:0;background:none;min-height:145px;font-family:var(--sans);border-radius:0}
+.rummy-page .pile:disabled{color:var(--ink)}
+.rummy-page .pile:hover:not(:disabled){background:none}
+.pile:enabled .playing-card,.pile:enabled .card-back{outline:3px solid var(--yellow);outline-offset:2px}
+.pile:enabled:hover .playing-card,.pile:enabled:hover .card-back{transform:translateY(-3px)}
+.pile strong{font:11px var(--system);font-weight:normal;margin-top:3px}
+.pile small{font:10px var(--sans);color:var(--muted);margin-top:-3px}
+#discard-face{display:block;width:64px;height:90px}
+.empty-pile{display:block;width:64px;height:90px;border:1px dashed #777}
+.meld-area{min-width:0}
+.meld-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.meld-heading h2{margin:0;font:12px var(--system);font-weight:normal}
+.meld-heading>span{font:10px var(--mono);color:var(--muted)}
+.melds{display:flex;align-content:start;flex-wrap:wrap;gap:10px;max-height:285px;overflow:auto;padding:4px}
+.empty-table{width:100%;min-height:137px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:white;border:1px dashed var(--rule)}
+.empty-table b{font:24px var(--serif);color:#777;font-weight:normal}
+.empty-table p{font:15px var(--serif);margin:0}
+.empty-table small{font:11px var(--sans);color:var(--muted)}
+.rummy-page .table-meld{display:flex;align-items:center;flex-wrap:wrap;gap:0;padding:7px;border:1px solid #aaa;border-radius:0;background:#e1e1e1;position:relative}
+.rummy-page .table-meld:enabled{outline:3px solid var(--yellow);outline-offset:1px;border-color:var(--ink);background:white}
+.rummy-page .table-meld:hover:not(:disabled){background:#fffce5}
+.table-meld .playing-card+.playing-card{margin-left:-7px}
+.table-meld>small{font:9px var(--sans);margin-left:8px;align-self:flex-end;color:#555}
+/* Reuse Plump's actual SVG deck, including its pixel-art suits and faces. */
+.playing-card{display:block;position:relative;flex-shrink:0;width:64px;height:90px;background:none;user-select:none}
+.playing-card img{display:block;width:100%;height:100%;object-fit:fill;pointer-events:none}
+.playing-card.small{width:43px;height:60px}
+.card-back{display:block;width:64px;height:90px;background:url('/resources/cards/back.svg') center/100% 100%;box-shadow:2px 2px 0 #777,4px 4px 0 #aaa}
+.card-back>span{display:none}
+.card-back.mini{width:26px;height:36px;box-shadow:none;background-image:url('/resources/cards/back-violet.svg')}
+.hand-panel{padding:20px 24px 17px;background:var(--paper)}
+.hand-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hand-heading h2{font:17px var(--system);font-weight:normal;margin:0}
+.hand-heading h2 span{font:11px var(--mono);margin-left:9px;padding:2px 5px;border:1px solid var(--rule);background:#eee}
+.hand-heading p{margin:6px 0 0;font:11px/1.4 var(--sans);color:var(--muted)}
+.hand-sort{display:flex;gap:13px;align-items:center}
+.hand-sort>span{font:11px var(--mono);color:var(--muted)}
+.hand-sort button{font-size:11px;min-height:28px}
+.hand{display:flex;justify-content:center;gap:5px;padding:26px 5px 18px;overflow-x:auto;min-height:146px}
+.rummy-page .hand>.playing-card{padding:0;border:0;border-radius:0;width:clamp(49px,5.5vw,73px);height:auto;aspect-ratio:90/126;flex-shrink:0;min-height:0;background:none;transition:transform .1s}
+.rummy-page .hand>.playing-card:hover:not(:disabled){background:none;transform:translateY(-5px)}
+.rummy-page .hand>.playing-card.selected{outline:3px solid var(--yellow);outline-offset:1px;transform:translateY(-9px)}
+.rummy-page .hand>.playing-card:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.hand-actions{display:flex;justify-content:space-between;align-items:center;gap:15px;border-top:1px solid var(--hairline);padding-top:13px}
+.hand-actions>p{font:12px/1.5 var(--sans);color:var(--muted);margin:0;max-width:490px}
+.hand-actions>div{display:flex;align-items:center;gap:8px;flex:none}
+.hand-actions button{font-size:12px}
+.available{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:14px}
+.available:empty{display:none}
+.available>span{font:10px var(--sans);color:var(--muted);margin-right:4px}
+.available button{font:12px var(--sans);min-height:28px;padding:4px 8px;border-radius:4px}
+.available button small{font:9px var(--mono);margin-left:5px;color:var(--muted)}
+.table-footer{display:flex;justify-content:space-between;gap:15px;border-top:1px solid var(--rule);background:var(--chrome);padding:10px 14px;color:var(--muted);font:10px/1.5 var(--sans)}
+.table-footer details{max-width:60%}
+.table-footer summary{cursor:pointer;text-align:right}
+.table-footer ol{max-height:150px;overflow:auto;padding-left:16px;font:11px/1.9 var(--sans)}
+.game-error{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px;padding:12px;border:1px solid #a44;background:#fff0ed;font-size:12px}
+.game-error p{margin:0}
+.rummy-page dialog{border:1px solid var(--ink);border-radius:0;box-shadow:3px 3px 0 var(--ink);background:white;color:var(--ink);width:min(570px,calc(100% - 30px));max-height:85dvh;padding:26px;line-height:1.6}
+.rummy-page dialog::backdrop{background:#0006}
+.rummy-page dialog h2{font:25px/1.3 var(--system);font-weight:normal;margin:12px 0 18px}
+.rummy-page dialog h3{font:14px var(--system);font-weight:normal;margin:23px 0 7px}
+.rummy-page dialog p,.rummy-page dialog li{font:13px/1.6 var(--sans);color:var(--muted)}
+.dialog-top{display:flex;align-items:center;justify-content:space-between}
+.rummy-page .close{font:20px var(--system);padding:0 8px;min-height:28px}
+.rules-list{padding-left:20px}
+.rules-list li{margin:10px 0}
+.dialog-actions{display:flex;justify-content:flex-end;gap:10px;align-items:center;margin-top:24px}
+.score-row{display:grid;grid-template-columns:1fr 80px 80px;gap:10px;align-items:center;font:13px var(--sans);padding:13px 0;border-bottom:1px solid var(--hairline)}
+.score-row>span:not(:first-child){text-align:right}
+.score-row.winner{font-weight:bold}
+.score-header{font:10px var(--system);color:var(--muted)}
+.score-row small{display:block;font:10px var(--sans);color:var(--muted);margin-top:5px}
+.revealed{font:11px/1.6 var(--sans);max-width:180px;margin-top:7px}
+@media(max-width:1000px){
+ .setup{grid-template-columns:1fr 1fr}.welcome,.setup-content{padding:27px}.game{width:calc(100% - 24px)}.felt{padding:18px}.opponents{gap:18px}.opponent-hand{display:none}.hand-panel{padding:18px}.hand{justify-content:flex-start;gap:3px}.rummy-page .hand>.playing-card{width:55px}.hand-actions{align-items:start}.hand-actions>p{max-width:40%}.table-settings{gap:6px}.watch{margin:0 4px}
+}
+@media(max-width:700px){
+ .rummy-menubar{padding:0 5px}.rummy-menubar a{font-size:10px}.rummy-menubar>strong{font-size:12px}.rummy-menubar button{font-size:10px;padding:3px 5px}.setup{display:block;width:calc(100% - 24px);max-width:470px;margin:18px auto}.welcome{padding:25px;border-right:0;border-bottom:1px solid var(--ink)}.welcome h1{font-size:36px}.intro{font-size:17px}.sample-meld{margin:20px 0}.sample-meld .playing-card{width:60px}.quick-rules li{font-size:12px}.setup-content{padding:26px}.page-footer{padding:18px 13px;font-size:9px}.page-footer>span:last-child{display:none}
+ .game{width:calc(100% - 16px);margin-top:12px}.table-toolbar{padding:9px 10px;gap:9px;align-items:start;flex-wrap:wrap}.table-toolbar strong{font-size:12px}.table-settings{flex-wrap:wrap;justify-content:flex-end;gap:6px;font-size:10px}.table-settings select,.table-settings button{font-size:10px}.watch{font-size:10px;margin:0}.watch input{width:13px;height:13px}.felt{padding:13px 11px 16px;min-height:0}.opponents{gap:7px;min-height:52px}.opponent{padding:8px;flex:1;justify-content:center;max-width:200px}.opponent-name{font-size:10px;gap:5px}.opponent-avatar{font-size:14px}.opponent-status{font-size:9px}.turn-banner{font-size:11px;margin:13px 0 15px;align-items:start;padding:7px}.turn-dot{margin-top:3px}#turn-count{font-size:9px;padding-top:2px}.play-area{grid-template-columns:1fr;gap:15px;min-height:0}.draw-area{display:flex;align-items:center;gap:16px;border:0;padding:0}.draw-area>.eyebrow{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px}.piles{margin:0;gap:18px}.rummy-page .pile{display:grid;grid-template-columns:51px 55px;grid-template-rows:42px 29px;min-height:81px;gap:0 9px;text-align:left;align-items:end}.pile>.card-back,.pile>#discard-face{grid-row:1/3}.pile strong{margin:0;font-size:10px}.pile small{align-self:start;margin-top:5px;font-size:9px}.pile .playing-card,.pile .card-back,#discard-face,.empty-pile{width:51px;height:71px}.meld-heading{margin-bottom:9px}.meld-heading h2{font-size:11px}.melds{max-height:230px;gap:8px}.empty-table{min-height:90px}.empty-table p{font-size:14px}.empty-table small{font-size:10px}.rummy-page .table-meld{padding:5px}.table-meld .playing-card+.playing-card{margin-left:-12px}.table-meld>small{display:none}.hand-panel{padding:16px 11px 13px}.hand-heading h2{font-size:15px}.hand-heading p{font-size:10px;max-width:215px}.hand-sort{flex-direction:column;gap:6px;align-items:flex-end}.hand-sort>span{font-size:9px}.hand-sort button{font-size:10px;padding:3px 6px;min-height:25px}.hand{padding:23px 4px 16px;min-height:108px;gap:0;scrollbar-width:thin}.rummy-page .hand>.playing-card{width:49px;flex:0 0 49px;margin-right:-17px}.rummy-page .hand>.playing-card:last-child{margin-right:0}.hand-actions{flex-direction:column;gap:9px;padding-top:10px}.hand-actions>p{font-size:11px;max-width:100%;min-height:16px}.hand-actions>div{width:100%;justify-content:flex-end;gap:7px}.hand-actions button{font-size:10px;padding:5px 7px;min-height:34px}.available{gap:6px;margin-top:13px}.available>span{width:100%}.available button{font-size:11px;min-height:29px}.table-footer{font-size:9px;padding:9px 10px}.table-footer details{max-width:55%}.rummy-page dialog{padding:22px}.rummy-page dialog h2{font-size:23px}.dialog-actions button{font-size:11px}.score-row{grid-template-columns:1fr 60px 60px}.game-error{font-size:11px}.game-error button{flex:none}.revealed{max-width:95px;font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){.rummy-page *{transition:none!important;scroll-behavior:auto!important}}

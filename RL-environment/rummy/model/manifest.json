@@ -1,0 +1,67 @@
+{
+  "format": "onnx",
+  "schemaVersion": 1,
+  "tokenWidth": 76,
+  "fieldVocab": [
+    2,
+    7,
+    53,
+    3,
+    14,
+    4,
+    4,
+    4,
+    53,
+    53,
+    53,
+    53,
+    53,
+    53,
+    104,
+    32,
+    32,
+    32,
+    32,
+    16,
+    30,
+    5,
+    64,
+    53
+  ],
+  "iteration": 23800,
+  "run": "r6",
+  "checkpoint": "iter_023800.pt",
+  "modelConfig": {
+    "d_model": 256,
+    "n_layers": 12,
+    "n_heads": 8,
+    "n_kv_heads": 2,
+    "d_ff": 768,
+    "per_layer_dim": 64,
+    "value_embeddings": "alternating",
+    "ledger_width": 32,
+    "ledger_hidden": 64,
+    "ledger_layers": 2,
+    "ledger_kernel": 5,
+    "score_dim": 64
+  },
+  "file": "rummy-r6-23800-fp32.onnx",
+  "bytes": 34444050,
+  "sha256": "207a4e196390d850680f7ff67848ed3059373d68b730123380d3ec6edd610d8f",
+  "sourceSha256": "6ad7b9c79e49d204bacf39f54ffeaed60b1e1cf15d45982162c2d635dd0c0e55",
+  "precision": "fp32",
+  "validation": {
+    "samples": 107,
+    "maxAbsoluteError": 4.410743713378906e-05
+  },
+  "rules": {
+    "players": [
+      2,
+      3,
+      4
+    ],
+    "handSize": 13,
+    "openingPoints": 30,
+    "maxTurns": 200
+  }
+}
