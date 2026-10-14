@@ -112,7 +112,7 @@ function render() {
   else if (engine.turnPoints) status = `Opening in progress: ${engine.turnPoints}/30 points. Lay another meld to finish opening.`;
   else status = 'Your turn. Lay cards if you can, then discard one.';
   $('status').textContent = status;
-  $('stock-count').textContent = `${engine.stock.length} cards left`;
+  $('stock-count').textContent = `${engine.stock.length} ${engine.stock.length === 1 ? 'card' : 'cards'} left`;
   $('pile-count').textContent = `${engine.pile.length} ${engine.pile.length === 1 ? 'card' : 'cards'}`;
   $('discard-face').innerHTML = engine.top === 52 ? '<span class="empty-pile"></span>' : cardMarkup(engine.top);
   $('draw-stock').disabled = !(interactive && engine.phase === DRAW);
@@ -163,7 +163,7 @@ function finishRound() {
   $('result-kicker').textContent = engine.rummy ? 'RUMMY · DOUBLE POINTS' : `ROUND ${round} COMPLETE`;
   $('result-title').textContent = engine.winner === null ? 'The round is closed.' : engine.winner === 0 ? 'You went out.' : `${names[engine.winner]} went out.`;
   $('result-description').textContent = engine.winner === null ? (engine.truncated ? 'The 200-turn limit was reached. Everyone loses the value of their remaining hand.' : 'The stock ran out. Everyone loses the value of their remaining hand.') : engine.rummy ? 'Opening and going out in one turn, with an empty table. All scores are doubled.' : 'The last card is discarded. Here’s how the table stands.';
-  $('scores').innerHTML = '<div class="score-row score-header"><span>PLAYER</span><span>ROUND</span><span>TABLE</span></div>' + scores.map((score, seat) => `<div class="score-row ${seat === engine.winner ? 'winner' : ''}"><span>${names[seat]}<small>${engine.count(seat)} cards left · ${engine.penalties()[seat]} in hand</small></span><span>${score > 0 ? '+' : ''}${score}</span><span>${totals[seat]}</span></div>`).join('');
+  $('scores').innerHTML = '<div class="score-row score-header"><span>PLAYER</span><span>ROUND</span><span>TABLE</span></div>' + scores.map((score, seat) => `<div class="score-row ${seat === engine.winner ? 'winner' : ''}"><span>${names[seat]}<small>${engine.count(seat)} ${engine.count(seat) === 1 ? 'card' : 'cards'} left · ${engine.penalties()[seat]} in hand</small></span><span>${score > 0 ? '+' : ''}${score}</span><span>${totals[seat]}</span></div>`).join('');
   render(); $('result-dialog').showModal();
 }
 
