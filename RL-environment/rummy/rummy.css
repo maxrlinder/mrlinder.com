@@ -137,18 +137,70 @@
 
 .seat-reveal .table-card:first-child { margin-left: 0; }
 
+/*
+ * The felt's middle is a grid of zones, one per player, each beside its owner's
+ * seat: side opponents in the outer columns, the opponent across the table
+ * under its seat, yours at the bottom by your hand, the piles in the middle.
+ */
 .rummy-center {
+  --meld-card: 42px;
+  --meld-gap: 10px;
   position: absolute;
   z-index: 4;
-  inset: 46px 130px 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
+  inset: 34px 118px 18px;
+  display: grid;
+  gap: 8px 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "z1 piles z2"
+    "z1 z0    z2";
 }
 
-.players-2 .rummy-center { inset: 112px 70px 40px; }
-.players-4 .rummy-center { top: 112px; }
+.players-2 .rummy-center {
+  inset: 22px 90px 18px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 80px minmax(0, 1fr) auto minmax(0, 1.2fr);
+  grid-template-areas: "." "z1" "piles" "z0";
+}
+
+.players-4 .rummy-center {
+  inset: 22px 118px 18px;
+  grid-template-rows: 80px minmax(0, 1fr) auto minmax(0, 1.2fr);
+  grid-template-areas:
+    "z1 .     z3"
+    "z1 z2    z3"
+    "z1 piles z3"
+    "z1 z0    z3";
+}
+
+.meld-zone[data-density="compact"] { --meld-card: 35px; --meld-gap: 8px; }
+.meld-zone[data-density="tight"] { --meld-card: 29px; --meld-gap: 6px; }
+.meld-zone[data-density="tiny"] { --meld-card: 24px; --meld-gap: 5px; }
+.meld-zone[data-density="micro"] { --meld-card: 20px; --meld-gap: 4px; }
+
+/* On short windows the seat across the table becomes one strip along the rim
+   (no card backs; its count stays), leaving its zone the height. */
+@media (max-height: 820px) and (min-width: 761px) {
+  .players-2 .seat-player-1,
+  .players-4 .seat-player-2 {
+    display: flex;
+    width: min(460px, 60%);
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 3px 4px;
+  }
+  .players-2 .seat-player-1 .seat-name,
+  .players-4 .seat-player-2 .seat-name { width: 130px; margin: 0; }
+  .players-2 .seat-player-1 :is(.seat-stats, .seat-notes),
+  .players-4 .seat-player-2 :is(.seat-stats, .seat-notes) { margin: 0; }
+  .players-2 .seat-player-1 :is(.opponent-hand, .seat-reveal),
+  .players-4 .seat-player-2 :is(.opponent-hand, .seat-reveal) { display: none; }
+  .players-2 .rummy-center,
+  .players-4 .rummy-center { grid-template-rows: 24px minmax(0, 1fr) auto minmax(0, 1.1fr); }
+}
+.rummy-piles { grid-area: piles; }
 
 /* Stock and discard */
 
@@ -163,7 +215,11 @@
 }
 
 @media (max-height: 820px) {
-  .rummy-piles { --pile-card: 46px; }
+  .rummy-piles { --pile-card: 42px; }
+  .rummy-pile,
+  .discard-area { gap: 3px; }
+  .rummy-piles .pile-label { font-size: 10px; line-height: 1.3; }
+  .discard-spread { padding-top: 6px; }
 }
 
 .rummy-pile {
@@ -270,50 +326,67 @@
 .rummy-pile:focus-visible { outline: 0; }
 .rummy-pile:focus-visible .pile-label { outline: 2px dotted var(--paper); outline-offset: -4px; }
 
-/* Melds on the table */
+/* Melds on the table, in their owners' zones */
 
-.rummy-melds {
-  --meld-card: 42px;
+.rummy-melds { display: contents; }
+
+.meld-zone {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  padding: 3px 4px 5px;
+  border-radius: 14px;
+  background: rgba(0,0,0,.07);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 160ms linear;
+}
+
+.zone-0 { grid-area: z0; }
+.zone-1 { grid-area: z1; }
+.zone-2 { grid-area: z2; }
+.zone-3 { grid-area: z3; }
+.meld-zone.is-current { background: rgba(255,255,255,.1); }
+.meld-zone.is-overflowing .zone-melds { overflow-y: auto; scrollbar-width: thin; }
+.meld-zone.is-empty { background: none; }
+
+.zone-label {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font: 9px/1.5 var(--mono);
+  white-space: nowrap;
+}
+
+.meld-zone.is-empty .zone-label { border-color: transparent; background: rgba(255,255,255,.18); color: #fff; }
+
+.zone-melds {
   display: flex;
   width: 100%;
   min-height: 0;
-  padding: 6px 4px 4px;
-  overflow-y: auto;
-  align-content: flex-start;
+  padding: 2px;
+  overflow: hidden;
+  align-content: center;
   justify-content: center;
-  flex: 1;
+  flex: 0 1 auto;
   flex-wrap: wrap;
-  gap: 10px 14px;
-  scrollbar-color: rgba(255,255,255,.5) transparent;
-  scrollbar-width: thin;
+  gap: var(--meld-gap);
 }
 
-.rummy-melds[data-density="compact"] { --meld-card: 35px; gap: 8px 10px; }
-.rummy-melds[data-density="tight"] { --meld-card: 29px; gap: 6px 8px; }
-.rummy-melds[data-density="tiny"] { --meld-card: 24px; gap: 4px 6px; }
-.rummy-melds[data-density="tight"] .meld-tag,
-.rummy-melds[data-density="tiny"] .meld-tag { font-size: 8px; line-height: 1.3; }
-
-.melds-empty {
-  align-self: center;
-  max-width: 30ch;
-  margin: 18px 0 0;
-  padding: 10px 16px;
-  border: 1px dashed rgba(255,255,255,.65);
-  border-radius: 50%;
-  color: #fff;
-  font: 12px/1.45 var(--sans);
-  text-align: center;
-}
+/* Your melds gather towards your hand; the far opponent's towards their seat. */
+.zone-0 { flex-direction: column-reverse; justify-content: flex-start; }
+.players-2 .zone-1,
+.players-4 .zone-2 { justify-content: flex-start; }
 
 .rummy-meld {
-  display: grid;
-  padding: 3px;
+  display: block;
+  padding: 2px;
   border: 0;
   background: none;
   color: var(--ink);
-  justify-items: center;
-  gap: 4px;
 }
 
 .rummy-meld:disabled { cursor: default; }
@@ -323,19 +396,25 @@
   filter: drop-shadow(2px 2px 0 rgba(0,0,0,.3));
 }
 
-.meld-cards .table-card { width: var(--meld-card); }
-.meld-cards .table-card + .table-card { margin-left: calc(var(--meld-card) * -.6); }
+.meld-card { position: relative; flex: none; }
+.meld-card + .meld-card { margin-left: calc(var(--meld-card) * -.6); }
+/* Explicit proportions, so the fit check measures cards before their images load. */
+.meld-card .table-card { width: var(--meld-card); height: auto; aspect-ratio: 90 / 126; }
 
-.meld-tag {
-  padding: 0 5px;
+.laid-by {
+  position: absolute;
+  bottom: 2px;
+  left: 1px;
+  min-width: 11px;
+  padding: 1px 2px;
   border: 1px solid var(--ink);
-  background: var(--paper);
-  font: 9px/1.5 var(--mono);
-  white-space: nowrap;
+  background: var(--yellow);
+  font: bold 8px/1 var(--mono);
+  font-style: normal;
+  text-align: center;
 }
 
 .rummy-meld.is-fresh .meld-cards { animation: rummy-drop 300ms cubic-bezier(.22,.7,.22,1) both; }
-.rummy-meld.is-fresh .meld-tag { background: var(--yellow); }
 
 .rummy-meld.is-target {
   outline: 3px dashed var(--yellow);
@@ -343,7 +422,6 @@
   cursor: pointer;
 }
 
-.rummy-meld.is-target .meld-tag { background: var(--ink); color: var(--paper); }
 .rummy-meld.is-target:hover .meld-cards,
 .rummy-meld.is-target:focus-visible .meld-cards { transform: translateY(-3px); }
 .rummy-meld:focus-visible { outline-style: solid; }
@@ -547,29 +625,42 @@
 
 @media (max-width: 760px) {
   .rummy-table-panel.table-panel { padding: 40px 6px 8px; overflow: hidden; }
+  /* Each opponent's melds sit in a column under their seat; yours at the bottom. */
   .rummy-felt.table-felt {
-    display: flex;
+    --opponents: 2;
+    display: grid;
     width: auto;
     min-height: 0;
     max-height: none;
     margin: 0 6px;
     overflow: hidden;
-    padding: 14px 10px 18px;
+    padding: 12px 8px 14px;
     border-radius: 26px;
-    flex-direction: column;
-    gap: 14px;
+    grid-template-columns: repeat(var(--opponents), minmax(0, 1fr));
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1.1fr);
+    gap: 8px 6px;
   }
+  .rummy-felt.players-2 { --opponents: 1; }
+  .rummy-felt.players-4 { --opponents: 3; }
+  .rummy-felt #seats,
+  .rummy-felt .rummy-center,
+  .rummy-felt .rummy-melds { display: contents; }
   .rummy-felt .round-plaque { display: none; }
-  .rummy-felt #seats { display: flex; justify-content: center; gap: 6px; }
   .rummy-felt .seat,
-  .rummy-felt .seat.is-current { position: static; width: auto; max-width: 170px; min-width: 0; flex: 1 1 0; transform: none; }
+  .rummy-felt .seat.is-current { position: static; width: auto; min-width: 0; grid-row: 1; transform: none; }
+  .rummy-felt .seat-player-1, .rummy-felt .zone-1 { grid-column: 1; }
+  .rummy-felt .seat-player-2, .rummy-felt .zone-2 { grid-column: 2; }
+  .rummy-felt .seat-player-3, .rummy-felt .zone-3 { grid-column: 3; }
+  .rummy-felt .meld-zone:not(.zone-0) { grid-row: 2; }
+  .rummy-felt .rummy-piles { grid-row: 3; grid-column: 1 / -1; }
+  .rummy-felt .zone-0 { grid-row: 4; grid-column: 1 / -1; }
+  .rummy-felt .meld-zone:not(.zone-0) { justify-content: flex-start; }
   .rummy-felt .seat-name { font-size: 11px; }
   .rummy-felt .opponent-hand,
   .rummy-felt .seat-reveal { display: none; }
   .rummy-felt .seat-stats { flex-wrap: wrap; gap: 2px 6px; }
   .seat-action { white-space: normal; }
-  .rummy-center { position: static; inset: auto; min-height: 0; flex: 1; }
-  .rummy-melds { --meld-card: 34px; }
+  .rummy-center { --meld-card: 34px; }
   .rummy-hand { --hand-card: 48px; padding-top: 16px; }
   .rummy-hand-area { margin-top: 10px; }
   .rummy-card { margin-left: calc(var(--hand-card) * -.52); }

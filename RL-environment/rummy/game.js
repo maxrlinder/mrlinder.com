@@ -7,7 +7,7 @@ const agent = new RummyAgent();
 const names = ['You', 'Fern', 'Clover', 'Sage'];
 let engine, writer, streams, decision, selected = [], sortBy = 'suit', busy = false, generation = 0;
 let totals = [], history = [], round = 0, scored = false, activity = [], lastMessage = '', failure = false;
-let meldOwners = [], lastActions = [], freshMeld = -1, freshDiscard = false;
+let meldOwners = [], laidBy = [], lastActions = [], freshMeld = -1, freshDiscard = false;
 let temperature = 0, players = 3, decks = 1;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const autoplay = () => $('autoplay').getAttribute('aria-pressed') === 'true';
@@ -38,7 +38,7 @@ function startRound() {
   generation++; round++; scored = false; selected = []; activity = []; lastMessage = ''; failure = false; busy = false;
   engine = new RummyEngine({ players, decks }); writer = new ObservationWriter(engine);
   streams = Array.from({ length: players }, () => []);
-  meldOwners = []; lastActions = Array(players).fill(''); freshMeld = -1; freshDiscard = false;
+  meldOwners = []; laidBy = []; lastActions = Array(players).fill(''); freshMeld = -1; freshDiscard = false;
   setAutoplay(false);
   $('game-error').hidden = true; $('result-dialog').hidden = true;
   $('setup').hidden = true; $('game').hidden = false;
@@ -72,8 +72,8 @@ function play(move) {
   // A finished turn becomes a turn token in every other seat's stream.
   const turn = writer.record(event);
   if (turn) streams.forEach((stream, seat) => { if (seat !== event.actor) stream.push(turn[seat]); });
-  if (event.kind === EVENT_MELD) { meldOwners.push(event.actor); freshMeld = engine.table.length - 1; }
-  else if (event.kind === EVENT_LAYOFF) freshMeld = move[2];
+  if (event.kind === EVENT_MELD) { meldOwners.push(event.actor); laidBy.push({}); freshMeld = engine.table.length - 1; }
+  else if (event.kind === EVENT_LAYOFF) { laidBy[move[2]][event.card] = event.actor; freshMeld = move[2]; }
   else if (event.kind === EVENT_STOCK || event.kind === EVENT_TAKE) freshMeld = -1;
   freshDiscard = event.kind === 6;
   lastActions[event.actor] = shortAction(event);
@@ -116,7 +116,7 @@ async function advanceBots() {
 }
 
 function cardImage(card, extra = '') {
-  return `<img class="table-card ${extra}" src="${cardAsset(card)}" alt="${name(card)}" draggable="false" />`;
+  return `<img class="table-card ${extra}" src="${cardAsset(card)}" alt="${name(card)}" width="90" height="126" draggable="false" />`;
 }
 
 function renderSeats() {
@@ -171,26 +171,38 @@ function fitPile() {
   area.style.setProperty('--strip', `${strip}px`);
 }
 
+// Every player's melds sit in their own zone, beside their seat; yours by your hand.
 function renderMelds(interactive) {
-  const melds = $('melds');
-  melds.innerHTML = engine.table.length ? engine.table.map((m, i) => {
-    const target = interactive && selectedLayoff(i);
-    const cards = RULES.cards[m];
-    return `<button class="rummy-meld ${target ? 'is-target' : ''} ${i === freshMeld ? 'is-fresh' : ''}" type="button" data-meld="${i}" ${target ? '' : 'disabled'}
-      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${names[meldOwners[i]] ?? 'a player'}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}">
-      <span class="meld-cards">${cards.map(c => cardImage(c)).join('')}</span>
-      <span class="meld-tag">${names[meldOwners[i]] ?? ''} · ${RULES.kinds[m] ? 'run' : 'set'}${target ? ' · <b>add here</b>' : ''}</span>
-    </button>`;
-  }).join('') : `<p class="melds-empty">${engine.done ? 'No melds were laid.' : 'No melds yet. Every card laid here scores its points for whoever lays it.'}</p>`;
+  const zones = Array.from({ length: players }, () => []);
+  engine.table.forEach((m, i) => {
+    const owner = meldOwners[i], target = interactive && selectedLayoff(i), cards = RULES.cards[m];
+    // A card laid off by someone else carries their initial: its points are theirs.
+    const faces = cards.map(c => {
+      const by = laidBy[i][c];
+      return `<span class="meld-card">${cardImage(c)}${by !== undefined && by !== owner ? `<i class="laid-by" title="Laid off by ${names[by]}">${names[by][0]}</i>` : ''}</span>`;
+    }).join('');
+    zones[owner].push(`<button class="rummy-meld ${target ? 'is-target' : ''} ${i === freshMeld ? 'is-fresh' : ''}" type="button" data-meld="${i}" ${target ? '' : 'disabled'}
+      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${names[owner]}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span></button>`);
+  });
+  $('melds').innerHTML = zones.map((melds, seat) => `<section class="meld-zone zone-${seat} ${!engine.done && engine.current === seat ? 'is-current' : ''} ${melds.length ? '' : 'is-empty'}" aria-label="${seat ? `${names[seat]}’s` : 'Your'} melds">
+    <span class="zone-label">${seat ? names[seat] : 'You'} · +${engine.points[seat]}</span>
+    <div class="zone-melds">${melds.join('')}</div>
+  </section>`).join('');
   fitMelds();
 }
 
-// Shrink the meld cards step by step until every meld fits on the felt.
+// Shrink a zone's meld cards step by step until its melds fit; each zone on its own.
 function fitMelds() {
-  const melds = $('melds');
-  for (const density of ['', 'compact', 'tight', 'tiny']) {
-    melds.dataset.density = density;
-    if (melds.scrollHeight <= melds.clientHeight + 1) break;
+  for (const zone of $('melds').querySelectorAll('.meld-zone')) {
+    const melds = zone.querySelector('.zone-melds');
+    const fits = () => melds.scrollHeight <= melds.clientHeight + 1 && melds.scrollWidth <= melds.clientWidth + 1;
+    zone.classList.remove('is-overflowing');
+    for (const density of ['', 'compact', 'tight', 'tiny', 'micro']) {
+      zone.dataset.density = density;
+      if (fits()) break;
+    }
+    // Never hide a meld: if even the smallest cards do not fit, let the zone scroll.
+    zone.classList.toggle('is-overflowing', !fits());
   }
 }
 
