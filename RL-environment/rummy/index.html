@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="A fresh table of Rummy. Build runs, make sets, and play against Max Linder's early self-play AI in your browser." />
+  <meta name="description" content="A fresh table of Rummy. Dig into the discard pile, build runs and sets, and play against Max Linder's self-play AI in your browser." />
   <meta name="theme-color" content="#ffffff" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Rummy — RL Playground" />
-  <meta property="og:description" content="Two decks. Thirty points to open. One card to finish. Play Rummy against a learning AI." />
+  <meta property="og:description" content="Seven cards, a discard pile you can dig into, and points for every meld. Play Rummy against a learning AI." />
   <meta property="og:url" content="https://mrlinder.com/RL-environment/rummy/" />
   <meta property="og:image" content="https://mrlinder.com/resources/og-name-only.png" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -39,27 +39,34 @@
           <div class="plump-setup-grid">
             <div class="plump-rules">
               <h1 id="setup-title">Rummy</h1>
-              <p class="plump-subtitle">Two decks. Sets and cyclic runs.</p>
-              <p class="plump-rules-lead">Turn a handful of cards into sets and runs, and be the first to play your last card.</p>
+              <p class="plump-subtitle">Seven cards. A discard pile you can dig into.</p>
+              <p class="plump-rules-lead">Every card you put on the table scores for you. Every card still in your hand at the end counts against you.</p>
               <ol class="rule-list">
-                <li>Draw from the stock or take the top discard.</li>
+                <li>Draw the top of the stock, or any discard together with every card above it.</li>
+                <li>A card dug out from under the top must go into a meld or lay-off that same turn.</li>
                 <li>Lay sets (3–4 of a rank) and runs (3+ in a suit). Runs may wrap: Q–K–A–2.</li>
-                <li>Your first melds must total 30 points in one turn.</li>
-                <li>Once open, add cards to anyone’s melds on the table.</li>
-                <li>Discard to end your turn. Discard your last card to win.</li>
+                <li>Add cards to anyone’s melds. Each card scores its points for you.</li>
+                <li>Discard to end your turn. Discard your last card to end the round.</li>
               </ol>
               <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
             </div>
 
             <form class="plump-controls" id="setup-form">
               <h2>Set the table</h2>
-              <p class="setup-caption">13 cards each · two decks · no jokers</p>
+              <p class="setup-caption">7 cards each · no jokers · no opening requirement</p>
               <div class="control-row">
                 <label for="opponents">Opponents</label>
                 <select id="opponents">
                   <option value="2">1 opponent</option>
                   <option value="3" selected>2 opponents</option>
                   <option value="4">3 opponents</option>
+                </select>
+              </div>
+              <div class="control-row">
+                <label for="decks">Decks</label>
+                <select id="decks">
+                  <option value="1" selected>1 deck · 52 cards</option>
+                  <option value="2">2 decks · 104 cards</option>
                 </select>
               </div>
               <div class="control-row">
@@ -110,10 +117,10 @@
                     <span class="pile-stack" id="stock-stack"></span>
                     <span class="pile-label">Stock <b id="stock-count"></b></span>
                   </button>
-                  <button class="rummy-pile" id="draw-discard" type="button">
-                    <span class="pile-stack" id="discard-stack"></span>
-                    <span class="pile-label">Discard <b id="pile-count"></b></span>
-                  </button>
+                  <div class="discard-area" id="discard-area">
+                    <div class="discard-spread" id="discard-spread" role="group" aria-label="Discard pile, bottom to top"></div>
+                    <span class="pile-label">Discard <b id="pile-count"></b><span id="pile-hint"></span></span>
+                  </div>
                 </div>
                 <div class="rummy-melds" id="melds" aria-label="Melds on the table"></div>
               </div>
@@ -167,7 +174,7 @@
           <aside class="score-panel rummy-score-panel" id="score-panel" aria-label="Score sheet">
             <div class="score-titlebar"><span>Score sheet</span><span id="score-caption">Round 1</span><button type="button" id="scores-close" aria-label="Close score sheet">×</button></div>
             <div class="score-scroll"><table class="score-table" id="score-table"></table></div>
-            <p class="score-legend">The winner gains everyone else’s remaining hand value; the others lose their own. Opening and going out in one turn on an empty table doubles it: Rummy!</p>
+            <p class="score-legend">Each round: the points of every card you melded or laid off, minus the cards left in your hand (A 11, faces 10, others face value).</p>
             <div class="score-titlebar log-titlebar"><span>Table log</span><span id="turn-count"></span></div>
             <ol class="table-log" id="activity"></ol>
             <p class="score-legend" id="agent-label"></p>
@@ -181,19 +188,17 @@
     <div class="window-titlebar"><span class="window-control"></span><strong>Rules</strong><span class="window-control window-control-double"></span></div>
     <div class="mac-dialog-body">
       <h2 id="rules-title">How to play Rummy</h2>
-      <p>Be the first to empty your hand. Every turn has three parts:</p>
+      <p>Seven cards each, one or two decks, no jokers. Every turn has three parts:</p>
       <ol class="rule-list">
-        <li><span><b>Draw one.</b> Take the top card from the stock or the discard pile.</span></li>
-        <li><span><b>Make your melds.</b> A set is 3–4 of the same rank in different suits. A run is 3–13 consecutive cards of the same suit. Runs can wrap: Q–K–A and K–A–2 both work.</span></li>
-        <li><span><b>Discard one.</b> Finish your turn by discarding. Keep at least one card after melding: you must discard your last card to win.</span></li>
+        <li><span><b>Draw.</b> Take the top card of the stock, or any card in the discard pile together with every card above it. The top card alone you may simply keep.</span></li>
+        <li><span><b>Meld.</b> A set is 3–4 of the same rank in different suits. A run is 3–13 cards of one suit in order; runs wrap, so Q–K–A and K–A–2 both work. Add cards to any meld on the table, anyone’s. Lay as many as you like.</span></li>
+        <li><span><b>Discard</b> one card to end your turn. A meld or lay-off can never use your last card: you go out by discarding it.</span></li>
       </ol>
-      <h3>Thirty points to open</h3>
-      <p>Your first melds must total at least 30 points in one turn. You can lay them one at a time; once you start, finish the opening before discarding. After opening, you can also add cards to anyone’s melds.</p>
-      <h3>Counting the cards</h3>
-      <p>Number cards count their value; J, Q and K count 10. Aces count 11, except at the start of a short run (A–2–3), where they count 1. Aces left in your hand always cost 11.</p>
-      <h3>At the end</h3>
-      <p>The winner gains the other players’ hand values; each other player loses their own. Opening and going out in one turn doubles the scores if the table was empty at the start of that turn: Rummy!</p>
-      <p>Drawing the last stock card ends the round after that turn. If nobody goes out, everyone loses their hand value. A 200-turn limit ends long discard loops the same way.</p>
+      <h3>Digging into the pile</h3>
+      <p>Taking a card from below the top brings every card above it into your hand too, and the card you dug out must go into a meld or lay-off that same turn. You can only pick a deeper card you can use right away.</p>
+      <h3>Scoring</h3>
+      <p>Every card you meld or lay off scores its points for you: number cards their value, J, Q and K 10, an Ace 11 (1 when it starts a run like A–2–3). When the round ends, the cards left in each hand count against their owner.</p>
+      <p>The round ends when someone discards their last card, or after the turn that draws the last stock card. A 200-turn limit ends endless discard loops.</p>
       <div class="mac-dialog-actions"><button class="game-button is-default" type="button" data-close>Got it</button></div>
     </div>
   </dialog>

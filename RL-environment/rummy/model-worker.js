@@ -13,7 +13,7 @@ async function load(id) {
   const response = await fetch(new URL('./model/manifest.json', import.meta.url), { cache: 'no-cache' });
   if (!response.ok) throw new Error('The agent manifest could not be loaded.');
   manifest = await response.json();
-  if (manifest.schemaVersion !== 1 || manifest.tokenWidth !== 76 || manifest.rules.handSize !== 13 || manifest.rules.openingPoints !== 30 || manifest.rules.maxTurns !== 200) throw new Error('This checkpoint needs a newer game version. Please refresh.');
+  if (manifest.schemaVersion !== 2 || manifest.tokenWidth !== 78 || manifest.rules.handSize !== 7 || manifest.rules.openingPoints !== 0 || manifest.rules.maxTurns !== 200) throw new Error('This checkpoint needs a newer game version. Please refresh.');
   const download = await fetch(new URL(`./model/${manifest.file}`, import.meta.url));
   if (!download.ok || !download.body) throw new Error('The checkpoint download failed. Please retry.');
   const reader = download.body.getReader(), chunks = [];
@@ -43,11 +43,15 @@ onmessage = ({ data }) => {
     try {
       if (type === 'load') { postMessage({ id, result: await load(id) }); return; }
       if (!session) throw new Error('The agent is not loaded.');
+      const count = features.kind.length;
+      // Play decisions take nothing from the pile: all-zero pickup counts add nothing.
+      const taken = features.taken ?? Array.from({ length: count }, () => Array(52).fill(0));
       const feeds = {
-        tokens: tensor(tokens, [1, tokens.length, 76]),
-        kind: tensor(features.kind, [1, features.kind.length]),
-        cards: tensor(features.cards, [1, features.kind.length, 13]),
-        target: tensor(features.target, [1, features.kind.length, 13]),
+        tokens: tensor(tokens, [1, tokens.length, 78]),
+        kind: tensor(features.kind, [1, count]),
+        cards: tensor(features.cards, [1, count, 13]),
+        target: tensor(features.target, [1, count, 13]),
+        taken: tensor(taken, [1, count, 52]),
       };
       let outputs;
       try {

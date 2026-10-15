@@ -1,36 +1,38 @@
 {
   "format": "onnx",
-  "schemaVersion": 1,
-  "tokenWidth": 76,
+  "schemaVersion": 2,
+  "tokenWidth": 78,
   "fieldVocab": [
     2,
+    3,
     7,
     53,
     3,
     14,
-    4,
-    4,
-    4,
-    53,
-    53,
-    53,
-    53,
-    53,
-    53,
-    104,
-    32,
-    32,
-    32,
-    32,
-    16,
     30,
+    53,
+    4,
+    4,
+    53,
+    63,
+    53,
+    8,
+    16,
+    105,
+    63,
+    64,
+    64,
+    64,
+    64,
+    16,
     5,
+    3,
     64,
     53
   ],
-  "iteration": 23800,
-  "run": "r6",
-  "checkpoint": "iter_023800.pt",
+  "iteration": 1000,
+  "run": "r7",
+  "checkpoint": "iter_001000.pt",
   "modelConfig": {
     "d_model": 256,
     "n_layers": 12,
@@ -45,14 +47,14 @@
     "ledger_kernel": 5,
     "score_dim": 64
   },
-  "file": "rummy-r6-23800-fp32.onnx",
-  "bytes": 34444050,
-  "sha256": "207a4e196390d850680f7ff67848ed3059373d68b730123380d3ec6edd610d8f",
-  "sourceSha256": "6ad7b9c79e49d204bacf39f54ffeaed60b1e1cf15d45982162c2d635dd0c0e55",
+  "file": "rummy-r7-1000-fp32.onnx",
+  "bytes": 35179625,
+  "sha256": "370c95939bc47f85b71e0b2fb25ab3b5ec700e7853de348f20e274b73e430d39",
+  "sourceSha256": "b4b5c236887b32ce9a39865e559065afb1f84bb6e5f95a5064397ebc41d08a32",
   "precision": "fp32",
   "validation": {
-    "samples": 107,
-    "maxAbsoluteError": 4.410743713378906e-05
+    "samples": 90,
+    "maxAbsoluteError": 9.059906005859375e-06
   },
   "rules": {
     "players": [
@@ -60,8 +62,12 @@
       3,
       4
     ],
-    "handSize": 13,
-    "openingPoints": 30,
+    "decks": [
+      1,
+      2
+    ],
+    "handSize": 7,
+    "openingPoints": 0,
     "maxTurns": 200
   }
 }

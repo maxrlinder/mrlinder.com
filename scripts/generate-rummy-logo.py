@@ -5,8 +5,8 @@ A sibling of scripts/generate-plump-logo.py: same felt, same table edge, same
 real deck cards and display alphabet, so the two tiles read as one set in the
 games directory. Drawn on a 360 x 205 grid and emitted at 2x (720 x 410).
 
-The fanned hand is a run, 7-8-9 of hearts, and the chips are the whole game in
-three words: lay sets, lay runs, and open with 30 points.
+The fanned hand is a run, 7-8-9 of hearts, and the chips are what laying it
+earns: every card put on the table scores its points, so the run is +24.
 
     python3 scripts/generate-rummy-logo.py [outfile]
 """
@@ -67,9 +67,6 @@ DISPLAY["Y"] = [
 
 # 5 x 7 chip letters, in the style of the card indices.
 cards.FONT.update({
-    "S": ["-XXXX", "X----", "X----", "-XXX-", "----X", "----X", "XXXX-"],
-    "E": ["XXXXX", "X----", "X----", "XXXX-", "X----", "X----", "XXXXX"],
-    "T": ["XXXXX", "--X--", "--X--", "--X--", "--X--", "--X--", "--X--"],
     "R": ["XXXX-", "X---X", "X---X", "XXXX-", "X-X--", "X--X-", "X---X"],
     "U": ["X---X", "X---X", "X---X", "X---X", "X---X", "X---X", "-XXX-"],
     "N": ["X---X", "XX--X", "X-X-X", "X--XX", "X---X", "X---X", "X---X"],
@@ -79,7 +76,7 @@ cards.FONT.update({
 # indices and the 9 reads whole.
 FAN = [("hearts", "7", 18, 54), ("hearts", "8", 40, 44), ("hearts", "9", 62, 34)]
 
-CHIPS = ["SET", "RUN", "30"]
+CHIPS = ["RUN", "+24"]
 
 TEXT_X = 166
 

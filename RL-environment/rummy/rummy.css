@@ -83,10 +83,23 @@
 
 .rummy-felt .seat { z-index: 6; }
 
+.seat-notes {
+  display: flex;
+  margin-top: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 3px 4px;
+}
+
+.seat-notes:empty { display: none; }
+
+/* A seat across the table spreads its notes sideways, clear of the piles. */
+.players-2 .seat-player-1,
+.players-4 .seat-player-2 { width: 300px; }
+
 .seat-action {
   display: inline-block;
   max-width: 100%;
-  margin-top: 4px;
   padding: 1px 6px;
   border: 1px dotted var(--ink);
   background: var(--paper);
@@ -95,6 +108,19 @@
 }
 
 .seat.is-current .seat-action { border-style: solid; background: var(--yellow); }
+
+/* Cards an opponent took from the pile and still holds are public knowledge. */
+.seat-known {
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px 6px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font: 10px/1.35 var(--mono);
+}
+
+.seat-known b { font-weight: normal; }
+.seat-known .is-red { color: var(--red); }
 
 .seat-reveal {
   display: flex;
@@ -121,24 +147,23 @@
   gap: 14px;
 }
 
-.players-2 .rummy-center { inset: 104px 70px 40px; }
-.players-4 .rummy-center { top: 104px; }
-
-/* On shorter windows the piles sit beside the melds, leaving them the full height. */
-@media (max-height: 860px) and (min-width: 761px) {
-  .rummy-center { flex-direction: row; align-items: stretch; gap: 18px; }
-  .rummy-piles { align-self: center; }
-  .rummy-melds { align-content: center; justify-content: flex-start; }
-  .rummy-melds .melds-empty { margin: 0 auto; }
-}
+.players-2 .rummy-center { inset: 112px 70px 40px; }
+.players-4 .rummy-center { top: 112px; }
 
 /* Stock and discard */
 
 .rummy-piles {
+  --pile-card: 56px;
   display: flex;
+  width: 100%;
   justify-content: center;
-  gap: 26px;
+  align-items: flex-end;
+  gap: 22px;
   flex: none;
+}
+
+@media (max-height: 820px) {
+  .rummy-piles { --pile-card: 46px; }
 }
 
 .rummy-pile {
@@ -155,7 +180,7 @@
 .pile-stack {
   position: relative;
   display: block;
-  width: 60px;
+  width: var(--pile-card);
   aspect-ratio: 90 / 126;
   filter: drop-shadow(2px 3px 0 rgba(0,0,0,.3));
   transition: transform 120ms ease-out;
@@ -169,13 +194,51 @@
 
 .card-back { background: url("/resources/cards/back-violet.svg") center / 100% 100% no-repeat; }
 
-.pile-under {
-  border: 1px solid var(--ink);
-  border-radius: 4px;
-  background: var(--paper);
+/* The discard pile, fanned bottom to top: buried cards show only their corner index. */
+.discard-area {
+  --strip: 15px;
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  gap: 7px;
 }
 
-.pile-card.is-fresh { animation: rummy-drop 260ms cubic-bezier(.22,.7,.22,1) both; }
+.discard-spread {
+  display: flex;
+  padding-top: 10px;
+  align-items: flex-end;
+}
+
+.spread-card {
+  position: relative;
+  width: var(--pile-card);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: default;
+  filter: drop-shadow(1px 2px 0 rgba(0,0,0,.3));
+  transition: transform 110ms ease-out;
+  flex: none;
+}
+
+.spread-card + .spread-card { margin-left: calc(var(--strip) - var(--pile-card)); }
+.spread-card img { display: block; width: 100%; }
+.spread-card.is-fresh { animation: rummy-drop 260ms cubic-bezier(.22,.7,.22,1) both; }
+.discard-area.is-ready .spread-card:disabled img { filter: brightness(.78); }
+.spread-card.is-takeable { cursor: pointer; }
+.spread-card.is-takeable img { outline: 2px solid var(--yellow); outline-offset: -2px; }
+
+/* Taking a card takes every card above it too: lift them together. */
+.spread-card.is-takeable:hover,
+.spread-card.is-takeable:hover ~ .spread-card,
+.spread-card.is-takeable:focus-visible,
+.spread-card.is-takeable:focus-visible ~ .spread-card { transform: translateY(-9px); }
+.spread-card.is-takeable:hover img,
+.spread-card.is-takeable:focus-visible img { outline: 3px solid var(--yellow); }
+.spread-card:focus-visible { outline: 0; }
+.discard-area.is-ready .pile-label { background: var(--ink); color: var(--paper); }
+
+.spread-empty { width: var(--pile-card); aspect-ratio: 90 / 126; height: auto; }
 
 .pile-empty {
   display: grid;
@@ -335,6 +398,23 @@
 .rummy-card.is-selected img {
   outline: 3px solid var(--yellow);
   outline-offset: 0;
+}
+
+/* The card dug out of the pile, which must be melded or laid off this turn. */
+.rummy-card.is-obligated img { outline: 3px solid var(--red); outline-offset: 0; }
+.rummy-card.is-obligated.is-selected img { outline-color: var(--yellow); }
+
+.must-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  padding: 2px 4px;
+  border: 1px solid var(--ink);
+  background: var(--red);
+  color: #fff;
+  font: bold 9px/1 var(--mono);
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .rummy-hand.is-waiting .rummy-card { filter: drop-shadow(2px 3px 0 rgba(0,0,0,.32)) brightness(.97); }

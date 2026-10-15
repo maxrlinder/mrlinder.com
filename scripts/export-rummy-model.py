@@ -18,17 +18,21 @@ import torch.nn.functional as F
 from torch import nn
 
 ROOT = Path(__file__).resolve().parents[1]
+HAND_SIZE, MAX_TURNS = 7, 200
 
 
 @contextmanager
 def export_patches():
     """Lower unsupported ops; keep the actual training architecture and weights."""
     import cardgym.games.rummy.model as module
-    from cardgym.nn.trunk import DecoderBlock
-    old = module._bag, module.FusedRMSNorm.forward, DecoderBlock.forward_full
+    from cardgym.nn.trunk import DecoderBlock, RMSNorm
+    old = module._bag, module.FusedRMSNorm.forward, DecoderBlock.forward_full, RMSNorm.forward
 
     def norm(self, x):
         return x * torch.rsqrt(x.float().square().mean(-1, keepdim=True) + self.eps) * self.weight
+
+    def trunk_norm(self, x):
+        return (x.float() * torch.rsqrt(x.float().square().mean(-1, keepdim=True) + self.eps)).to(x.dtype) * self.weight
 
     def attention(self, x, value_embedding=None):
         q, k, v = self._qkv(self.ln_attn(x), value_embedding)
@@ -41,10 +45,36 @@ def export_patches():
     module._bag = lambda ids, weight: F.embedding(ids, weight).sum(-2)
     module.FusedRMSNorm.forward = norm
     DecoderBlock.forward_full = attention
+    RMSNorm.forward = trunk_norm
     try:
         yield
     finally:
-        module._bag, module.FusedRMSNorm.forward, DecoderBlock.forward_full = old
+        module._bag, module.FusedRMSNorm.forward, DecoderBlock.forward_full, RMSNorm.forward = old
+
+
+def score(scorer, hidden, grid, kind, cards, target, taken):
+    """CandidateScorer.forward with every slot present, written without in-place slice writes.
+
+    A play decision has no pickup, so its taken counts are all zero, which adds
+    exactly nothing; one graph then serves both heads.
+    """
+    from cardgym.games.rummy.cards import NO_CARD, NUM_CARDS
+    dtype = grid.dtype
+    rows, width = kind.shape
+    ids = torch.cat([cards, target], dim=-1).long()
+    present = ids != NO_CARD
+    offsets = torch.arange(2).repeat_interleave(cards.shape[-1]) * NUM_CARDS
+    moved = torch.zeros(rows, width, 2 * NUM_CARDS, dtype=dtype).scatter_add(2, torch.where(present, ids + offsets, 0), present.to(dtype))
+    counts = torch.cat([moved, taken.to(dtype)], dim=-1)
+    summed = torch.bmm(counts.view(rows, width * 3, NUM_CARDS), grid).view(rows, width, -1)
+    candidate = (
+        F.linear(summed, torch.cat((scorer.card.weight, scorer.target.weight, scorer.taken.weight), dim=1))
+        + counts @ torch.cat((scorer.card_id.weight, scorer.target_id.weight, scorer.taken_id.weight)).to(dtype)
+        + scorer.kind(kind.long())
+        + scorer.size(present[..., : cards.shape[-1]].sum(-1))
+    )
+    mixed = scorer.norm(scorer.query(hidden)[:, None, :] + candidate)
+    return scorer.out(F.gelu(scorer.hidden(mixed))).squeeze(-1)
 
 
 class BrowserActor(nn.Module):
@@ -52,10 +82,10 @@ class BrowserActor(nn.Module):
         super().__init__()
         self.actor = actor
 
-    def forward(self, tokens, kind, cards, target):
+    def forward(self, tokens, kind, cards, target, taken):
         hidden = self.actor.forward_hidden(tokens)[:, -1]
         grid = self.actor.pop_context()[:, -1]
-        return self.actor.scorer(hidden, grid, kind, cards, target)
+        return score(self.actor.scorer, hidden, grid, kind, cards, target, taken)
 
 
 def main():
@@ -64,7 +94,8 @@ def main():
     parser.add_argument('--checkpoint', type=Path)
     args = parser.parse_args()
     sys.path.insert(0, str(args.source.resolve()))
-    from cardgym.games.rummy.engine import RummyEngine
+    from cardgym.games.rummy.cards import NUM_CARDS
+    from cardgym.games.rummy.engine import DRAW, TAKE, RummyEngine
     from cardgym.games.rummy.heuristic import HeuristicPolicy
     from cardgym.games.rummy.melds import MELDS, MELD_CARDS, MELD_KIND, MELD_POINTS, EXTENSIONS
     from cardgym.games.rummy.model import RummyActor, RummyModelConfig
@@ -76,7 +107,7 @@ def main():
         latest = max((args.source / 'runs/rummy').glob('*/checkpoints/latest.json'), key=lambda p: p.stat().st_mtime)
         args.checkpoint = latest.parent / json.loads(latest.read_text())['path']
     payload = load_weights(args.checkpoint, 'rummy')
-    torch.set_num_threads(2)
+    torch.set_num_threads(4)
     actor = RummyActor(RummyModelConfig(**payload['model'])).eval()
     actor.load_state_dict(payload['actor'])
     wrapper = BrowserActor(actor).eval()
@@ -85,39 +116,67 @@ def main():
     rules = dict(melds=MELDS, cards=MELD_CARDS, kinds=MELD_KIND, points=MELD_POINTS, extensions=EXTENSIONS)
     (out.parent / 'rules-data.js').write_text('// Generated from cardgym; regenerate with scripts/export-rummy-model.py.\nexport const RULES = ' + json.dumps(rules, separators=(',', ':')) + ';\n')
 
-    # Reference real games, including all legal moves and actor-private ledgers.
+    def reference(stream, features):
+        taken = features.get('taken', np.zeros((len(features['kind']), NUM_CARDS), dtype=np.int8))
+        inputs = (torch.tensor(np.array([stream]), dtype=torch.long),
+                  *(torch.tensor(np.asarray(x)[None], dtype=torch.long) for x in (features['kind'], features['cards'], features['target'], taken)))
+        with torch.inference_mode():
+            hidden = actor.forward_hidden(inputs[0])[:, -1]
+            grid = actor.pop_context()[:, -1]
+            # The training scorer, with no pickup slot on play decisions.
+            expected = actor.scorer(hidden, grid, *inputs[1:4], inputs[4] if 'taken' in features else None).numpy()
+        return inputs, expected
+
+    # Reference games covering every shape the browser offers, with every legal
+    # move list, candidate feature, decision token, and opponent-turn token.
     fixtures, samples = [], []
     heuristic = HeuristicPolicy()
     rng = random.Random(72)
     for players in (2, 3, 4):
-        for seed in range(4):
-            engine = RummyEngine(players, 13, seed + 27, max_turns=200)
-            writer = ObservationWriter(engine)
-            initial = dict(players=players, hands=engine.hands.tolist(), stock=engine.stock.copy(), pile=engine.pile.copy(), current=engine.current)
-            steps, streams = [], [[] for _ in range(players)]
-            while not engine.done:
-                seat = engine.current
-                token, _ = writer.observe(seat)
-                streams[seat].append(token.tolist())
-                actions = engine.candidates()
-                features = candidate_features(engine, actions)
-                if len(steps) in (0, 1, 12, 53, 100, 170) or (len(samples) < 70 and any(a.kind in (2, 3, 4, 5) for a in actions)):
-                    inputs = (torch.tensor([streams[seat]], dtype=torch.long), *(torch.tensor(features[k][None], dtype=torch.long) for k in ('kind', 'cards', 'target')))
-                    with torch.inference_mode():
-                        expected = wrapper(*inputs).numpy()
-                    samples.append((inputs, expected))
-                chosen = heuristic.act(engine) if seed < 3 else rng.randrange(len(actions))
-                steps.append(dict(token=token.tolist(), actions=[list(a) for a in actions], features={k: v.tolist() for k, v in features.items()}, chosen=chosen))
-                writer.record(engine.apply(actions[chosen]))
-            fixtures.append(dict(initial=initial, steps=steps, scores=engine.scores().tolist(), winner=engine.winner, rummy=engine.rummy, truncated=engine.truncated))
+        for decks in (1, 2):
+            for seed in range(3):
+                engine = RummyEngine(players, HAND_SIZE, 1000 * players + 100 * decks + seed, decks=decks, max_turns=MAX_TURNS)
+                writer = ObservationWriter(engine)
+                initial = dict(players=players, decks=decks, hands=engine.hands.tolist(), stock=list(engine.stock), pile=list(engine.pile), current=engine.current)
+                steps, streams = [], [[] for _ in range(players)]
+                while not engine.done:
+                    seat = engine.current
+                    token, _ = writer.observe(seat)
+                    streams[seat].append(token)
+                    actions = engine.candidates()
+                    features = candidate_features(engine, actions)
+                    deep = [i for i, a in enumerate(actions) if a.kind == TAKE and a.meld > 0]
+                    if len(samples) < 90 and (len(steps) in (0, 1, 9, 30) or deep or rng.random() < 0.08):
+                        samples.append(reference(streams[seat], features))
+                    # Mostly heuristic play, salted with random moves and deep pickups.
+                    if deep and rng.random() < 0.6:
+                        chosen = rng.choice(deep)
+                    elif rng.random() < (0.35 if seed == 2 else 0.1):
+                        chosen = rng.randrange(len(actions))
+                    else:
+                        chosen = heuristic.act(engine)
+                    rows = writer.record(engine.apply(actions[chosen]))
+                    turn = None if rows is None else rows[:, 0].tolist()
+                    if rows is not None:
+                        for other in range(players):
+                            if other != seat:
+                                streams[other].append(rows[other, 0])
+                    steps.append(dict(token=token.tolist(), actions=[list(a) for a in actions],
+                                      features={k: v.tolist() for k, v in features.items()}, chosen=chosen, turn=turn))
+                fixtures.append(dict(initial=initial, steps=steps, scores=engine.scores().tolist(), points=engine.points.tolist(),
+                                     winner=engine.winner, truncated=engine.truncated))
     fixture_path = ROOT / 'scripts/fixtures/rummy-games.json'
     fixture_path.write_text(json.dumps(fixtures, separators=(',', ':')) + '\n')
+    print(f'{len(fixtures)} games, {sum(len(f["steps"]) for f in fixtures)} decisions, {len(samples)} model samples')
+
     file = out / f'rummy-{args.checkpoint.parent.parent.name}-{payload["iteration"]}-fp32.onnx'
+    names = ['tokens', 'kind', 'cards', 'target', 'taken']
     with torch.inference_mode(), export_patches():
         for inputs, expected in samples:
             np.testing.assert_allclose(wrapper(*inputs).numpy(), expected, atol=3e-5, rtol=3e-5)
-        torch.onnx.export(wrapper, samples[0][0], file, input_names=['tokens', 'kind', 'cards', 'target'], output_names=['logits'],
-                          dynamic_axes={'tokens': {1: 'sequence'}, 'kind': {1: 'candidates'}, 'cards': {1: 'candidates'}, 'target': {1: 'candidates'}, 'logits': {1: 'candidates'}},
+        torch.onnx.export(wrapper, samples[0][0], file, input_names=names, output_names=['logits'],
+                          dynamic_axes={'tokens': {1: 'sequence'}, 'kind': {1: 'candidates'}, 'cards': {1: 'candidates'},
+                                        'target': {1: 'candidates'}, 'taken': {1: 'candidates'}, 'logits': {1: 'candidates'}},
                           opset_version=18, dynamo=False)
     import onnx
     import onnxruntime as ort
@@ -125,17 +184,18 @@ def main():
     session = ort.InferenceSession(str(file), providers=['CPUExecutionProvider'])
     error = 0.0
     for inputs, expected in samples:
-        actual = session.run(None, {name: x.numpy() for name, x in zip(['tokens', 'kind', 'cards', 'target'], inputs)})[0]
+        actual = session.run(None, {name: x.numpy() for name, x in zip(names, inputs)})[0]
         error = max(error, float(np.max(np.abs(expected - actual))))
         np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
     # Only publish the pointer after export and numerical verification succeed.
-    manifest = dict(format='onnx', schemaVersion=1, tokenWidth=WIDTH, fieldVocab=FIELD_VOCAB, iteration=payload['iteration'],
+    manifest = dict(format='onnx', schemaVersion=2, tokenWidth=WIDTH, fieldVocab=FIELD_VOCAB, iteration=payload['iteration'],
                     run=args.checkpoint.parent.parent.name, checkpoint=args.checkpoint.name, modelConfig=payload['model'],
                     file=file.name, bytes=file.stat().st_size, sha256=hashlib.sha256(file.read_bytes()).hexdigest(),
                     sourceSha256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(), precision='fp32',
-                    validation=dict(samples=len(samples), maxAbsoluteError=error), rules=dict(players=[2, 3, 4], handSize=13, openingPoints=30, maxTurns=200))
+                    validation=dict(samples=len(samples), maxAbsoluteError=error),
+                    rules=dict(players=[2, 3, 4], decks=[1, 2], handSize=HAND_SIZE, openingPoints=0, maxTurns=MAX_TURNS))
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    print(json.dumps(manifest, indent=2))
+    print(json.dumps({k: v for k, v in manifest.items() if k != 'fieldVocab'}, indent=2))
 
 
 if __name__ == '__main__':
