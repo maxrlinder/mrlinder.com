@@ -20,6 +20,7 @@ const required = [
   "RL-environment/rummy/index.html",
   "RL-environment/rummy/rummy.css",
   "RL-environment/rummy/rummy.svg",
+  "RL-environment/rummy-logo.svg",
   "RL-environment/rummy/game.js",
   "RL-environment/rummy/engine.js",
   "RL-environment/rummy/rules-data.js",

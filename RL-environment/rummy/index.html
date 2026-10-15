@@ -14,81 +14,199 @@
   <title>Rummy — RL Playground</title>
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="./rummy.css" />
-  <script type="module" src="./game.js"></script>
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-4" />
+  <link rel="stylesheet" href="./rummy.css?v=table-2" />
+  <script type="module" src="./game.js?v=table-2"></script>
 </head>
-<body class="rummy-page">
+<body class="plump-page rummy-page">
   <a class="skip-link" href="#main">Skip to game</a>
-  <header class="rummy-menubar">
-    <a href="/RL-environment/">← Games directory</a>
-    <strong><span aria-hidden="true">♣</span> Rummy</strong>
-    <button type="button" id="rules-button">How to play</button>
-  </header>
-  <main id="main">
-    <section class="setup mac-window" id="setup">
-      <div class="window-titlebar setup-titlebar"><span class="window-control"></span><strong>New game of Rummy</strong><span class="window-control window-control-double"></span></div>
-      <div class="welcome">
-        <h1>Rummy</h1>
-        <p class="rummy-subtitle">Two decks. Sets and cyclic runs.</p>
-        <p class="intro">Welcome to the Rummy table. Turn a handful of cards into sets and runs, and be the first to play your last card.</p>
-        <div class="sample-meld" aria-label="A run of the seven, eight, and nine of hearts">
-          <img class="playing-card" src="/resources/cards/hearts-7.svg" alt="7 of hearts" />
-          <img class="playing-card" src="/resources/cards/hearts-8.svg" alt="8 of hearts" />
-          <img class="playing-card" src="/resources/cards/hearts-9.svg" alt="9 of hearts" />
-        </div>
-        <ol class="quick-rules"><li>Draw from the stock or take the top discard.</li><li>Lay sets and runs. Your first melds must total 30 points.</li><li>After opening, add to anyone’s melds.</li><li>Discard to end your turn. Discard your last card to win.</li></ol>
-      </div>
-      <form class="setup-panel" id="setup-form">
-        <div class="setup-content">
-          <h2>Set the table</h2>
-          <p>You, a fresh deck, and a few learning opponents.</p>
-          <label for="opponents">Opponents</label>
-          <select id="opponents"><option value="2">One opponent · 2 players</option><option value="3" selected>Two opponents · 3 players</option><option value="4">Three opponents · 4 players</option></select>
-          <label for="style">Agent play</label>
-          <select id="style"><option value="0" selected>Focused · best-scoring move</option><option value="0.7">Varied · a little unpredictability</option></select>
-          <div class="deal-note"><span aria-hidden="true">♠ ♥ ♣ ♦</span><span>13 cards each · two decks · no jokers</span></div>
-          <button class="primary deal-button" id="start" type="submit">Load agent &amp; start game</button>
-          <div id="loading" hidden><progress id="load-progress" max="100" value="0"></progress><p id="load-message" role="status">Preparing…</p></div>
-          <p class="error" id="setup-error" role="alert" hidden></p>
-          <div class="agent-note"><span class="status-dot"></span><div><strong>An early learning agent</strong><p>Still finding its feet. Expect the occasional curious move. The agent runs in your browser.</p><small id="checkpoint-note">The current checkpoint loads when you sit down.</small></div></div>
-        </div>
-      </form>
-    </section>
 
-    <section class="game mac-window" id="game" hidden aria-label="Rummy table">
-      <div class="window-titlebar"><span class="window-control"></span><strong>Rummy</strong><span class="window-control window-control-double"></span></div>
-      <div class="table-toolbar">
-        <div><span class="eyebrow dark">RUMMY TABLE</span><strong id="round-label">Round 1</strong></div>
-        <div class="table-settings"><label for="speed">Pace</label><select id="speed"><option value="700">Relaxed</option><option value="250" selected>Normal</option><option value="0">Quick</option></select><label class="watch"><input type="checkbox" id="autoplay" /> Auto-play my hand</label><button id="new-table" type="button">New table</button></div>
-      </div>
-      <div class="felt">
-        <div class="opponents" id="seats"></div>
-        <div class="turn-banner"><span class="turn-dot"></span><p id="status" role="status" aria-live="polite">Dealing…</p><span id="turn-count"></span></div>
-        <div class="play-area">
-          <div class="draw-area">
-            <span class="eyebrow">THE DRAW</span>
-            <div class="piles">
-              <button class="pile" id="draw-stock" type="button"><span class="card-back"><span>R</span></span><strong>Stock</strong><small id="stock-count"></small></button>
-              <button class="pile" id="draw-discard" type="button"><span id="discard-face"></span><strong>Discard</strong><small id="pile-count"></small></button>
+  <div class="plump-shell">
+    <header class="plump-menubar">
+      <a class="plump-home-link" href="/RL-environment/">← Games directory</a>
+      <strong>Rummy</strong>
+      <span class="model-state" id="model-state">Agent not loaded</span>
+    </header>
+
+    <main id="main">
+      <section class="plump-setup" id="setup" aria-labelledby="setup-title">
+        <div class="mac-window plump-setup-window">
+          <div class="window-titlebar">
+            <span class="window-control"></span>
+            <strong>New game of Rummy</strong>
+            <span class="window-control window-control-double"></span>
+          </div>
+          <div class="plump-setup-grid">
+            <div class="plump-rules">
+              <h1 id="setup-title">Rummy</h1>
+              <p class="plump-subtitle">Two decks. Sets and cyclic runs.</p>
+              <p class="plump-rules-lead">Turn a handful of cards into sets and runs, and be the first to play your last card.</p>
+              <ol class="rule-list">
+                <li>Draw from the stock or take the top discard.</li>
+                <li>Lay sets (3–4 of a rank) and runs (3+ in a suit). Runs may wrap: Q–K–A–2.</li>
+                <li>Your first melds must total 30 points in one turn.</li>
+                <li>Once open, add cards to anyone’s melds on the table.</li>
+                <li>Discard to end your turn. Discard your last card to win.</li>
+              </ol>
+              <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
+            </div>
+
+            <form class="plump-controls" id="setup-form">
+              <h2>Set the table</h2>
+              <p class="setup-caption">13 cards each · two decks · no jokers</p>
+              <div class="control-row">
+                <label for="opponents">Opponents</label>
+                <select id="opponents">
+                  <option value="2">1 opponent</option>
+                  <option value="3" selected>2 opponents</option>
+                  <option value="4">3 opponents</option>
+                </select>
+              </div>
+              <div class="control-row">
+                <label for="style">Agent play</label>
+                <select id="style">
+                  <option value="0" selected>Focused · best move</option>
+                  <option value="0.7">Varied · less predictable</option>
+                </select>
+              </div>
+              <div class="setup-divider"></div>
+              <button class="start-game-button" id="start" type="submit">Load agent &amp; start game</button>
+              <div class="model-download" id="loading" hidden>
+                <p><span id="load-message" role="status">Preparing…</span><span id="load-percent">0%</span></p>
+                <div class="model-download-track"><span id="load-bar"></span></div>
+              </div>
+              <p class="setup-error" id="setup-error" role="alert" hidden></p>
+              <p class="model-note">An early self-play agent, still finding its feet: expect the occasional curious move. Inference runs in your browser. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="rummy-game" id="game" hidden aria-label="Rummy table">
+        <div class="game-toolbar">
+          <button class="game-button" type="button" id="new-table">New game…</button>
+          <button class="game-button" type="button" data-rules>Rules</button>
+          <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
+          <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
+          <label class="speed-control">
+            <span class="speed-title">Speed</span>
+            <span class="speed-end" aria-hidden="true">Slower</span>
+            <input type="range" id="speed" min="0" max="100" step="1" value="60" aria-label="Game speed" />
+            <span class="speed-end" aria-hidden="true">Faster</span>
+            <output id="speed-output">1.0×</output>
+          </label>
+        </div>
+
+        <div class="game-layout">
+          <div class="table-panel rummy-table-panel">
+            <div class="game-status-line" aria-live="polite"><span id="status">Dealing…</span></div>
+
+            <div class="table-felt rummy-felt" id="felt">
+              <div class="round-plaque" id="plaque"></div>
+              <div id="seats"></div>
+              <div class="rummy-center">
+                <div class="rummy-piles">
+                  <button class="rummy-pile" id="draw-stock" type="button">
+                    <span class="pile-stack" id="stock-stack"></span>
+                    <span class="pile-label">Stock <b id="stock-count"></b></span>
+                  </button>
+                  <button class="rummy-pile" id="draw-discard" type="button">
+                    <span class="pile-stack" id="discard-stack"></span>
+                    <span class="pile-label">Discard <b id="pile-count"></b></span>
+                  </button>
+                </div>
+                <div class="rummy-melds" id="melds" aria-label="Melds on the table"></div>
+              </div>
+            </div>
+
+            <section class="rummy-hand-area" aria-label="Your hand">
+              <div class="human-label" id="human-label">You</div>
+              <div class="rummy-hand" id="hand"></div>
+              <div class="rummy-actions">
+                <p id="selection-help"></p>
+                <div class="rummy-action-buttons">
+                  <button class="game-button" type="button" id="sort">Sort by rank</button>
+                  <button class="game-button" type="button" id="clear" disabled>Clear</button>
+                  <button class="game-button" type="button" id="lay" disabled>Lay meld</button>
+                  <button class="game-button" type="button" id="discard" disabled>Discard</button>
+                </div>
+              </div>
+              <div class="rummy-suggestions" id="available"></div>
+            </section>
+
+            <div class="round-dialog rummy-result" id="result-dialog" role="dialog" aria-labelledby="result-title" hidden>
+              <div class="window-titlebar">
+                <span class="window-control"></span>
+                <strong id="result-kicker">Round complete</strong>
+                <span class="window-control window-control-double"></span>
+              </div>
+              <div class="round-dialog-body">
+                <h2 id="result-title"></h2>
+                <p id="result-description"></p>
+                <div class="result-scores" id="scores"></div>
+                <div class="result-actions">
+                  <button class="game-button review-button" type="button" id="review">Review table</button>
+                  <button class="game-button" type="button" id="next-round">Deal next round</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="round-dialog rummy-error" id="game-error" hidden>
+              <div class="window-titlebar">
+                <span class="window-control"></span>
+                <strong>Agent paused</strong>
+                <span class="window-control window-control-double"></span>
+              </div>
+              <div class="round-dialog-body">
+                <p role="alert" id="game-error-message"></p>
+                <button class="game-button" type="button" id="retry">Retry agent</button>
+              </div>
             </div>
           </div>
-          <section class="meld-area" aria-labelledby="meld-heading"><div class="meld-heading"><h2 id="meld-heading">On the table</h2><span id="meld-count">0 melds</span></div><div class="melds" id="melds"></div></section>
+
+          <aside class="score-panel rummy-score-panel" id="score-panel" aria-label="Score sheet">
+            <div class="score-titlebar"><span>Score sheet</span><span id="score-caption">Round 1</span><button type="button" id="scores-close" aria-label="Close score sheet">×</button></div>
+            <div class="score-scroll"><table class="score-table" id="score-table"></table></div>
+            <p class="score-legend">The winner gains everyone else’s remaining hand value; the others lose their own. Opening and going out in one turn on an empty table doubles it: Rummy!</p>
+            <div class="score-titlebar log-titlebar"><span>Table log</span><span id="turn-count"></span></div>
+            <ol class="table-log" id="activity"></ol>
+            <p class="score-legend" id="agent-label"></p>
+          </aside>
         </div>
-      </div>
-      <section class="hand-panel" aria-label="Your hand">
-        <div class="hand-heading"><div><h2>Your hand <span id="hand-count"></span></h2><p id="opening-status"></p></div><div class="hand-sort"><span id="penalty"></span><button id="sort" type="button">Sort by rank</button></div></div>
-        <div class="hand" id="hand"></div>
-        <div class="hand-actions"><p id="selection-help"></p><div><button id="clear" type="button" disabled>Clear</button><button id="lay" type="button" disabled>Lay meld</button><button class="primary" id="discard" type="button" disabled>Discard &amp; end turn</button></div></div>
-        <div class="available" id="available"></div>
       </section>
-      <div class="game-error" id="game-error" hidden><p role="alert" id="game-error-message"></p><button id="retry" class="primary" type="button">Retry agent</button></div>
-      <div class="table-footer"><span id="agent-label"></span><details><summary>Round activity</summary><ol id="activity"></ol></details></div>
-    </section>
-  </main>
-  <footer class="page-footer"><span>mrlinder.com / RL playground</span><span>Made for a good game.</span></footer>
-  <dialog id="rules-dialog" aria-labelledby="rules-title"><div class="dialog-top"><span class="eyebrow dark">AT THIS TABLE</span><button class="close" type="button" data-close aria-label="Close rules">×</button></div><h2 id="rules-title">How to play Rummy</h2><p>Be the first to empty your hand. Every turn has three parts:</p><ol class="rules-list"><li><b>Draw one.</b> Take the top card from the stock or the discard pile.</li><li><b>Make your melds.</b> A set is 3–4 of the same rank in different suits. A run is 3–13 consecutive cards of the same suit. Runs can wrap: Q–K–A and K–A–2 both work.</li><li><b>Discard one.</b> Finish your turn by discarding. Keep at least one card after melding: you must discard your last card to win.</li></ol><h3>Thirty points to open</h3><p>Your first melds must total at least 30 points in one turn. You can lay them one at a time; once you start, finish the opening before discarding. After opening, you can also add cards to anyone’s melds.</p><h3>Counting the cards</h3><p>Number cards count their value; J, Q and K count 10. Aces count 11, except at the start of a short run (A–2–3), where they count 1. Aces left in your hand always cost 11.</p><h3>At the end</h3><p>The winner gains the other players’ hand values; each other player loses their own. Opening and going out in one turn doubles the scores if the table was empty at the start of that turn: Rummy!</p><p>Drawing the last stock card ends the round after that turn. If nobody goes out, everyone loses their hand value. A 200-turn limit ends long discard loops the same way.</p><button class="primary" type="button" data-close>Got it</button></dialog>
-  <dialog id="result-dialog" aria-labelledby="result-title"><span class="eyebrow dark" id="result-kicker">ROUND COMPLETE</span><h2 id="result-title"></h2><p id="result-description"></p><div id="scores"></div><div class="dialog-actions"><button id="review" type="button">Review table</button><button class="primary" id="next-round" type="button">Deal another round ↗</button></div></dialog>
-  <dialog id="leave-dialog" aria-labelledby="leave-title"><h2 id="leave-title">Leave this table?</h2><p>The current round and table scores will be cleared.</p><div class="dialog-actions"><button type="button" data-close>Keep playing</button><button class="primary" id="leave" type="button">New table</button></div></dialog>
+    </main>
+  </div>
+
+  <dialog class="mac-dialog" id="rules-dialog" aria-labelledby="rules-title">
+    <div class="window-titlebar"><span class="window-control"></span><strong>Rules</strong><span class="window-control window-control-double"></span></div>
+    <div class="mac-dialog-body">
+      <h2 id="rules-title">How to play Rummy</h2>
+      <p>Be the first to empty your hand. Every turn has three parts:</p>
+      <ol class="rule-list">
+        <li><span><b>Draw one.</b> Take the top card from the stock or the discard pile.</span></li>
+        <li><span><b>Make your melds.</b> A set is 3–4 of the same rank in different suits. A run is 3–13 consecutive cards of the same suit. Runs can wrap: Q–K–A and K–A–2 both work.</span></li>
+        <li><span><b>Discard one.</b> Finish your turn by discarding. Keep at least one card after melding: you must discard your last card to win.</span></li>
+      </ol>
+      <h3>Thirty points to open</h3>
+      <p>Your first melds must total at least 30 points in one turn. You can lay them one at a time; once you start, finish the opening before discarding. After opening, you can also add cards to anyone’s melds.</p>
+      <h3>Counting the cards</h3>
+      <p>Number cards count their value; J, Q and K count 10. Aces count 11, except at the start of a short run (A–2–3), where they count 1. Aces left in your hand always cost 11.</p>
+      <h3>At the end</h3>
+      <p>The winner gains the other players’ hand values; each other player loses their own. Opening and going out in one turn doubles the scores if the table was empty at the start of that turn: Rummy!</p>
+      <p>Drawing the last stock card ends the round after that turn. If nobody goes out, everyone loses their hand value. A 200-turn limit ends long discard loops the same way.</p>
+      <div class="mac-dialog-actions"><button class="game-button is-default" type="button" data-close>Got it</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="mac-dialog" id="leave-dialog" aria-labelledby="leave-title">
+    <div class="window-titlebar"><span class="window-control"></span><strong>New game</strong><span class="window-control window-control-double"></span></div>
+    <div class="mac-dialog-body">
+      <h2 id="leave-title">Leave this table?</h2>
+      <p>The current round and the score sheet will be cleared.</p>
+      <div class="mac-dialog-actions"><button class="game-button" type="button" data-close>Keep playing</button><button class="game-button is-default" type="button" id="leave">New game</button></div>
+    </div>
+  </dialog>
+
   <noscript><p class="noscript">JavaScript is needed to play Rummy and run the agent.</p></noscript>
 </body>
 </html>
