@@ -30,6 +30,10 @@ python3 scripts/generate-cards.py            # writes into this directory
 python3 scripts/generate-cards.py /some/dir   # or somewhere else
 ```
 
+`scripts/generate-plump-logo.py` imports this generator and drops real cards
+straight into `RL-environment/plump-logo.svg`, so editing a pip here changes the
+Plump logo too — rerun both after changing the art.
+
 ## Using them
 
 Cards have no intrinsic pixel size worth respecting — scale with CSS and let the
