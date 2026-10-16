@@ -36,6 +36,7 @@ export class RummyAgent {
     const { logits } = await this.request('choose', { tokens, features });
     if (logits.length !== features.kind.length) throw new Error('The agent returned the wrong number of moves.');
     if (!temperature) return logits.indexOf(Math.max(...logits));
+    if (!Number.isFinite(temperature)) return Math.floor(Math.random() * logits.length);
     const max = Math.max(...logits), weights = logits.map(v => Math.exp((v - max) / temperature));
     let draw = Math.random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < weights.length; i++) { draw -= weights[i]; if (draw <= 0) return i; }

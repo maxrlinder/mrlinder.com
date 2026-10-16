@@ -1,5 +1,6 @@
+// Peer-to-peer tables for the RL playground games. Each game gets its own
+// namespace, so a Plump code never finds a Rummy table.
 const TRYSTERO_MODULE = "https://esm.run/trystero@0.25.3";
-const APP_ID = "mrlinder.com/plump/multiplayer-v1";
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const ROOM_CODE_LENGTH = 8;
 
@@ -33,8 +34,9 @@ export function generateRoomCode() {
     .join("");
 }
 
-export class PlumpPeerRoom {
-  constructor({ role, code, onMessage, onPeerJoin, onPeerLeave, onError }) {
+export class PeerRoom {
+  constructor({ game = "plump", role, code, onMessage, onPeerJoin, onPeerLeave, onError }) {
+    this.game = game;
     this.role = role;
     this.code = normalizeRoomCode(code);
     this.onMessage = onMessage;
@@ -50,11 +52,11 @@ export class PlumpPeerRoom {
     const { joinRoom } = await loadTrystero();
     this.room = joinRoom(
       {
-        appId: APP_ID,
-        password: `plump:${this.code}:v1`,
+        appId: `mrlinder.com/${this.game}/multiplayer-v1`,
+        password: `${this.game}:${this.code}:v1`,
         relayConfig: { redundancy: 4 },
       },
-      `plump-${this.code}`,
+      `${this.game}-${this.code}`,
       {
         onJoinError: ({ error }) => this.onError?.(
           error.includes("TURN")
@@ -63,7 +65,7 @@ export class PlumpPeerRoom {
         ),
       },
     );
-    this.action = this.room.makeAction("plump-v1");
+    this.action = this.room.makeAction(`${this.game}-v1`);
     this.action.onMessage = (message, { peerId }) => this.onMessage?.(message, peerId);
     this.room.onPeerJoin = (peerId) => this.onPeerJoin?.(peerId);
     this.room.onPeerLeave = (peerId) => this.onPeerLeave?.(peerId);

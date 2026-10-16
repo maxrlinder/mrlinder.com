@@ -7,9 +7,10 @@ import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-66400-1";
 import {
   generateRoomCode,
   normalizeRoomCode,
-  PlumpPeerRoom,
+  PeerRoom,
   validRoomCode,
-} from "./multiplayer.js";
+} from "../multiplayer.js";
+import { difficultyLabel, snapDifficulty, temperatureFor } from "../difficulty.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -257,20 +258,6 @@ function hydrateGame(snapshot) {
   return hydrated;
 }
 
-function temperatureFor(value) {
-  if (value <= 0) return Number.POSITIVE_INFINITY;
-  if (value >= 100) return 0;
-  if (value <= 33) return 33 / value;
-  return Math.pow(0.02, (value - 33) / 67);
-}
-
-function difficultyLabel(value) {
-  if (value <= 0) return "Random plays · T = ∞";
-  if (value >= 100) return "Argmax · hardest";
-  const temperature = temperatureFor(value);
-  return `Temperature ${temperature >= 10 ? temperature.toFixed(0) : temperature.toFixed(2)}`;
-}
-
 // The action-probability readout always reports the policy at temperature 1,
 // i.e. the distribution the model itself produces. Difficulty warps how the
 // opponents *sample* that policy, but the readout is meant to answer "what does
@@ -405,7 +392,7 @@ const dom = {
 
 const agent = new BrowserPpoAgent();
 let game = null;
-let difficulty = 33;
+let difficulty = 50;
 let interactionLocked = false;
 let dealing = false;
 let predictionRequest = 0;
@@ -2026,7 +2013,8 @@ async function openMultiplayerLobby(form) {
   peerToSeat = new Map();
   seatToPeer = new Map();
   insightPreferences = new Map();
-  multiplayer = new PlumpPeerRoom({
+  multiplayer = new PeerRoom({
+    game: "plump",
     role,
     code,
     onMessage: handleNetworkMessage,
@@ -2213,6 +2201,7 @@ $("[data-copy-code]").addEventListener("click", async () => {
 $("[data-leave-lobby]").addEventListener("click", () => leaveMultiplayer());
 
 dom.difficulty.addEventListener("input", () => {
+  snapDifficulty(dom.difficulty);
   difficulty = Number(dom.difficulty.value);
   dom.difficultyOutput.textContent = difficultyLabel(difficulty);
   refreshHumanPrediction();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="A fresh table of Rummy. Dig into the discard pile, build runs and sets, and play against Max Linder's self-play AI in your browser." />
+  <meta name="description" content="A fresh table of Rummy. Dig into the discard pile, build runs and sets, and play against Max Linder's self-play AI in your browser, or host a peer-to-peer table with friends." />
   <meta name="theme-color" content="#ffffff" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Rummy — RL Playground" />
@@ -14,9 +14,9 @@
   <title>Rummy — RL Playground</title>
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-4" />
-  <link rel="stylesheet" href="./rummy.css?v=draw-1" />
-  <script type="module" src="./game.js?v=draw-1"></script>
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-5" />
+  <link rel="stylesheet" href="./rummy.css?v=mp-1" />
+  <script type="module" src="./game.js?v=mp-1"></script>
 </head>
 <body class="plump-page rummy-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -54,36 +54,88 @@
             <form class="plump-controls" id="setup-form">
               <h2>Set the table</h2>
               <p class="setup-caption">7 cards each · no jokers · no opening requirement</p>
-              <div class="control-row">
-                <label for="opponents">Opponents</label>
-                <select id="opponents">
-                  <option value="2">1 opponent</option>
-                  <option value="3" selected>2 opponents</option>
-                  <option value="4">3 opponents</option>
-                </select>
+
+              <fieldset class="play-mode-picker">
+                <legend>Play mode</legend>
+                <label><input type="radio" name="playMode" value="solo" checked /><span>Solo vs AI</span></label>
+                <label><input type="radio" name="playMode" value="multiplayer" /><span>Multiplayer</span></label>
+              </fieldset>
+
+              <div class="multiplayer-setup" id="multiplayer-setup" hidden>
+                <div class="control-row multiplayer-name-row">
+                  <label for="player-name">Your name</label>
+                  <input id="player-name" maxlength="18" value="Player" />
+                </div>
+                <fieldset class="multiplayer-role-picker">
+                  <legend>Join friends</legend>
+                  <label><input type="radio" name="multiplayerRole" value="host" checked /><span>Create table</span></label>
+                  <label><input type="radio" name="multiplayerRole" value="guest" /><span>Enter code</span></label>
+                </fieldset>
+                <div class="control-row join-code-row" id="join-code-row" hidden>
+                  <label for="join-code">Invitation code</label>
+                  <input id="join-code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD2345" />
+                </div>
+                <p class="multiplayer-note">Friends connect directly to the host. The host deals, checks every move, and runs the agent for every AI seat.</p>
+                <fieldset class="multiplayer-insights">
+                  <legend>Your game view</legend>
+                  <label>
+                    <input type="checkbox" id="setup-hints" />
+                    <span><strong>Action probabilities</strong><small>Show how the agent weighs each move on your turns.</small></span>
+                  </label>
+                  <p>Each player controls their own view and can change it during the game.</p>
+                </fieldset>
               </div>
-              <div class="control-row">
-                <label for="decks">Decks</label>
-                <select id="decks">
-                  <option value="1" selected>1 deck · 52 cards</option>
-                  <option value="2">2 decks · 104 cards</option>
-                </select>
+
+              <div id="host-settings">
+                <div class="control-row">
+                  <label for="opponents" id="opponents-label">Opponents</label>
+                  <select id="opponents">
+                    <option value="1">1 opponent</option>
+                    <option value="2" selected>2 opponents</option>
+                    <option value="3">3 opponents</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="decks">Decks</label>
+                  <select id="decks">
+                    <option value="1" selected>1 deck · 52 cards</option>
+                    <option value="2">2 decks · 104 cards</option>
+                  </select>
+                </div>
+                <div class="difficulty-control">
+                  <div class="difficulty-header">
+                    <label for="difficulty">Agent difficulty</label>
+                    <output for="difficulty" id="difficulty-output">Temperature 1 · as trained</output>
+                  </div>
+                  <input id="difficulty" type="range" min="0" max="100" value="50" aria-describedby="difficulty-labels" />
+                  <div class="slider-labels" id="difficulty-labels">
+                    <span>Random plays<br />T = ∞</span>
+                    <span>As trained<br />T = 1</span>
+                    <span>Argmax<br />Hardest</span>
+                  </div>
+                </div>
               </div>
-              <div class="control-row">
-                <label for="style">Agent play</label>
-                <select id="style">
-                  <option value="0" selected>Focused · best move</option>
-                  <option value="0.7">Varied · less predictable</option>
-                </select>
-              </div>
-              <div class="setup-divider"></div>
+
               <button class="start-game-button" id="start" type="submit">Load agent &amp; start game</button>
+
+              <section class="multiplayer-lobby" id="lobby" hidden>
+                <div class="lobby-code">
+                  <span>Table code</span>
+                  <strong id="lobby-code">—</strong>
+                  <button class="game-button" type="button" id="copy-code">Copy code</button>
+                </div>
+                <div class="lobby-status" id="lobby-status" aria-live="polite">Opening the table…</div>
+                <ol class="lobby-roster" id="lobby-roster"></ol>
+                <button class="start-game-button" type="button" id="start-multiplayer" hidden>Load agent &amp; deal multiplayer game</button>
+                <button class="game-button lobby-cancel" type="button" id="leave-lobby">Leave table</button>
+              </section>
+
               <div class="model-download" id="loading" hidden>
                 <p><span id="load-message" role="status">Preparing…</span><span id="load-percent">0%</span></p>
                 <div class="model-download-track"><span id="load-bar"></span></div>
               </div>
               <p class="setup-error" id="setup-error" role="alert" hidden></p>
-              <p class="model-note">An early self-play agent, still finding its feet: expect the occasional curious move. Inference runs in your browser. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
+              <p class="model-note">An early self-play agent, still finding its feet: expect the occasional curious move. Inference runs in the browser; in multiplayer, only the host loads the agent. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
             </form>
           </div>
         </div>
@@ -94,8 +146,9 @@
           <button class="game-button" type="button" id="new-table">New game…</button>
           <button class="game-button" type="button" data-rules>Rules</button>
           <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
+          <span class="live-table-badge" id="live-badge" hidden></span>
           <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
-          <label class="speed-control">
+          <label class="speed-control" id="speed-control">
             <span class="speed-title">Speed</span>
             <span class="speed-end" aria-hidden="true">Slower</span>
             <input type="range" id="speed" min="0" max="100" step="1" value="60" aria-label="Game speed" />
@@ -210,7 +263,7 @@
     <div class="window-titlebar"><span class="window-control"></span><strong>New game</strong><span class="window-control window-control-double"></span></div>
     <div class="mac-dialog-body">
       <h2 id="leave-title">Leave this table?</h2>
-      <p>The current round and the score sheet will be cleared.</p>
+      <p id="leave-copy">The current round and the score sheet will be cleared.</p>
       <div class="mac-dialog-actions"><button class="game-button" type="button" data-close>Keep playing</button><button class="game-button is-default" type="button" id="leave">New game</button></div>
     </div>
   </dialog>

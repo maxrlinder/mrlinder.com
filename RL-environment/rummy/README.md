@@ -9,10 +9,21 @@ from jsDelivr; checkpoint weights are served by this site and checked by SHA-256
 The rules are cardgym's from run r7 on: Scandinavian rummy with 500 Rum's
 discard pile and scoring. The UI supports 2–4 players, one or two decks,
 7-card hands, deep discard pickups (with the obligation to use the dug-out card
-that turn, directly or at the end of a lay-off chain along a table run; a taken top card cannot be discarded again the same turn), sets, cyclic runs, lay-offs, points for every card laid, focused
-or sampled policy play, round scores, table totals, adjustable pace, and
+that turn, directly or at the end of a lay-off chain along a table run; a taken top card cannot be discarded again the same turn), sets, cyclic runs, lay-offs, points for every card laid, an agent-difficulty
+slider (the shared `../difficulty.js`: random play, T = 1 at the centre, argmax),
+action probabilities, round scores, table totals, adjustable pace, and
 auto-play. New tables clear table totals; another
 round retains them. Refreshing the page clears the current game.
+
+## Multiplayer
+
+Peer-to-peer tables use the shared `../multiplayer.js` (Trystero, namespaced
+per game). The host owns the engine, every seat's token stream and the agent.
+Each guest receives only its own seat's view: its hand, public cards, the legal
+moves on its turn, and the log with other players' stock draws redacted. Guests
+send moves by decision id; the host checks them against the legal list before
+playing them. The host also computes a guest's action probabilities from that
+guest's own stream. If a guest leaves, the agent takes over the seat.
 
 ## Updating the checkpoint
 

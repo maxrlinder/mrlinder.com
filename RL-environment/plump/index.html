@@ -29,7 +29,7 @@
       crossorigin
     />
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-4" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-5" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -178,7 +178,7 @@
                   <div class="difficulty-control">
                     <div class="difficulty-header">
                       <label for="difficulty">Agent difficulty</label>
-                      <output for="difficulty" data-difficulty-output>Temperature 1.0</output>
+                      <output for="difficulty" data-difficulty-output>Temperature 1 · as trained</output>
                     </div>
                     <input
                       id="difficulty"
@@ -186,11 +186,12 @@
                       type="range"
                       min="0"
                       max="100"
-                      value="33"
+                      value="50"
                       aria-describedby="difficulty-labels"
                     />
                     <div class="slider-labels" id="difficulty-labels">
                       <span>Random plays<br />T = ∞</span>
+                      <span>As trained<br />T = 1</span>
                       <span>Argmax<br />Hardest</span>
                     </div>
                   </div>
@@ -537,7 +538,7 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=rl6-66400-1"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=rl6-66400-2"></script>
     <script type="module" src="/RL-environment/plump/training-charts.js?v=2"></script>
   </body>
 </html>
