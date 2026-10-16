@@ -562,6 +562,25 @@
 
 .meld-suggestion:active .is-red { color: inherit; }
 
+/* Action probabilities: what the agent would do in your place (Plump's badges). */
+.prob-badge.is-pick { background: var(--yellow); }
+.rummy-meld,
+.meld-suggestion { position: relative; }
+.pile-stack .prob-badge { z-index: 5; right: -10px; bottom: 6px; }
+.pile-stack .argmax-mark { z-index: 5; }
+.rummy-card .prob-badge { right: auto; bottom: 6px; left: 3px; }
+.rummy-card .argmax-mark { top: 3px; right: auto; left: 3px; }
+.rummy-meld .prob-badge { right: -6px; bottom: -4px; white-space: nowrap; }
+.rummy-meld .argmax-mark { top: -6px; right: -6px; }
+.meld-suggestion .prob-badge,
+.meld-suggestion .argmax-mark { position: static; display: inline-grid; padding: 1px 3px; }
+.meld-suggestion .argmax-mark { width: auto; height: auto; }
+/* Pile cards each cast a shadow (their own stacking context), so their badges
+   sit above the cards, where nothing covers them; the pick is the yellow one. */
+.discard-spread:has(.prob-badge) { padding-top: 22px; }
+.spread-card .prob-badge { top: -17px; right: auto; bottom: auto; left: -1px; padding: 2px; font-size: 8px; }
+.spread-card .argmax-mark { display: none; }
+
 /* Round result and agent errors, as windows over the table */
 
 .rummy-result { width: min(470px, calc(100% - 32px)); }

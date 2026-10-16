@@ -25,6 +25,13 @@ export class RummyAgent {
     this.pending.clear();
   }
   async load(progress) { const { manifest } = await this.request('load', {}, progress); this.manifest = manifest; return manifest; }
+  // The policy itself (temperature 1) over the candidates, for the action-probability readout.
+  async policy(tokens, features) {
+    const { logits } = await this.request('choose', { tokens, features });
+    if (logits.length !== features.kind.length) throw new Error('The agent returned the wrong number of moves.');
+    const max = Math.max(...logits), weights = logits.map(v => Math.exp(v - max)), total = weights.reduce((a, b) => a + b, 0);
+    return { probabilities: weights.map(w => w / total), argmax: logits.indexOf(max) };
+  }
   async choose(tokens, features, temperature = 0) {
     const { logits } = await this.request('choose', { tokens, features });
     if (logits.length !== features.kind.length) throw new Error('The agent returned the wrong number of moves.');

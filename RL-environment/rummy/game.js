@@ -1,6 +1,6 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=r7-14400';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=hints-1';
 import { RULES } from './rules-data.js';
-import { RummyAgent } from './model-client.js';
+import { RummyAgent } from './model-client.js?v=hints-1';
 
 const $ = id => document.getElementById(id);
 const agent = new RummyAgent();
@@ -9,6 +9,8 @@ let engine, writer, streams, decision, selected = [], sortBy = 'suit', busy = fa
 let totals = [], history = [], round = 0, scored = false, activity = [], lastMessage = '', failure = false;
 let meldOwners = [], laidBy = [], lastActions = [], freshMeld = -1, freshDiscard = false;
 let temperature = 0, players = 3, decks = 1;
+// What the agent would do in your place: its policy over your current candidates.
+let hint = null, hintRequest = 0;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const autoplay = () => $('autoplay').getAttribute('aria-pressed') === 'true';
 // Slider 0..100 → a pause of 0.9 s down to nothing between agent moves.
@@ -84,9 +86,50 @@ function play(move) {
 
 function userPlay(move) {
   if (!humanTurn() || !move) return;
+  const advice = currentHint();
+  const suggested = advice && decision.actions[advice.argmax];
+  const note = suggested && (suggested.every((v, i) => v === move[i]) ? ' The agent agrees.' : ` The agent would: ${lowerFirst(describeMove(suggested))}.`);
   play(move);
+  if (note) activity[0] += note;
   void advanceBots();
 }
+
+const lowerFirst = text => text[0].toLowerCase() + text.slice(1);
+const currentHint = () => $('hints').checked && hint && hint.decision === decision ? hint : null;
+
+// Ask the agent for its policy at your decision; the readout reports temperature 1.
+async function requestHint() {
+  const request = ++hintRequest;
+  if (!$('hints').checked || !humanTurn()) { if (hint) { hint = null; render(); } return; }
+  const pending = decision;
+  try {
+    const policy = await agent.policy(streams[0], candidateFeatures(engine, pending.actions));
+    if (request !== hintRequest || pending !== decision) return;
+    hint = { decision: pending, ...policy };
+    render();
+  } catch (error) {
+    console.error('Action probabilities failed.', error);
+  }
+}
+
+function describeMove([kind, card, meld]) {
+  if (kind === STOCK) return 'Draw from the stock';
+  if (kind === TAKE) return meld ? `Dig out the ${name(card)} (with ${plural(meld, 'card')} above)` : `Take the ${name(card)}`;
+  if (kind === MELD_GROUP || kind === MELD_RUN) return `Lay ${RULES.cards[meld].map(name).join(' ')}`;
+  if (kind === LAYOFF_GROUP || kind === LAYOFF_RUN) return `Add the ${name(card)} to ${meldOwners[meld] ? `${names[meldOwners[meld]]}’s` : 'your'} ${RULES.kinds[engine.table[meld]] ? 'run' : 'set'}`;
+  return `Discard the ${name(card)}`;
+}
+
+// Probability badge (and ★ for the agent's pick) for the candidate at `index`.
+function marks(index, label = '') {
+  const advice = currentHint();
+  if (!advice || index < 0) return '';
+  const star = advice.argmax === index ? '<span class="argmax-mark" title="The agent’s pick">★</span>' : '';
+  // Moves the agent all but rules out stay unmarked, to keep the table readable.
+  if (!star && advice.probabilities[index] < 0.005) return '';
+  return `${star}<span class="prob-badge ${star ? 'is-pick' : ''}">${label}${Math.round(advice.probabilities[index] * 100)}%</span>`;
+}
+const moveIndex = test => legalMoves().findIndex(test);
 
 async function advanceBots() {
   if (busy || failure || !engine || engine.done) return;
@@ -111,7 +154,7 @@ async function advanceBots() {
     $('game-error-message').textContent = `The agent stopped: ${error.message}`;
     $('game-error').hidden = false;
   } finally {
-    if (version === generation) { busy = false; render(); }
+    if (version === generation) { busy = false; render(); void requestHint(); }
   }
 }
 
@@ -143,6 +186,7 @@ function renderPiles(interactive) {
   $('stock-stack').innerHTML = engine.stock.length
     ? Array.from({ length: stockLayers }, (_, i) => `<span class="pile-card card-back" style="--layer:${stockLayers - 1 - i}"></span>`).join('')
     : '<span class="pile-empty">Empty</span>';
+  if (canDraw) $('stock-stack').insertAdjacentHTML('beforeend', marks(moveIndex(a => a[0] === STOCK)));
   $('stock-count').textContent = engine.stock.length;
   $('draw-stock').disabled = !canDraw;
   $('draw-stock').classList.toggle('is-ready', canDraw);
@@ -153,7 +197,7 @@ function renderPiles(interactive) {
   $('discard-spread').innerHTML = pile.length ? pile.map((card, i) => {
     const above = top - i, open = takeable.has(above);
     const label = above ? `Take ${name(card)} and the ${plural(above, 'card')} above it` : `Take ${name(card)}`;
-    return `<button class="spread-card ${open ? 'is-takeable' : ''} ${above === 0 && freshDiscard ? 'is-fresh' : ''}" type="button" data-above="${above}" ${open ? '' : 'disabled'} aria-label="${open ? label : name(card)}"><img src="${cardAsset(card)}" alt="" draggable="false" /></button>`;
+    return `<button class="spread-card ${open ? 'is-takeable' : ''} ${above === 0 && freshDiscard ? 'is-fresh' : ''}" type="button" data-above="${above}" ${open ? '' : 'disabled'} aria-label="${open ? label : name(card)}"><img src="${cardAsset(card)}" alt="" draggable="false" />${open ? marks(moveIndex(a => a[0] === TAKE && a[2] === above)) : ''}</button>`;
   }).join('') : '<span class="pile-empty spread-empty">Empty</span>';
   $('discard-area').classList.toggle('is-ready', canDraw && takeable.size > 0);
   $('pile-count').textContent = pile.length;
@@ -181,8 +225,11 @@ function renderMelds(interactive) {
       const by = laidBy[i][c];
       return `<span class="meld-card">${cardImage(c)}${by !== undefined && by !== owner ? `<i class="laid-by" title="Laid off by ${names[by]}">${names[by][0]}</i>` : ''}</span>`;
     }).join('');
+    // The agent's likeliest lay-off onto this meld, if any.
+    const layoffs = legalMoves().map((a, index) => ({ a, index })).filter(({ a }) => isLayoff(a) && a[2] === i);
+    const best = currentHint() && layoffs.sort((x, y) => hint.probabilities[y.index] - hint.probabilities[x.index])[0];
     zones[owner].push(`<button class="rummy-meld ${target ? 'is-target' : ''} ${i === freshMeld ? 'is-fresh' : ''}" type="button" data-meld="${i}" ${target ? '' : 'disabled'}
-      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${names[owner]}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span></button>`);
+      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${names[owner]}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span>${best ? marks(best.index, `${name(best.a[1])} `) : ''}</button>`);
   });
   $('melds').innerHTML = zones.map((melds, seat) => `<section class="meld-zone zone-${seat} ${!engine.done && engine.current === seat ? 'is-current' : ''} ${melds.length ? '' : 'is-empty'}" aria-label="${seat ? `${names[seat]}’s` : 'Your'} melds">
     <span class="zone-label">${seat ? names[seat] : 'You'} · +${engine.points[seat]}</span>
@@ -221,7 +268,7 @@ function renderHand(interactive) {
   $('hand').innerHTML = cards.map(({ card, id }) => {
     const chosen = selected.includes(id), must = card === obligated && id.endsWith(':0'), held = card === kept && id.endsWith(':0');
     const badge = must ? '<span class="must-badge">Use me</span>' : held ? '<span class="must-badge is-kept">Kept</span>' : '';
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}</button>`;
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card)) : ''}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
 }
@@ -252,7 +299,7 @@ function renderActions(interactive) {
   const melds = interactive && engine.phase !== DRAW ? legalMoves().filter(isMeld) : [];
   $('available').innerHTML = engine.done && $('result-dialog').hidden
     ? '<button class="game-button is-default" type="button" data-results>Show scores &amp; next round</button>'
-    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small></button>`).join('')}` : '';
+    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small>${marks(moveIndex(a => isMeld(a) && a[2] === m[2]))}</button>`).join('')}` : '';
 }
 
 function renderScores() {
@@ -278,6 +325,9 @@ function render() {
   else if (engine.phase === DRAW) status = `Your turn.${lastMessage ? ` ${lastMessage}` : ''}`;
   else if (engine.obligation !== NO_CARD) status = `Use the ${name(engine.obligation)} before you discard.`;
   else status = 'Lay what you can, then discard one card.';
+  const advice = interactive && currentHint();
+  if (advice) status = `★ The agent would: ${lowerFirst(describeMove(decision.actions[advice.argmax]))} · ${Math.round(advice.probabilities[advice.argmax] * 100)}%`;
+  else if (interactive && $('hints').checked) status += ' The agent is considering…';
   $('status').textContent = status;
   renderSeats();
   renderPiles(interactive);
@@ -368,6 +418,7 @@ $('clear').addEventListener('click', () => { selected = []; render(); });
 $('sort').addEventListener('click', () => { sortBy = sortBy === 'suit' ? 'rank' : 'suit'; render(); });
 $('autoplay').addEventListener('click', () => { setAutoplay(!autoplay()); selected = []; render(); void advanceBots(); });
 $('speed').addEventListener('input', updateSpeed);
+$('hints').addEventListener('change', () => { render(); void requestHint(); });
 window.addEventListener('resize', () => { if (engine) { fitPile(); fitMelds(); } });
 // On phones the score sheet is a drawer over the table.
 const showScores = open => { $('game').dataset.drawer = open ? 'scores' : ''; $('scores-toggle').setAttribute('aria-expanded', String(open)); };
