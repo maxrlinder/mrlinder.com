@@ -1,6 +1,6 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=hints-1';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=draw-1';
 import { RULES } from './rules-data.js';
-import { RummyAgent } from './model-client.js?v=hints-1';
+import { RummyAgent } from './model-client.js?v=draw-1';
 
 const $ = id => document.getElementById(id);
 const agent = new RummyAgent();
@@ -9,6 +9,9 @@ let engine, writer, streams, decision, selected = [], sortBy = 'suit', busy = fa
 let totals = [], history = [], round = 0, scored = false, activity = [], lastMessage = '', failure = false;
 let meldOwners = [], laidBy = [], lastActions = [], freshMeld = -1, freshDiscard = false;
 let temperature = 0, players = 3, decks = 1;
+// The flight of cards you just drew, from the stock or the pile into your hand.
+let drawFx = null;
+const DRAW_MS = 560, GLOW_MS = 2400;
 // What the agent would do in your place: its policy over your current candidates.
 let hint = null, hintRequest = 0;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -70,7 +73,10 @@ function shortAction(event) {
 }
 
 function play(move) {
+  // Before your draw, note where each card starts and which cards you already hold.
+  const watched = engine.current === 0 && engine.phase === DRAW && { sources: drawSources(move), held: new Set([...$('hand').querySelectorAll('[data-card]')].map(b => b.dataset.card)) };
   const event = engine.apply(move);
+  if (watched) drawFx = { ...watched, start: performance.now(), items: null };
   // A finished turn becomes a turn token in every other seat's stream.
   const turn = writer.record(event);
   if (turn) streams.forEach((stream, seat) => { if (seat !== event.actor) stream.push(turn[seat]); });
@@ -155,6 +161,52 @@ async function advanceBots() {
     $('game-error').hidden = false;
   } finally {
     if (version === generation) { busy = false; render(); void requestHint(); }
+  }
+}
+
+// Where each drawn card starts: the stock, or its own place in the discard pile.
+function drawSources([kind, , above]) {
+  if (kind === STOCK) return { stock: $('stock-stack').getBoundingClientRect() };
+  const pile = {};
+  for (let depth = 0; depth <= above; depth++) {
+    const card = engine.pile[engine.pile.length - 1 - depth], button = $('discard-spread').querySelector(`[data-above="${depth}"]`);
+    if (button) (pile[card] ??= []).push(button.getBoundingClientRect());
+  }
+  return { pile };
+}
+
+// Fly freshly drawn cards from where they came from to their place in the hand.
+// The hand is rebuilt on every render, so each rebuild resumes the flight.
+function landDrawnCards() {
+  if (!drawFx) return;
+  const elapsed = performance.now() - drawFx.start;
+  if (elapsed > GLOW_MS) { drawFx = null; return; }
+  const hand = $('hand');
+  if (!drawFx.items) {
+    const fresh = [...hand.querySelectorAll('[data-card]')].filter(b => !drawFx.held.has(b.dataset.card));
+    drawFx.items = fresh.map((button, i) => {
+      const card = Number(button.dataset.card.split(':')[0]);
+      const from = drawFx.sources.stock ?? drawFx.sources.pile[card]?.shift();
+      const to = button.getBoundingClientRect();
+      if (!from || !to.width) return { id: button.dataset.card };
+      return {
+        id: button.dataset.card, delay: i * 80, scale: from.width / to.width,
+        dx: from.left + from.width / 2 - (to.left + to.width / 2), dy: from.top + from.height / 2 - (to.top + to.height / 2),
+      };
+    });
+  }
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  for (const item of drawFx.items) {
+    const button = hand.querySelector(`[data-card="${item.id}"]`);
+    if (!button) continue;
+    button.classList.add('is-new');
+    button.style.setProperty('--since', `${-elapsed}ms`);
+    if (still || item.dx === undefined || elapsed > item.delay + DRAW_MS) continue;
+    const flight = button.animate([
+      { transform: `translate(${item.dx}px, ${item.dy}px) scale(${item.scale})`, zIndex: 6 },
+      { transform: 'translate(0, 0) scale(1)', zIndex: 6 },
+    ], { duration: DRAW_MS, delay: item.delay, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' });
+    flight.currentTime = elapsed;
   }
 }
 
@@ -264,13 +316,18 @@ function renderHand(interactive) {
   const canSelect = interactive && engine.phase !== DRAW;
   const obligated = engine.current === 0 ? engine.obligation : NO_CARD;
   const kept = engine.current === 0 && !engine.done ? engine.kept : NO_CARD;
+  // On your play: the lay-offs you can make now. Otherwise: the cards that would extend a table meld.
+  const layable = new Set(canSelect ? legalMoves().filter(isLayoff).map(a => a[1]) : engine.done ? [] : engine.hands[0].flatMap((n, c) => n && engine.layable[c] ? [c] : []));
   $('hand').classList.toggle('is-waiting', !canSelect && !engine.done);
   $('hand').innerHTML = cards.map(({ card, id }) => {
     const chosen = selected.includes(id), must = card === obligated && id.endsWith(':0'), held = card === kept && id.endsWith(':0');
     const badge = must ? '<span class="must-badge">Use me</span>' : held ? '<span class="must-badge is-kept">Kept</span>' : '';
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card)) : ''}</button>`;
+    // This card can go onto a meld already on the table.
+    const fits = layable.has(card) && id.endsWith(':0') ? '<span class="layoff-mark" title="Can be added to a meld on the table">+</span>' : '';
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card)) : ''}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
+  landDrawnCards();
 }
 
 function renderActions(interactive) {

@@ -443,6 +443,7 @@
 
 .rummy-hand {
   --hand-card: clamp(44px, min(7vw, 8.5vh), 78px);
+  --peek: .68;  /* the share of a card its right-hand neighbour leaves visible */
   display: flex;
   min-height: calc(var(--hand-card) * 1.4 + 20px);
   padding-top: 20px;
@@ -496,6 +497,30 @@
 }
 
 .must-badge.is-kept { background: var(--paper); color: var(--ink); }
+
+/* A card that can be laid off onto a meld on the table: marked at the right
+   edge of the part of the card the next one leaves showing. */
+.layoff-mark {
+  position: absolute;
+  top: 4px;
+  left: calc(var(--hand-card) * var(--peek) - 19px);
+  display: grid;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  place-items: center;
+  font: bold 13px/1 var(--mono);
+}
+
+/* A card you just drew glows while it settles into the hand. */
+.rummy-card.is-new img { animation: new-card 2400ms ease-out var(--since, 0ms); }
+@keyframes new-card {
+  0%, 55% { box-shadow: 0 0 0 3px var(--yellow); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
 
 .rummy-hand.is-waiting .rummy-card { filter: drop-shadow(2px 3px 0 rgba(0,0,0,.32)) brightness(.97); }
 
@@ -682,7 +707,7 @@
   .rummy-felt .seat-stats { flex-wrap: wrap; gap: 2px 6px; }
   .seat-action { white-space: normal; }
   .rummy-center { --meld-card: 34px; }
-  .rummy-hand { --hand-card: 48px; padding-top: 16px; }
+  .rummy-hand { --hand-card: 48px; --peek: .48; padding-top: 16px; }
   .rummy-hand-area { margin-top: 10px; }
   .rummy-card { margin-left: calc(var(--hand-card) * -.52); }
   .rummy-actions { margin-top: 6px; padding: 5px 6px; flex-direction: column; align-items: stretch; gap: 4px; }
