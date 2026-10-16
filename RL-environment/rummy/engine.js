@@ -89,6 +89,7 @@ export class RummyEngine {
     this.table = []; this.layable = zeros();
     this.opened = Array(players).fill(true);
     this.phase = DRAW; this.turns = 0; this.turnPoints = 0; this.obligation = NO_CARD;
+    this.kept = NO_CARD;  // the discard top taken this turn: it may be used or kept, not discarded
     this.winner = null; this.truncated = false; this.stockOut = false; this.cached = null;
   }
   get done() { return this.phase === DONE; }
@@ -107,8 +108,9 @@ export class RummyEngine {
   drawCandidates() {
     const actions = [action(STOCK)];
     if (!this.pile.length) return actions;
-    actions.push(action(TAKE, this.top, 0));
     const hand = [...this.hands[this.current]];
+    // The taken top cannot go back this turn, so another card must be there to discard.
+    if (sum(hand) > hand[this.top]) actions.push(action(TAKE, this.top, 0));
     hand[this.top]++;
     for (let above = 1; above < this.pile.length; above++) {
       const card = this.pile[this.pile.length - 1 - above];
@@ -118,18 +120,21 @@ export class RummyEngine {
     return actions;
   }
   playCandidates(seat, hand) {
-    const size = sum(hand), actions = [];
-    for (const m of handMelds(hand)) if (RULES.cards[m].length < size) actions.push(action(RULES.kinds[m] ? MELD_RUN : MELD_GROUP, NO_CARD, m));
+    const size = sum(hand), actions = [], kept = this.kept;
+    // Cards that may be discarded: the turn must always be able to end.
+    const spare = size - (kept === NO_CARD ? 0 : hand[kept]);
+    const leavesDiscard = cards => kept === NO_CARD ? cards.length < spare : spare - cards.filter(c => c !== kept).length >= 1;
+    for (const m of handMelds(hand)) if (RULES.cards[m].length < size && leavesDiscard(RULES.cards[m])) actions.push(action(RULES.kinds[m] ? MELD_RUN : MELD_GROUP, NO_CARD, m));
     if (size >= 2) {
       const seen = new Set();
       this.table.forEach((m, position) => {
         for (const [card] of RULES.extensions[m]) {
           // Identical table melds give identical outcomes.
-          if (hand[card] && !seen.has(`${card},${m}`)) { seen.add(`${card},${m}`); actions.push(action(RULES.kinds[m] ? LAYOFF_RUN : LAYOFF_GROUP, card, position)); }
+          if (hand[card] && !seen.has(`${card},${m}`) && leavesDiscard([card])) { seen.add(`${card},${m}`); actions.push(action(RULES.kinds[m] ? LAYOFF_RUN : LAYOFF_GROUP, card, position)); }
         }
       });
     }
-    hand.forEach((n, card) => { if (n) actions.push(action(DISCARD, card)); });
+    hand.forEach((n, card) => { if (n && card !== kept) actions.push(action(DISCARD, card)); });
     return actions;
   }
   apply(move) {
@@ -145,7 +150,7 @@ export class RummyEngine {
       } else {
         const taken = this.pile.splice(this.pile.length - 1 - meld).reverse();  // top first
         for (const c of taken) { this.known[seat][c]++; this.hands[seat][c]++; }
-        if (meld) this.obligation = card;
+        if (meld) this.obligation = card; else this.kept = card;
         event = { kind: EVENT_TAKE, actor: seat, card, meld: -1, cards: taken };
       }
       this.phase = PLAY;
@@ -173,7 +178,7 @@ export class RummyEngine {
       this.turns++;
       if (this.stockOut) this.phase = DONE;
       else if (this.turns >= MAX_TURNS) { this.truncated = true; this.phase = DONE; }
-      else { this.current = (seat + 1) % this.players; this.phase = DRAW; this.turnPoints = 0; }
+      else { this.current = (seat + 1) % this.players; this.phase = DRAW; this.turnPoints = 0; this.kept = NO_CARD; }
     }
     return { kind: EVENT_DISCARD, actor: seat, card, meld: -1, cards: [card] };
   }

@@ -15,8 +15,8 @@
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-4" />
-  <link rel="stylesheet" href="./rummy.css?v=zones-1" />
-  <script type="module" src="./game.js?v=zones-1"></script>
+  <link rel="stylesheet" href="./rummy.css?v=r7-7800" />
+  <script type="module" src="./game.js?v=r7-7800"></script>
 </head>
 <body class="plump-page rummy-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -42,7 +42,7 @@
               <p class="plump-subtitle">Seven cards. A discard pile you can dig into.</p>
               <p class="plump-rules-lead">Every card you put on the table scores for you. Every card still in your hand at the end counts against you.</p>
               <ol class="rule-list">
-                <li>Draw the top of the stock, or any discard together with every card above it.</li>
+                <li>Draw the top of the stock, or any discard together with every card above it. A card from the pile can’t go straight back.</li>
                 <li>A card dug out from under the top must go into a meld or lay-off that same turn.</li>
                 <li>Lay sets (3–4 of a rank) and runs (3+ in a suit). Runs may wrap: Q–K–A–2.</li>
                 <li>Add cards to anyone’s melds. Each card scores its points for you.</li>
@@ -190,7 +190,7 @@
       <h2 id="rules-title">How to play Rummy</h2>
       <p>Seven cards each, one or two decks, no jokers. Every turn has three parts:</p>
       <ol class="rule-list">
-        <li><span><b>Draw.</b> Take the top card of the stock, or any card in the discard pile together with every card above it. The top card alone you may simply keep.</span></li>
+        <li><span><b>Draw.</b> Take the top card of the stock, or any card in the discard pile together with every card above it. The top card alone you may simply keep, but not discard again the same turn.</span></li>
         <li><span><b>Meld.</b> A set is 3–4 of the same rank in different suits. A run is 3–13 cards of one suit in order; runs wrap, so Q–K–A and K–A–2 both work. Add cards to any meld on the table, anyone’s. Lay as many as you like.</span></li>
         <li><span><b>Discard</b> one card to end your turn. A meld or lay-off can never use your last card: you go out by discarding it.</span></li>
       </ol>

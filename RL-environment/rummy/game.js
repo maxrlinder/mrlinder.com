@@ -1,4 +1,4 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=r7-7800';
 import { RULES } from './rules-data.js';
 import { RummyAgent } from './model-client.js';
 
@@ -216,10 +216,12 @@ function renderHand(interactive) {
   const focused = document.activeElement?.dataset?.card;
   const canSelect = interactive && engine.phase !== DRAW;
   const obligated = engine.current === 0 ? engine.obligation : NO_CARD;
+  const kept = engine.current === 0 && !engine.done ? engine.kept : NO_CARD;
   $('hand').classList.toggle('is-waiting', !canSelect && !engine.done);
   $('hand').innerHTML = cards.map(({ card, id }) => {
-    const chosen = selected.includes(id), must = card === obligated && id.endsWith(':0');
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${must ? '<span class="must-badge">Use me</span>' : ''}</button>`;
+    const chosen = selected.includes(id), must = card === obligated && id.endsWith(':0'), held = card === kept && id.endsWith(':0');
+    const badge = must ? '<span class="must-badge">Use me</span>' : held ? '<span class="must-badge is-kept">Kept</span>' : '';
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
 }
@@ -243,6 +245,7 @@ function renderActions(interactive) {
     if (meld) help = `${RULES.kinds[meld[2]] ? 'Run' : 'Set'} worth ${RULES.points[meld[2]]} points. Ready to lay.`;
     else if (layoff) help = 'Tap a highlighted meld to add this card' + (obligated ? '.' : ', or discard it.');
     else if (discard) help = `Discard ${name(selectedCards()[0])} to end your turn.`;
+    else if (selected.length === 1 && selectedCards()[0] === engine.kept) help = `You took the ${name(engine.kept)} from the pile this turn: meld it or keep it, but it can’t go straight back.`;
     else help = obligated ? `That doesn’t use the ${name(engine.obligation)}. Pick a meld or lay-off with it.` : 'That is not a meld yet. Sets are 3–4 of a rank, runs 3+ in a suit.';
   } else if (obligated) help = `Use the ${name(engine.obligation)} you dug out in a meld or lay-off before you discard.`;
   $('selection-help').textContent = help;

@@ -495,6 +495,8 @@
   white-space: nowrap;
 }
 
+.must-badge.is-kept { background: var(--paper); color: var(--ink); }
+
 .rummy-hand.is-waiting .rummy-card { filter: drop-shadow(2px 3px 0 rgba(0,0,0,.32)) brightness(.97); }
 
 .rummy-actions {
