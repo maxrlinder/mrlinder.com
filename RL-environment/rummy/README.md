@@ -9,7 +9,7 @@ from jsDelivr; checkpoint weights are served by this site and checked by SHA-256
 The rules are cardgym's from run r7 on: Scandinavian rummy with 500 Rum's
 discard pile and scoring. The UI supports 2–4 players, one or two decks,
 7-card hands, deep discard pickups (with the obligation to use the dug-out card
-that turn; a taken top card cannot be discarded again the same turn), sets, cyclic runs, lay-offs, points for every card laid, focused
+that turn, directly or at the end of a lay-off chain along a table run; a taken top card cannot be discarded again the same turn), sets, cyclic runs, lay-offs, points for every card laid, focused
 or sampled policy play, round scores, table totals, adjustable pace, and
 auto-play. New tables clear table totals; another
 round retains them. Refreshing the page clears the current game.
@@ -25,7 +25,7 @@ process and environment do not need to be changed.
 ```sh
 python scripts/export-rummy-model.py
 # Or pin an exact checkpoint:
-python scripts/export-rummy-model.py --checkpoint ../card_playing_gym/runs/rummy/r7/checkpoints/iter_007800.pt
+python scripts/export-rummy-model.py --checkpoint ../card_playing_gym/runs/rummy/r7/checkpoints/iter_014400.pt
 npm run check
 npm run build
 ```

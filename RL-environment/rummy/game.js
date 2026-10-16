@@ -1,4 +1,4 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=r7-7800';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=r7-14400';
 import { RULES } from './rules-data.js';
 import { RummyAgent } from './model-client.js';
 
@@ -247,7 +247,7 @@ function renderActions(interactive) {
     else if (discard) help = `Discard ${name(selectedCards()[0])} to end your turn.`;
     else if (selected.length === 1 && selectedCards()[0] === engine.kept) help = `You took the ${name(engine.kept)} from the pile this turn: meld it or keep it, but it can’t go straight back.`;
     else help = obligated ? `That doesn’t use the ${name(engine.obligation)}. Pick a meld or lay-off with it.` : 'That is not a meld yet. Sets are 3–4 of a rank, runs 3+ in a suit.';
-  } else if (obligated) help = `Use the ${name(engine.obligation)} you dug out in a meld or lay-off before you discard.`;
+  } else if (obligated) help = `Use the ${name(engine.obligation)} you dug out in a meld or lay-off (or extend a run up to it) before you discard.`;
   $('selection-help').textContent = help;
   const melds = interactive && engine.phase !== DRAW ? legalMoves().filter(isMeld) : [];
   $('available').innerHTML = engine.done && $('result-dialog').hidden

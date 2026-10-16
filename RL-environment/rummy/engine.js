@@ -12,6 +12,7 @@ export const SUITS = ['♣', '♦', '♥', '♠'];
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 export const name = card => RANKS[card % 13] + SUITS[Math.floor(card / 13)];
 const zeros = () => Array(52).fill(0);
+const mod13 = n => ((n % 13) + 13) % 13;
 const sum = values => values.reduce((a, b) => a + b, 0);
 const index = new Map(RULES.melds.map((m, i) => [m.join(','), i]));
 const run = (suit, start, length) => index.get([1, suit, length === 13 ? 0 : ((start % 13) + 13) % 13, length].join(','));
@@ -99,8 +100,13 @@ export class RummyEngine {
     if (!this.cached) {
       if (this.phase === DRAW) this.cached = this.drawCandidates();
       else if (this.phase === PLAY) {
-        const actions = this.playCandidates(this.current, this.hands[this.current]);
-        this.cached = this.obligation === NO_CARD ? actions : actions.filter(a => uses(a, this.obligation));
+        const actions = this.playCandidates(this.current, this.hands[this.current]), card = this.obligation;
+        if (card === NO_CARD) this.cached = actions;
+        else {
+          // The obligated card's own melds and lay-offs, and the lay-offs that start a chain to it.
+          const chains = this.chains(this.hands[this.current], card);
+          this.cached = actions.filter(a => uses(a, card) || (a[0] === LAYOFF_RUN && chains.has(`${a[2]},${a[1]}`)));
+        }
       } else this.cached = [];
     }
     return this.cached;
@@ -115,9 +121,27 @@ export class RummyEngine {
     for (let above = 1; above < this.pile.length; above++) {
       const card = this.pile[this.pile.length - 1 - above];
       hand[card]++;
-      if (this.layable[card] || canMeld(hand, card)) actions.push(action(TAKE, card, above));
+      if (this.layable[card] || canMeld(hand, card) || this.chains(hand, card).size) actions.push(action(TAKE, card, above));
     }
     return actions;
+  }
+  // "position,first card" of every lay-off chain that extends a table run of the
+  // card's suit, one hand card at a time, until `card` fits its end
+  // (2-3-4 on the table, 5 in hand: lay off 5, then 6).
+  chains(hand, card) {
+    const suit = Math.floor(card / 13), rank = card % 13, size = sum(hand), starts = new Set();
+    this.table.forEach((index, position) => {
+      const [kind, runSuit, start, length] = RULES.melds[index];
+      if (kind !== 1 || runSuit !== suit || length === 13) return;
+      for (const [step, end] of [[1, start + length - 1], [-1, start]]) {
+        const between = mod13((rank - end) * step) - 1;  // hand cards needed before `card`
+        if (between < 1 || length + between + 1 > 13 || between + 1 >= size) continue;
+        let held = true;
+        for (let i = 1; i <= between; i++) if (!hand[suit * 13 + mod13(end + step * i)]) held = false;
+        if (held) starts.add(`${position},${suit * 13 + mod13(end + step)}`);
+      }
+    });
+    return starts;
   }
   playCandidates(seat, hand) {
     const size = sum(hand), actions = [], kept = this.kept;
