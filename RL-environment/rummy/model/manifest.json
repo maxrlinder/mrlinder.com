@@ -30,9 +30,9 @@
     64,
     53
   ],
-  "iteration": 14400,
+  "iteration": 15800,
   "run": "r7",
-  "checkpoint": "iter_014400.pt",
+  "checkpoint": "iter_015800.pt",
   "modelConfig": {
     "d_model": 256,
     "n_layers": 12,
@@ -47,14 +47,14 @@
     "ledger_kernel": 5,
     "score_dim": 64
   },
-  "file": "rummy-r7-14400-fp32.onnx",
+  "file": "rummy-r7-15800-fp32.onnx",
   "bytes": 35179625,
-  "sha256": "d5b9f405762fdef7e59bcd3afeb69b9d4f512877a0d598e0c7053b9d7268f317",
-  "sourceSha256": "1aebdf922dc8067681d18dff198d78fceb8f0463a78c1b868a3fed9b0adec8b3",
+  "sha256": "0098eded0015a1f7d0ffa4b6a8c3246abc01e581eb950426f43d438aa5267d1f",
+  "sourceSha256": "9428a9ac6640fc87c0b6b1a775da5c324a0754a9f253f43d1f974f892572c5b4",
   "precision": "fp32",
   "validation": {
     "samples": 90,
-    "maxAbsoluteError": 6.67572021484375e-05
+    "maxAbsoluteError": 6.866455078125e-05
   },
   "rules": {
     "players": [

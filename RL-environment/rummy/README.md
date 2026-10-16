@@ -36,7 +36,7 @@ process and environment do not need to be changed.
 ```sh
 python scripts/export-rummy-model.py
 # Or pin an exact checkpoint:
-python scripts/export-rummy-model.py --checkpoint ../card_playing_gym/runs/rummy/r7/checkpoints/iter_014400.pt
+python scripts/export-rummy-model.py --checkpoint ../card_playing_gym/runs/rummy/r7/checkpoints/iter_015800.pt
 npm run check
 npm run build
 ```
