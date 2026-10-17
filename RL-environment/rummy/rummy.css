@@ -443,7 +443,8 @@
 
 .rummy-hand {
   --hand-card: clamp(44px, min(7vw, 8.5vh), 78px);
-  --peek: .68;  /* the share of a card its right-hand neighbour leaves visible */
+  --peek-max: .68;
+  --peek: var(--peek-max);  /* the share of a card its right-hand neighbour leaves visible; set by fitHand() */
   display: flex;
   min-height: calc(var(--hand-card) * 1.4 + 20px);
   padding-top: 20px;
@@ -454,7 +455,7 @@
 .rummy-card {
   position: relative;
   width: var(--hand-card);
-  margin-left: calc(var(--hand-card) * -.32);
+  margin-left: calc(var(--hand-card) * (var(--peek) - 1));
   padding: 0;
   border: 0;
   background: transparent;
@@ -587,28 +588,32 @@
 
 .meld-suggestion:active .is-red { color: inherit; }
 
-/* Action probabilities: what the agent would do in your place (Plump's badges). */
-.prob-badge.is-pick { background: var(--yellow); }
+/* Action probabilities: each badge names its move ("Discard", "Draw", "Add 8♥")
+   on the thing that move uses; the agent's next move is the yellow, pulsing one. */
+.rummy-page .prob-badge { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
+.badge-verb { font: bold 8px/1 var(--sans); letter-spacing: .02em; }
+.prob-badge b { font: inherit; }
+.prob-badge.is-pick { z-index: 6; border-width: 2px; background: var(--yellow); animation: agent-pick 1.6s ease-in-out infinite; }
+@keyframes agent-pick { 50% { box-shadow: 0 0 0 3px rgba(255, 214, 0, .55); } }
+@media (prefers-reduced-motion: reduce) { .prob-badge.is-pick { animation: none; } }
 .rummy-meld,
 .meld-suggestion { position: relative; }
-.pile-stack .prob-badge { z-index: 5; right: -10px; bottom: 6px; }
-.pile-stack .argmax-mark { z-index: 5; }
-.rummy-card .prob-badge { right: auto; bottom: 6px; left: 3px; }
-.rummy-card .argmax-mark { top: 3px; right: auto; left: 3px; }
-.rummy-meld .prob-badge { right: 0; bottom: 0; white-space: nowrap; }
-.rummy-meld .argmax-mark { top: 0; right: 0; }
-.meld-zone.is-fitting :is(.prob-badge, .argmax-mark) { display: none; }
-/* On the smallest melds the move is in the status line; the badge keeps to its odds. */
+.pile-stack .prob-badge { z-index: 5; right: -14px; bottom: 6px; }
+/* On a hand card: "Discard" over its odds, inside the part of the card left showing. */
+.rummy-card .prob-badge { right: auto; bottom: 5px; left: 2px; padding: 2px; flex-direction: column; align-items: flex-start; gap: 1px; }
+.rummy-card .prob-badge.is-pick { padding: 1px; }
+.rummy-card .badge-verb { font-size: 7px; letter-spacing: 0; }
+.rummy-hand.is-narrow .rummy-card .badge-verb { display: none; }
+.rummy-meld .prob-badge { right: 0; bottom: 0; }
+.meld-zone.is-fitting .prob-badge { display: none; }
+/* On the smallest melds the badge keeps to its odds. */
 .meld-zone:is([data-density="tiny"], [data-density="micro"]) .badge-verb { display: none; }
-.advice-key { background: #fff; color: var(--ink); padding: 0 4px; font-size: 10px; }
-.meld-suggestion .prob-badge,
-.meld-suggestion .argmax-mark { position: static; display: inline-grid; padding: 1px 3px; }
-.meld-suggestion .argmax-mark { width: auto; height: auto; }
+.meld-suggestion .prob-badge { position: static; padding: 1px 3px; }
 /* Pile cards each cast a shadow (their own stacking context), so their badges
-   sit above the cards, where nothing covers them; the pick is the yellow one. */
-.discard-spread:has(.prob-badge) { padding-top: 22px; }
-.spread-card .prob-badge { top: -17px; right: auto; bottom: auto; left: -1px; padding: 2px; font-size: 8px; }
-.spread-card .argmax-mark { display: none; }
+   sit above the cards, where nothing covers them. */
+.discard-spread:has(.prob-badge) { padding-top: 26px; }
+.spread-card .prob-badge { top: -24px; right: auto; bottom: auto; left: -1px; padding: 2px; flex-direction: column; align-items: flex-start; gap: 1px; font-size: 8px; }
+.spread-card .badge-verb { font-size: 7px; }
 
 /* Round result and agent errors, as windows over the table */
 
@@ -711,9 +716,8 @@
   .rummy-felt .seat-stats { flex-wrap: wrap; gap: 2px 6px; }
   .seat-action { white-space: normal; }
   .rummy-center { --meld-card: 34px; }
-  .rummy-hand { --hand-card: 48px; --peek: .48; padding-top: 16px; }
+  .rummy-hand { --hand-card: 48px; --peek-max: .82; padding-top: 16px; }
   .rummy-hand-area { margin-top: 10px; }
-  .rummy-card { margin-left: calc(var(--hand-card) * -.52); }
   .rummy-actions { margin-top: 6px; padding: 5px 6px; flex-direction: column; align-items: stretch; gap: 4px; }
   .rummy-actions p { text-align: center; }
   .rummy-action-buttons { flex-wrap: wrap; justify-content: center; }

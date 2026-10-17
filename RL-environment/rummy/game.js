@@ -1,6 +1,6 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-3';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-4';
 import { RULES } from './rules-data.js';
-import { RummyAgent } from './model-client.js?v=mp-3';
+import { RummyAgent } from './model-client.js?v=mp-4';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 
@@ -164,27 +164,19 @@ function describeMove([kind, card, meld]) {
   return `Discard the ${name(card)}`;
 }
 
-// Probability badge (and ★ for the agent's pick) for the candidate at `index`.
-function marks(index, label = '') {
+// A badge naming the move and its odds, on the thing the move uses. The agent's
+// own pick is the highlighted one: that is its next move.
+function marks(index, verb) {
   const advice = currentHint();
   if (!advice || index < 0) return '';
-  const star = advice.argmax === index ? '<span class="argmax-mark" title="The agent’s pick">★</span>' : '';
+  const pick = advice.argmax === index;
   // Moves the agent all but rules out stay unmarked, to keep the table readable.
-  if (!star && advice.probabilities[index] < 0.005) return '';
-  return `${star}<span class="prob-badge ${star ? 'is-pick' : ''}">${label ? `<span class="badge-verb">${label}</span>` : ''}${Math.round(advice.probabilities[index] * 100)}%</span>`;
+  if (!pick && advice.probabilities[index] < 0.005) return '';
+  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" ${pick ? 'title="The agent’s next move"' : ''}><span class="badge-verb">${verb}</span><b>${percent(advice.probabilities[index])}</b></span>`;
 }
 const moveIndex = test => legalMoves().findIndex(test);
 const percent = p => `${Math.round(p * 100)}%`;
-const canSelectHint = () => humanTurn() && engine.phase !== DRAW && Boolean(currentHint());
-
-// The agent's pick in words, then its runners-up, so each badge's move is plain.
-function adviceText(advice) {
-  const best = decision.actions[advice.argmax];
-  const others = decision.actions.map((a, i) => ({ a, p: advice.probabilities[i], i }))
-    .filter(({ i, p }) => i !== advice.argmax && p >= 0.01).sort((x, y) => y.p - x.p).slice(0, 2)
-    .map(({ a, p }) => `${lowerFirst(describeMove(a))} ${percent(p)}`);
-  return `★ The agent would: ${lowerFirst(describeMove(best))} · ${percent(advice.probabilities[advice.argmax])}${others.length ? `. Otherwise: ${others.join(' · ')}` : ''}`;
-}
+const adviceText = advice => `The agent would: ${lowerFirst(describeMove(decision.actions[advice.argmax]))} · ${percent(advice.probabilities[advice.argmax])}`;
 
 async function advanceBots() {
   if (role === 'guest' || busy || failure || !engine || engine.done) return;
@@ -301,7 +293,7 @@ function renderPiles(interactive) {
   $('stock-stack').innerHTML = engine.stock.length
     ? Array.from({ length: stockLayers }, (_, i) => `<span class="pile-card card-back" style="--layer:${stockLayers - 1 - i}"></span>`).join('')
     : '<span class="pile-empty">Empty</span>';
-  if (canDraw) $('stock-stack').insertAdjacentHTML('beforeend', marks(moveIndex(a => a[0] === STOCK), 'Draw '));
+  if (canDraw) $('stock-stack').insertAdjacentHTML('beforeend', marks(moveIndex(a => a[0] === STOCK), 'Draw'));
   $('stock-count').textContent = engine.stock.length;
   $('draw-stock').disabled = !canDraw;
   $('draw-stock').classList.toggle('is-ready', canDraw);
@@ -312,11 +304,11 @@ function renderPiles(interactive) {
   $('discard-spread').innerHTML = pile.length ? pile.map((card, i) => {
     const above = top - i, open = takeable.has(above);
     const label = above ? `Take ${name(card)} and the ${plural(above, 'card')} above it` : `Take ${name(card)}`;
-    return `<button class="spread-card ${open ? 'is-takeable' : ''} ${above === 0 && freshDiscard ? 'is-fresh' : ''}" type="button" data-above="${above}" ${open ? '' : 'disabled'} aria-label="${open ? label : name(card)}"><img src="${cardAsset(card)}" alt="" draggable="false" />${open ? marks(moveIndex(a => a[0] === TAKE && a[2] === above)) : ''}</button>`;
+    return `<button class="spread-card ${open ? 'is-takeable' : ''} ${above === 0 && freshDiscard ? 'is-fresh' : ''}" type="button" data-above="${above}" ${open ? '' : 'disabled'} aria-label="${open ? label : name(card)}"><img src="${cardAsset(card)}" alt="" draggable="false" />${open ? marks(moveIndex(a => a[0] === TAKE && a[2] === above), 'Take') : ''}</button>`;
   }).join('') : '<span class="pile-empty spread-empty">Empty</span>';
   $('discard-area').classList.toggle('is-ready', canDraw && takeable.size > 0);
   $('pile-count').textContent = pile.length;
-  $('pile-hint').textContent = canDraw && currentHint() ? ' · % = take from here' : canDraw && takeable.size > 1 ? ' · pick any lit card' : '';
+  $('pile-hint').textContent = canDraw && takeable.size > 1 ? ' · pick any lit card' : '';
   fitPile();
 }
 
@@ -345,7 +337,7 @@ function renderMelds(interactive) {
     const layoffs = legalMoves().map((a, index) => ({ a, index })).filter(({ a }) => isLayoff(a) && a[2] === i);
     const best = currentHint() && layoffs.sort((x, y) => hint.probabilities[y.index] - hint.probabilities[x.index])[0];
     zones[offsetOf(owner)].push(`<button class="rummy-meld ${target ? 'is-target' : ''} ${i === freshMeld ? 'is-fresh' : ''}" type="button" data-meld="${i}" ${target ? '' : 'disabled'}
-      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${escapeHtml(nameOf(owner))}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span>${best ? marks(best.index, `Add ${name(best.a[1])} `) : ''}</button>`);
+      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${escapeHtml(nameOf(owner))}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span>${best ? marks(best.index, `Add ${name(best.a[1])}`) : ''}</button>`);
   });
   $('melds').innerHTML = zones.map((melds, offset) => {
     const seat = seatAt(offset), who = escapeHtml(nameOf(seat));
@@ -378,7 +370,7 @@ function fitMelds() {
 function renderHand(interactive) {
   const label = $('human-label');
   const penalty = engine.penalties()[me];
-  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>${canSelectHint() ? '<span class="advice-key">% on a card = discard it</span>' : ''}`;
+  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>`;
   label.classList.toggle('is-current', !engine.done && engine.current === me);
   const cards = engine.hands[me].flatMap((n, c) => Array.from({ length: n }, (_, copy) => ({ card: c, id: `${c}:${copy}` })));
   if (sortBy === 'rank') cards.sort((a, b) => a.card % 13 - b.card % 13 || a.card - b.card);
@@ -395,10 +387,26 @@ function renderHand(interactive) {
     const badge = must ? '<span class="must-badge">Use me</span>' : held ? '<span class="must-badge is-kept">Kept</span>' : '';
     // This card can go onto a meld already on the table.
     const fits = layable.has(card) && id.endsWith(':0') ? '<span class="layoff-mark" title="Can be added to a meld on the table">+</span>' : '';
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card)) : ''}</button>`;
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card), 'Discard') : ''}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
+  fitHand();
   landDrawnCards();
+}
+
+// Fan the hand as wide as the room allows (up to the usual overlap), so each
+// card shows enough of itself for its badges; tighten it when the hand is long.
+function fitHand() {
+  const hand = $('hand'), cards = hand.querySelectorAll('.rummy-card');
+  hand.style.removeProperty('--peek');
+  if (cards.length < 2) return;
+  const width = cards[0].offsetWidth, widest = parseFloat(getComputedStyle(hand).getPropertyValue('--peek-max')) || 0.68;
+  const peek = Math.max(0.3, Math.min(widest, (hand.clientWidth - 8 - width) / ((cards.length - 1) * width)));
+  hand.style.setProperty('--peek', peek.toFixed(3));
+  // Keep the word on a badge only if the card's showing strip can hold it.
+  hand.classList.remove('is-narrow');
+  const badge = hand.querySelector('.rummy-card .prob-badge');
+  hand.classList.toggle('is-narrow', Boolean(badge) && badge.offsetWidth + 3 > peek * width);
 }
 
 function renderActions(interactive) {
@@ -429,7 +437,7 @@ function renderActions(interactive) {
   const melds = interactive && engine.phase !== DRAW ? legalMoves().filter(isMeld) : [];
   $('available').innerHTML = engine.done && $('result-dialog').hidden
     ? '<button class="game-button is-default" type="button" data-results>Show scores &amp; next round</button>'
-    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small>${marks(moveIndex(a => isMeld(a) && a[2] === m[2]), 'Lay ')}</button>`).join('')}` : '';
+    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small>${marks(moveIndex(a => isMeld(a) && a[2] === m[2]), 'Lay')}</button>`).join('')}` : '';
 }
 
 function renderScores() {
@@ -871,7 +879,7 @@ $('sort').addEventListener('click', () => { sortBy = sortBy === 'suit' ? 'rank' 
 $('autoplay').addEventListener('click', () => { setAutoplay(!autoplay()); selected = []; render(); void advanceBots(); });
 $('speed').addEventListener('input', updateSpeed);
 $('hints').addEventListener('change', () => { $('setup-hints').checked = $('hints').checked; render(); sendHintPreference(); void requestHint(); });
-window.addEventListener('resize', () => { if (engine) { fitPile(); fitMelds(); } });
+window.addEventListener('resize', () => { if (engine) { fitPile(); fitMelds(); fitHand(); } });
 // On phones the score sheet is a drawer over the table.
 const showScores = open => { $('game').dataset.drawer = open ? 'scores' : ''; $('scores-toggle').setAttribute('aria-expanded', String(open)); };
 $('scores-toggle').addEventListener('click', () => showScores($('game').dataset.drawer !== 'scores'));
