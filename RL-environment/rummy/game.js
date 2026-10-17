@@ -1,6 +1,6 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=draw-1';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-2';
 import { RULES } from './rules-data.js';
-import { RummyAgent } from './model-client.js?v=mp-1';
+import { RummyAgent } from './model-client.js?v=mp-2';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 
@@ -408,7 +408,8 @@ function renderActions(interactive) {
     else if (layoff) help = 'Tap a highlighted meld to add this card' + (obligated ? '.' : ', or discard it.');
     else if (discard) help = `Discard ${name(selectedCards()[0])} to end your turn.`;
     else if (selected.length === 1 && selectedCards()[0] === engine.kept) help = `You took the ${name(engine.kept)} from the pile this turn: meld it or keep it, but it can’t go straight back.`;
-    else help = obligated ? `That doesn’t use the ${name(engine.obligation)}. Pick a meld or lay-off with it.` : 'That is not a meld yet. Sets are 3–4 of a rank, runs 3+ in a suit.';
+    else if (selected.length > 3 && RULES.cards.some(cards => sameCards(cards, selectedCards()))) help = 'Melds go down three cards at a time. Lay three of these, then add the rest one by one.';
+    else help = obligated ? `That doesn’t use the ${name(engine.obligation)}. Pick a meld or lay-off with it.` : 'That is not a meld yet: three of a rank, or three in a row of one suit.';
   } else if (obligated) help = `Use the ${name(engine.obligation)} you dug out in a meld or lay-off (or extend a run up to it) before you discard.`;
   $('selection-help').textContent = help;
   const melds = interactive && engine.phase !== DRAW ? legalMoves().filter(isMeld) : [];

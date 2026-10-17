@@ -148,7 +148,9 @@ export class RummyEngine {
     // Cards that may be discarded: the turn must always be able to end.
     const spare = size - (kept === NO_CARD ? 0 : hand[kept]);
     const leavesDiscard = cards => kept === NO_CARD ? cards.length < spare : spare - cards.filter(c => c !== kept).length >= 1;
-    for (const m of handMelds(hand)) if (RULES.cards[m].length < size && leavesDiscard(RULES.cards[m])) actions.push(action(RULES.kinds[m] ? MELD_RUN : MELD_GROUP, NO_CARD, m));
+    // Melds go down three cards at a time and every further card is its own lay-off
+    // (4-5-6, then 7), so each outcome has one route and each extra card is a decision.
+    for (const m of handMelds(hand)) if (RULES.cards[m].length === 3 && RULES.cards[m].length < size && leavesDiscard(RULES.cards[m])) actions.push(action(RULES.kinds[m] ? MELD_RUN : MELD_GROUP, NO_CARD, m));
     if (size >= 2) {
       const seen = new Set();
       this.table.forEach((m, position) => {
