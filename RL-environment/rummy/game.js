@@ -1,6 +1,6 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-2';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-3';
 import { RULES } from './rules-data.js';
-import { RummyAgent } from './model-client.js?v=mp-2';
+import { RummyAgent } from './model-client.js?v=mp-3';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 
@@ -171,9 +171,20 @@ function marks(index, label = '') {
   const star = advice.argmax === index ? '<span class="argmax-mark" title="The agent’s pick">★</span>' : '';
   // Moves the agent all but rules out stay unmarked, to keep the table readable.
   if (!star && advice.probabilities[index] < 0.005) return '';
-  return `${star}<span class="prob-badge ${star ? 'is-pick' : ''}">${label}${Math.round(advice.probabilities[index] * 100)}%</span>`;
+  return `${star}<span class="prob-badge ${star ? 'is-pick' : ''}">${label ? `<span class="badge-verb">${label}</span>` : ''}${Math.round(advice.probabilities[index] * 100)}%</span>`;
 }
 const moveIndex = test => legalMoves().findIndex(test);
+const percent = p => `${Math.round(p * 100)}%`;
+const canSelectHint = () => humanTurn() && engine.phase !== DRAW && Boolean(currentHint());
+
+// The agent's pick in words, then its runners-up, so each badge's move is plain.
+function adviceText(advice) {
+  const best = decision.actions[advice.argmax];
+  const others = decision.actions.map((a, i) => ({ a, p: advice.probabilities[i], i }))
+    .filter(({ i, p }) => i !== advice.argmax && p >= 0.01).sort((x, y) => y.p - x.p).slice(0, 2)
+    .map(({ a, p }) => `${lowerFirst(describeMove(a))} ${percent(p)}`);
+  return `★ The agent would: ${lowerFirst(describeMove(best))} · ${percent(advice.probabilities[advice.argmax])}${others.length ? `. Otherwise: ${others.join(' · ')}` : ''}`;
+}
 
 async function advanceBots() {
   if (role === 'guest' || busy || failure || !engine || engine.done) return;
@@ -290,7 +301,7 @@ function renderPiles(interactive) {
   $('stock-stack').innerHTML = engine.stock.length
     ? Array.from({ length: stockLayers }, (_, i) => `<span class="pile-card card-back" style="--layer:${stockLayers - 1 - i}"></span>`).join('')
     : '<span class="pile-empty">Empty</span>';
-  if (canDraw) $('stock-stack').insertAdjacentHTML('beforeend', marks(moveIndex(a => a[0] === STOCK)));
+  if (canDraw) $('stock-stack').insertAdjacentHTML('beforeend', marks(moveIndex(a => a[0] === STOCK), 'Draw '));
   $('stock-count').textContent = engine.stock.length;
   $('draw-stock').disabled = !canDraw;
   $('draw-stock').classList.toggle('is-ready', canDraw);
@@ -305,7 +316,7 @@ function renderPiles(interactive) {
   }).join('') : '<span class="pile-empty spread-empty">Empty</span>';
   $('discard-area').classList.toggle('is-ready', canDraw && takeable.size > 0);
   $('pile-count').textContent = pile.length;
-  $('pile-hint').textContent = canDraw && takeable.size > 1 ? ' · pick any lit card' : '';
+  $('pile-hint').textContent = canDraw && currentHint() ? ' · % = take from here' : canDraw && takeable.size > 1 ? ' · pick any lit card' : '';
   fitPile();
 }
 
@@ -334,7 +345,7 @@ function renderMelds(interactive) {
     const layoffs = legalMoves().map((a, index) => ({ a, index })).filter(({ a }) => isLayoff(a) && a[2] === i);
     const best = currentHint() && layoffs.sort((x, y) => hint.probabilities[y.index] - hint.probabilities[x.index])[0];
     zones[offsetOf(owner)].push(`<button class="rummy-meld ${target ? 'is-target' : ''} ${i === freshMeld ? 'is-fresh' : ''}" type="button" data-meld="${i}" ${target ? '' : 'disabled'}
-      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${escapeHtml(nameOf(owner))}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span>${best ? marks(best.index, `${name(best.a[1])} `) : ''}</button>`);
+      aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${escapeHtml(nameOf(owner))}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span>${best ? marks(best.index, `Add ${name(best.a[1])} `) : ''}</button>`);
   });
   $('melds').innerHTML = zones.map((melds, offset) => {
     const seat = seatAt(offset), who = escapeHtml(nameOf(seat));
@@ -351,20 +362,23 @@ function fitMelds() {
   for (const zone of $('melds').querySelectorAll('.meld-zone')) {
     const melds = zone.querySelector('.zone-melds');
     const fits = () => melds.scrollHeight <= melds.clientHeight + 1 && melds.scrollWidth <= melds.clientWidth + 1;
+    // Probability badges may overhang a meld; they must not shrink it.
     zone.classList.remove('is-overflowing');
+    zone.classList.add('is-fitting');
     for (const density of ['', 'compact', 'tight', 'tiny', 'micro']) {
       zone.dataset.density = density;
       if (fits()) break;
     }
     // Never hide a meld: if even the smallest cards do not fit, let the zone scroll.
     zone.classList.toggle('is-overflowing', !fits());
+    zone.classList.remove('is-fitting');
   }
 }
 
 function renderHand(interactive) {
   const label = $('human-label');
   const penalty = engine.penalties()[me];
-  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>`;
+  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>${canSelectHint() ? '<span class="advice-key">% on a card = discard it</span>' : ''}`;
   label.classList.toggle('is-current', !engine.done && engine.current === me);
   const cards = engine.hands[me].flatMap((n, c) => Array.from({ length: n }, (_, copy) => ({ card: c, id: `${c}:${copy}` })));
   if (sortBy === 'rank') cards.sort((a, b) => a.card % 13 - b.card % 13 || a.card - b.card);
@@ -415,7 +429,7 @@ function renderActions(interactive) {
   const melds = interactive && engine.phase !== DRAW ? legalMoves().filter(isMeld) : [];
   $('available').innerHTML = engine.done && $('result-dialog').hidden
     ? '<button class="game-button is-default" type="button" data-results>Show scores &amp; next round</button>'
-    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small>${marks(moveIndex(a => isMeld(a) && a[2] === m[2]))}</button>`).join('')}` : '';
+    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small>${marks(moveIndex(a => isMeld(a) && a[2] === m[2]), 'Lay ')}</button>`).join('')}` : '';
 }
 
 function renderScores() {
@@ -447,7 +461,7 @@ function render() {
   else if (engine.obligation !== NO_CARD) status = `Use the ${name(engine.obligation)} before you discard.`;
   else status = 'Lay what you can, then discard one card.';
   const advice = interactive && currentHint();
-  if (advice) status = `★ The agent would: ${lowerFirst(describeMove(decision.actions[advice.argmax]))} · ${Math.round(advice.probabilities[advice.argmax] * 100)}%`;
+  if (advice) status = adviceText(advice);
   else if (interactive && $('hints').checked) status += ' The agent is considering…';
   $('status').textContent = status;
   renderSeats();

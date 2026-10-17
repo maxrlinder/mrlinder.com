@@ -595,8 +595,12 @@
 .pile-stack .argmax-mark { z-index: 5; }
 .rummy-card .prob-badge { right: auto; bottom: 6px; left: 3px; }
 .rummy-card .argmax-mark { top: 3px; right: auto; left: 3px; }
-.rummy-meld .prob-badge { right: -6px; bottom: -4px; white-space: nowrap; }
-.rummy-meld .argmax-mark { top: -6px; right: -6px; }
+.rummy-meld .prob-badge { right: 0; bottom: 0; white-space: nowrap; }
+.rummy-meld .argmax-mark { top: 0; right: 0; }
+.meld-zone.is-fitting :is(.prob-badge, .argmax-mark) { display: none; }
+/* On the smallest melds the move is in the status line; the badge keeps to its odds. */
+.meld-zone:is([data-density="tiny"], [data-density="micro"]) .badge-verb { display: none; }
+.advice-key { background: #fff; color: var(--ink); padding: 0 4px; font-size: 10px; }
 .meld-suggestion .prob-badge,
 .meld-suggestion .argmax-mark { position: static; display: inline-grid; padding: 1px 3px; }
 .meld-suggestion .argmax-mark { width: auto; height: auto; }
