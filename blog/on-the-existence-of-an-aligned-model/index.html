@@ -104,11 +104,11 @@
 
           <h2>There exists a perfectly aligned model</h2>
           <p>
-            There are many definitions of what an aligned model is, and they
-            depend in large part on one’s values. The exact values we encode in
-            a model are beside the point, but some things are clearly
-            universally regarded as unaligned, such as a model helping and
-            abetting a crime, or committing one itself. Take the time
+            In the real world, exactly what counts as misaligned is often up
+            for debate. For the purpose of the argument, we can stick to the
+            most egregious violations, the ones that more than 99% of people
+            would agree are bad, such as a model helping and abetting a crime,
+            or committing one itself. Take the time
             <a
               href="https://huggingface.co/blog/agent-intrusion-technical-timeline"
               target="_blank"
@@ -117,9 +117,10 @@
             >. Here we have a clear example: we can describe that exact event,
             and every individual agent’s circumstances, and add what they did
             to a set of actions we define as undesirable. In fact, we can do
-            this for every situation imaginable, creating the infinite set of
-            every environment a model can be in, together with the outputs in
-            that environment that we regard as unaligned.
+            this for every situation imaginable, creating the set of every
+            environment a model can be in, together with the outputs in that
+            environment that we regard as unaligned. Even limited to egregious
+            violations, there are infinitely many.
           </p>
           <p>
             An environment \(e\) (the prompt, tools, sandbox, everything) can
@@ -130,6 +131,11 @@
             $$e \in \mathcal{E} \subseteq \{0,1\}^*, \qquad y \in V^*,
             \qquad \mathcal{U} \subseteq \mathcal{E} \times V^*.$$
           </p>
+          <p>
+            In terms of classifiers, a perfect classifier is one that correctly
+            labels every environment–output pair:
+          </p>
+          <p>$$c^\star(e, y) = \mathbb{1}\big[(e, y) \in \mathcal{U}\big].$$</p>
           <p>
             So what is an aligned model? One could argue that it is one that,
             given the environment it is in, never outputs an action from that
@@ -142,7 +148,35 @@
           <p>
             Unless the set covers every possible output in some environment,
             there exists a model that is not misaligned: in every environment,
-            just pick an output that is not in \(\mathcal{U}\).
+            just pick an output that is not in \(\mathcal{U}\). Stated this
+            way, such a model is guaranteed to be aligned, but the problem is
+            obviously intractable, since verifying that a model is aligned
+            means checking it over an infinite set.
+          </p>
+
+          <h2>Relaxing the requirement</h2>
+          <p>
+            Since we cannot list every input and output, one solution is to
+            instill a set of values instead, or
+            <a
+              href="https://www.anthropic.com/news/claude-new-constitution"
+              target="_blank"
+              rel="noreferrer"
+              >a constitution, as Anthropic has done</a
+            >, which should cover the cases where more than 99% of people agree
+            on what the correct (or incorrect) behaviour is. What we are doing
+            in this case is writing a finite set of values \(C\) that maps
+            onto the infinite set:
+          </p>
+          <p>
+            $$\underbrace{C}_{\text{finite text}} \;\overset{\Phi}{\longmapsto}\;
+            \underbrace{\mathcal{U}}_{\text{infinite set}}$$
+          </p>
+          <p>
+            We know this mapping exists in theory, but the problem remains
+            intractable. However, since models are smart and have a semantic
+            understanding, the problem is rephrased: from defining a list of
+            forbidden actions to being in line with a set of values.
           </p>
         </div>
 
