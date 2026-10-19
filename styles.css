@@ -1359,3 +1359,8 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 .post-theorem p {
   margin-bottom: 16px;
 }
+
+.post-copy .post-continued {
+  margin-top: 34px;
+  color: var(--muted);
+}
