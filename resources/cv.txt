@@ -207,12 +207,12 @@
         \begin{twocolentry}{
             Sep 2025 – Present
         }
-            \textit{AI Researcher}
+            \textit{Fullstack AI Researcher}
         \end{twocolentry}
         \vspace{0.10 cm}
         \begin{onecolentry}
             \begin{highlights}
-                \item Building dataset creation pipelines and training pipelines for a proprietary large \newline
+                \item Building dataset, training and evaluation pipelines for a proprietary large \newline
                 language model at Ericsson. From continued pre-training to RL.
             \end{highlights}
         \end{onecolentry}
@@ -324,17 +324,12 @@
     \section{Skills}
 
         \begin{onecolentry}
-            \textbf{Training \& Inference:} PyTorch, FSDP, DeepSpeed, TRL, PEFT, vLLM
+            \textbf{Training \& Inference:} PyTorch, FSDP, DeepSpeed, TRL, PEFT, vLLM, SGLang
         \end{onecolentry}
 
         \vspace{0.1 cm}
         \begin{onecolentry}
-            \textbf{Infrastructure:} Slurm, Kubernetes, Docker, AWS, Azure
-        \end{onecolentry}
-
-        \vspace{0.1 cm}
-        \begin{onecolentry}
-            \textbf{Agents \& Evaluation:} MCP servers, sandboxed agent environments, LLM evaluation pipelines
+            \textbf{Infrastructure:} Slurm, Kubernetes, Docker, AWS, Azure, sandboxing, MCP servers
         \end{onecolentry}
 
         \vspace{0.1 cm}
