@@ -34,7 +34,20 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="/styles.css?v=blog-2" />
+    <link rel="stylesheet" href="/styles.css?v=blog-3" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+      defer
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+      defer
+      onload="renderMathInElement(document.querySelector('.post-copy'), { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false }] })"
+    ></script>
     <script src="/site-config.js"></script>
     <script src="/site-navigation.js?v=blog-2" defer></script>
     <script src="/script.js" defer></script>
@@ -88,6 +101,94 @@
             model does exist, however we choose to define alignment, but that
             proving its existence is an intractable problem.
           </p>
+
+          <h2>There exists a perfectly aligned model</h2>
+          <p>
+            There are many definitions of what an aligned model is, and which
+            one you pick depends largely on your values. The exact values we
+            encode in a model are beside the point here. What is clear is that
+            some things are universally regarded as misaligned, such as a model
+            helping or abetting a crime, or committing one itself. When
+            <a
+              href="https://huggingface.co/blog/agent-intrusion-technical-timeline"
+              target="_blank"
+              rel="noreferrer"
+              >a swarm of OpenAI agents hacked Hugging Face</a
+            >
+            this summer, we got a clear example. We can take that exact event,
+            write down every individual agent’s circumstances, and mark the
+            actions they took as ones we do not want.
+          </p>
+          <p>
+            To make this precise, note that everything a model can be exposed
+            to (its system prompt, the conversation so far, the tools it can
+            call, the sandbox it runs in, the state of every machine it can
+            reach) can be written down as a finite string of bits. Call such a
+            string an <em>environment</em>, and let
+          </p>
+          <p>$$\mathcal{E} \subseteq \{0,1\}^*$$</p>
+          <p>
+            be the set of all environments. A model reads an environment and
+            outputs a finite sequence of tokens from its vocabulary \(V\). If
+            \(V^*\) denotes all such sequences, a model is simply a function
+          </p>
+          <p>$$\pi : \mathcal{E} \to V^*.$$</p>
+          <p>
+            An agent acting over many steps fits the same picture: after each
+            step, the environment now includes what the agent just did, and it
+            is again a string of bits.
+          </p>
+          <p>
+            For the Hugging Face incident, we can write down each agent’s
+            environment \(e\) at the moment it acted, together with the output
+            \(y\) that moved it towards the breach. Each such pair
+            \((e, y)\) is undesirable. In fact, we can do this for every
+            situation imaginable. Let
+          </p>
+          <p>$$\mathcal{U} \subseteq \mathcal{E} \times V^*$$</p>
+          <p>
+            be the set of all undesirable actions: every pair \((e, y)\) such
+            that outputting \(y\) in environment \(e\) leads to an outcome
+            we regard as misaligned.
+          </p>
+          <p>
+            For a single environment \(e\), the outputs we forbid are
+            \(\mathcal{U}_e = \{ y \in V^* : (e, y) \in \mathcal{U} \}\). The
+            set \(\mathcal{U}\) is infinite: it holds every unaligned action in
+            every possible environment. How we describe it, whether in natural
+            language, as a test suite, or in bits, does not matter. All that
+            matters is that it is a well-defined set.
+          </p>
+          <p>
+            So what is an aligned model? One could argue that it is a model
+            that, whatever environment it is in, never outputs an action from
+            this set:
+          </p>
+          <p>
+            $$\pi \text{ is aligned} \iff (e, \pi(e)) \notin \mathcal{U}
+            \quad \text{for every } e \in \mathcal{E}.$$
+          </p>
+          <p>
+            Unless the set covers every possible output in some environment,
+            there exists a model that is not misaligned.
+          </p>
+          <div class="post-theorem">
+            <p>
+              <strong>Claim.</strong> If \(\mathcal{U}_e \neq V^*\) for every
+              \(e \in \mathcal{E}\), then an aligned model exists.
+            </p>
+            <p>
+              <em>Proof.</em> Fix an environment \(e\). By assumption, the set
+              of acceptable outputs \(V^* \setminus \mathcal{U}_e\) is not
+              empty. Since \(V^*\) is countable, we can list it in a fixed
+              order (shortest first, then alphabetically) and let
+              \(\pi^\star(e)\) be the first acceptable output in that list.
+              Doing this for every environment defines a function
+              \(\pi^\star : \mathcal{E} \to V^*\) with
+              \((e, \pi^\star(e)) \notin \mathcal{U}\) for all \(e\), so
+              \(\pi^\star\) is aligned. \(\blacksquare\)
+            </p>
+          </div>
         </div>
 
         <p class="post-back"><a href="/blog/">← All posts</a></p>

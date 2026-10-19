@@ -1335,3 +1335,27 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
     font-size: 16px;
   }
 }
+
+.post-copy h2 {
+  margin: 38px 0 16px;
+  font: 22px/1.25 var(--system);
+  font-weight: normal;
+}
+
+.post-copy .katex-display {
+  margin: 0;
+  padding: 2px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.post-theorem {
+  margin: 8px 0 22px;
+  padding: 16px 18px 0;
+  border: 1px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.post-theorem p {
+  margin-bottom: 16px;
+}
