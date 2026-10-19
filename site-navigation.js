@@ -48,6 +48,13 @@ const navigationItems = [
     ],
   },
   {
+    id: "blog",
+    label: "Blog",
+    href: "/blog/",
+    accent: "orange",
+    children: [],
+  },
+  {
     id: "contact",
     label: "Contact",
     href: "/contact/",
