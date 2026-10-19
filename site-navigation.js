@@ -52,7 +52,7 @@ const navigationItems = [
     label: "Blog",
     href: "/blog/",
     accent: "orange",
-    children: [],
+    children: [{ label: "2026", href: "/blog/#2026" }],
   },
   {
     id: "contact",

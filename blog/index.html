@@ -28,9 +28,9 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=blog-2" />
     <script src="/site-config.js"></script>
-    <script src="/site-navigation.js?v=blog-1" defer></script>
+    <script src="/site-navigation.js?v=blog-2" defer></script>
     <script src="/script.js" defer></script>
   </head>
   <body>
@@ -47,25 +47,33 @@
           <h1>Blog</h1>
           <p>
             Writing on AI research, reinforcement learning, and whatever else
-            I am building. No posts yet; the first one is on its way.
+            I am building.
           </p>
           <!--
-            Newest post first. Each post lives in /blog/<slug>/index.html.
-            <ol class="blog-list">
-              <li>
-                <time datetime="2026-10-19">19 Oct 2026</time>
-                <a href="/blog/slug/">Post title</a>
-                <p>One-sentence summary.</p>
-              </li>
-            </ol>
+            Newest post first, grouped by year. Each post lives in
+            /blog/<slug>/index.html. A new year also needs a child entry under
+            "blog" in site-navigation.js.
           -->
+          <h2 class="blog-year" id="2026">2026</h2>
+          <ol class="blog-list">
+            <li>
+              <time datetime="2026-10-19">19 Oct 2026</time>
+              <a href="/blog/on-the-existence-of-an-aligned-model/"
+                >On the Existence of an Aligned Model</a
+              >
+              <p>
+                A fully aligned model almost certainly exists. Proving it is
+                another matter.
+              </p>
+            </li>
+          </ol>
         </div>
       </section>
     </main>
     <footer class="site-footer">
       <p>© <span data-current-year>2026</span> Max Rehman Linder</p>
       <p>mrlinder.com/blog</p>
-      <p>0 items</p>
+      <p>1 item</p>
     </footer>
   </body>
 </html>
