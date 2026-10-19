@@ -4,7 +4,7 @@
 \usepackage[
     ignoreheadfoot,
     top=2 cm,
-    bottom=2 cm,
+    bottom=1 cm,
     left=2 cm,
     right=2 cm,
     footskip=1.0 cm,
@@ -33,6 +33,8 @@
 \usepackage{ifthen}
 \usepackage{needspace}
 \usepackage{iftex}
+\usepackage{fontawesome5}
+
 
 \ifPDFTeX
     \input{glyphtounicode}
@@ -123,7 +125,7 @@
         \LenToUnit{\paperwidth-2 cm-0 cm+0.05cm},
         \LenToUnit{\paperheight-1.0 cm}
     ){\vtop{{\null}\makebox[0pt][c]{
-        \small\color{gray}\textit{Last updated in June 2026}\hspace{\widthof{Last updated in February 2026}}
+        \small\color{gray}\textit{Last updated in October 2026}\hspace{\widthof{Last updated in February 2026}}
     }}}%
   }%
 }
@@ -140,11 +142,10 @@
 
     \placelastupdatedtext
 
-    \begin{header}
+\begin{header}
         \fontsize{18 pt}{18 pt}\selectfont \textbf{Max Rehman Linder}
-
         \vspace{5 pt}
-
+        
         \normalsize
         \mbox{Rindögatan 17, 115 36 Stockholm}%
         \kern 5.0 pt%
@@ -158,7 +159,11 @@
         \kern 5.0 pt%
         \AND%
         \kern 5.0 pt%
-        \mbox{\hrefWithoutArrow{https://www.linkedin.com/in/max-rehman-linder-76a3b4209/}{linkedin \faExternalLink*}}%
+        \mbox{\hrefWithoutArrow{https://www.linkedin.com/in/max-rehman-linder-76a3b4209/}{linkedin \faLinkedin}}%
+        \kern 5.0 pt%
+        \AND%
+        \kern 5.0 pt%
+        \mbox{\hrefWithoutArrow{https://www.mrlinder.com}{website \faGlobe}}%
     \end{header}
 
     \vspace{5 pt - 0.3 cm}
@@ -295,6 +300,10 @@
             \href{https://arxiv.org/abs/2508.15807}{\textit{Ericsson / KTH Master's Thesis} \faExternalLink*}
         \end{twocolentry}
 
+        \begin{twocolentry}{2024}
+    \href{https://arxiv.org/abs/2608.05834}{\textbf{Controllable Clothing: Precise Labels and Generation}, \textit{Publicis/l'X Report} \faTshirt}
+\end{twocolentry}
+
         \vspace{0.15 cm}
         \begin{twocolentry}{2025}
             \textbf{Founders House Fintech+AI Hackathon} (sponsored by OpenAI, EQT \& Stripe) – 
@@ -303,7 +312,7 @@
 
         \vspace{0.10 cm}
         \begin{twocolentry}{2023}
-            \textbf{Marseillestiftelsens Stipend}, awarded by Tessinsällskapet
+            \textbf{Marseilléstiftelsens Stipend}, awarded by Tessinsällskapet
         \end{twocolentry}
 
         \vspace{0.10 cm}
@@ -315,12 +324,22 @@
     \section{Skills}
 
         \begin{onecolentry}
-            \textbf{Languages:} Swedish (native), English (fluent), French (fluent)
+            \textbf{Training \& Inference:} PyTorch, FSDP, DeepSpeed, TRL, PEFT, vLLM
         \end{onecolentry}
 
         \vspace{0.1 cm}
         \begin{onecolentry}
-            \textbf{Infrastructure:} Azure, AWS (Compute-nodes, filesystems, bedrock), Slurm, FSDP/DeepSpeed, vLLM, DVC, Docker, DL-libraries (pytorch, JAX, tensorflow)
+            \textbf{Infrastructure:} Slurm, Kubernetes, Docker, AWS, Azure
+        \end{onecolentry}
+
+        \vspace{0.1 cm}
+        \begin{onecolentry}
+            \textbf{Agents \& Evaluation:} MCP servers, sandboxed agent environments, LLM evaluation pipelines
+        \end{onecolentry}
+
+        \vspace{0.1 cm}
+        \begin{onecolentry}
+            \textbf{Languages:} Swedish (native), English (fluent), French (fluent)
         \end{onecolentry}
 
 \end{document}
