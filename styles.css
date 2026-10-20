@@ -425,6 +425,10 @@ site-sidebar {
   outline: 0;
 }
 
+.desktop-trash .desktop-icon:hover .desktop-icon-image {
+  filter: none;
+}
+
 .icon-disk {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Crect x='1.5' y='10.5' width='29' height='13' fill='%23ddd' stroke='%23000'/%3E%3Cpath d='M2 11.5h28M2 12.5h1' stroke='%23fff'/%3E%3Cpath d='M2 22.5h28M29.5 12v10' stroke='%23999'/%3E%3Crect x='4' y='18' width='3' height='2' fill='%2333a02c'/%3E%3Cpath d='M10 19.5h17' stroke='%23000'/%3E%3C/svg%3E");
 }
@@ -433,8 +437,109 @@ site-sidebar {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M6.5 1.5h13l7 7v22h-20z' fill='%23fff' stroke='%23000'/%3E%3Cpath d='M19.5 1.5v7h7' fill='none' stroke='%23000'/%3E%3Cpath d='M10 13.5h13M10 16.5h13M10 19.5h13M10 22.5h13M10 25.5h8' stroke='%23777'/%3E%3C/svg%3E");
 }
 
-.icon-trash {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M12.5 6.5v-3h7v3' fill='none' stroke='%23000'/%3E%3Crect x='5.5' y='6.5' width='21' height='3' fill='%23fff' stroke='%23000'/%3E%3Cpath d='M7.5 9.5h17v21h-17z' fill='%23fff' stroke='%23000'/%3E%3Cpath d='M11.5 12v16M16.5 12v16M20.5 12v16' stroke='%23000'/%3E%3C/svg%3E");
+.trash-art {
+  overflow: visible;
+}
+
+.trash-art g {
+  transform-box: view-box;
+}
+
+/* At rest the rat sits below the rim and the lid is shut. */
+.trash-rat {
+  transform: translateY(14px);
+}
+
+.trash-rat-head {
+  transform-origin: 16px 9px;
+}
+
+.trash-rat-eyes.is-open,
+.trash-paws {
+  opacity: 0;
+}
+
+.trash-lid {
+  transform-origin: 6px 9px;
+}
+
+.desktop-trash.is-peeking .trash-lid {
+  animation: trash-lid 4.6s linear;
+}
+
+.desktop-trash.is-peeking .trash-rat {
+  animation: trash-rat 4.6s linear;
+}
+
+.desktop-trash.is-peeking .trash-rat-head {
+  animation: trash-rat-head 4.6s linear;
+}
+
+.desktop-trash.is-peeking .trash-rat-eyes.is-open {
+  animation: trash-rat-stare 4.6s step-end;
+}
+
+.desktop-trash.is-peeking .trash-rat-eyes.is-tired {
+  animation: trash-rat-tired 4.6s step-end;
+}
+
+.desktop-trash.is-peeking .trash-paws {
+  animation: trash-paws 4.6s step-end;
+}
+
+/* Lid creaks open, waits, then slams shut with a little rattle. */
+@keyframes trash-lid {
+  0% { transform: none; animation-timing-function: ease-out; }
+  7%, 84% { transform: rotate(-104deg); animation-timing-function: ease-in; }
+  89% { transform: none; }
+  91% { transform: rotate(-7deg); }
+  93% { transform: none; }
+  95% { transform: rotate(-3deg); }
+  97%, 100% { transform: none; }
+}
+
+/* A slow, reluctant climb; a lift of the chin to look at you; back down. */
+@keyframes trash-rat {
+  0%, 7% { transform: translateY(14px); animation-timing-function: ease-out; }
+  15% { transform: translateY(5px); }
+  18% { transform: translateY(5px); animation-timing-function: ease-in-out; }
+  25% { transform: translateY(0); }
+  31% { transform: translateY(0); animation-timing-function: ease-out; }
+  34%, 47% { transform: translateY(-1px); }
+  50%, 72% { transform: translateY(0); animation-timing-function: ease-in; }
+  83%, 100% { transform: translateY(14px); }
+}
+
+/* Three weary shakes of the head. */
+@keyframes trash-rat-head {
+  0%, 52% { transform: none; animation-timing-function: ease-in-out; }
+  55% { transform: translateX(-1px) rotate(-9deg); animation-timing-function: ease-in-out; }
+  59% { transform: translateX(1px) rotate(9deg); animation-timing-function: ease-in-out; }
+  63% { transform: translateX(-1px) rotate(-8deg); animation-timing-function: ease-in-out; }
+  67% { transform: translateX(1px) rotate(7deg); animation-timing-function: ease-in-out; }
+  71%, 100% { transform: none; }
+}
+
+@keyframes trash-rat-stare {
+  0% { opacity: 0; }
+  33% { opacity: 1; }
+  41% { opacity: 0; }
+  42% { opacity: 1; }
+  49%, 100% { opacity: 0; }
+}
+
+@keyframes trash-rat-tired {
+  0% { opacity: 1; }
+  33% { opacity: 0; }
+  41% { opacity: 1; }
+  42% { opacity: 0; }
+  49%, 100% { opacity: 1; }
+}
+
+@keyframes trash-paws {
+  0% { opacity: 0; }
+  24% { opacity: 1; }
+  74%, 100% { opacity: 0; }
 }
 
 .noscript-nav {
@@ -592,6 +697,21 @@ site-sidebar {
 
 .front-copy h1 {
   font-size: 38px;
+}
+
+.front-photo {
+  margin: 28px 0 0;
+}
+
+.front-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  object-position: 50% 72%;
 }
 
 .empty-directory {

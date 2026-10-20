@@ -128,6 +128,107 @@ const itemMarkup = (item, currentPage) => {
   `;
 };
 
+// The trash can and the tired rat living in it, drawn as pixel sprites.
+// Each sprite row is a string; every character is one pixel from the palette.
+const ratPalette = {
+  k: "#000",
+  g: "#a9a9a9",
+  l: "#dedede",
+  d: "#6e6e6e",
+  p: "#f3a3b4",
+  w: "#fff",
+};
+
+const ratHead = [
+  "....kkk........kkk....",
+  "...kpppk......kpppk...",
+  "...kpppkkkkkkkkpppk...",
+  "...kppkggggggggkppk...",
+  "....kkggggggggggkk....",
+  "....kggggggggggggk....",
+  "...kggggggggggggggk...",
+  "...kggggggggggggggk...",
+  "...kggggggggggggggk...",
+  "...kgggllllllllgggk...",
+  "kkkkkgllllllllllgkkkkk",
+  "...kgllllllllllllgk...",
+  "kk..kgllllppllllgk..kk",
+  "....kllllkkkkllllk....",
+  "....kgllllllllllgk....",
+  "...kggggggggggggggk...",
+  "...kggggggggggggggk...",
+];
+
+const ratEyesTired = [
+  "ddd......ddd",
+  ".kk......kk.",
+  "..d......d..",
+];
+
+const ratEyesOpen = [
+  ".kw......wk.",
+  ".kk......kk.",
+  ".kk......kk.",
+  "..d......d..",
+];
+
+const ratPaws = [
+  ".kk........kk.",
+  "kggk......kggk",
+  "k.k.k....k.k.k",
+];
+
+const spriteMarkup = (rows, x, y) =>
+  rows
+    .flatMap((row, dy) =>
+      [...row.matchAll(/([^.])\1*/g)].map(
+        (run) =>
+          `<rect x="${x + run.index}" y="${y + dy}" width="${run[0].length}" height="1" fill="${ratPalette[run[1]]}"/>`,
+      ),
+    )
+    .join("");
+
+const trashMarkup = `
+  <svg class="desktop-icon-image trash-art" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+    <clipPath id="trash-rim"><rect x="-8" y="-16" width="48" height="25"/></clipPath>
+    <g clip-path="url(#trash-rim)">
+      <g class="trash-rat">
+        <g class="trash-rat-head">
+          ${spriteMarkup(ratHead, 5, -4)}
+          <g class="trash-rat-eyes is-tired">${spriteMarkup(ratEyesTired, 10, 2)}</g>
+          <g class="trash-rat-eyes is-open">${spriteMarkup(ratEyesOpen, 10, 1)}</g>
+        </g>
+      </g>
+    </g>
+    <path d="M7.5 9.5h17v21h-17z" fill="#fff" stroke="#000"/>
+    <path d="M11.5 12v16M16.5 12v16M20.5 12v16" stroke="#000"/>
+    <g class="trash-paws">${spriteMarkup(ratPaws, 9, 8)}</g>
+    <g class="trash-lid">
+      <path d="M12.5 6.5v-3h7v3" fill="none" stroke="#000"/>
+      <rect x="5.5" y="6.5" width="21" height="3" fill="#fff" stroke="#000"/>
+    </g>
+  </svg>
+`;
+
+// Hover or click the trash and the rat peeks out, judges you, and goes back in.
+const wireTrash = (trash) => {
+  const motionAllowed = () =>
+    document.documentElement.dataset.animations !== "off" &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const peek = () => {
+    if (!motionAllowed() || trash.classList.contains("is-peeking")) return;
+    trash.classList.add("is-peeking");
+  };
+
+  trash.addEventListener("mouseenter", peek);
+  trash.addEventListener("click", peek);
+  trash.addEventListener("animationend", (event) => {
+    if (event.animationName === "trash-lid") {
+      trash.classList.remove("is-peeking");
+    }
+  });
+};
+
 class SiteSidebar extends HTMLElement {
   connectedCallback() {
     const currentPage = this.getAttribute("current") || "";
@@ -186,11 +287,13 @@ class SiteSidebar extends HTMLElement {
       </div>
       <div class="desktop-trash" aria-hidden="true">
         <span class="desktop-icon">
-          <span class="desktop-icon-image icon-trash"></span>
+          ${trashMarkup}
           <span class="desktop-icon-label">Trash</span>
         </span>
       </div>
     `;
+
+    wireTrash(this.querySelector(".desktop-trash"));
   }
 }
 
