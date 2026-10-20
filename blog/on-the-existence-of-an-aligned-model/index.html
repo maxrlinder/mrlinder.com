@@ -231,7 +231,7 @@
             Yet even if we make an AI that is superhuman at being aligned, that
             is, at mapping a set of values to a set of actions, we can never
             prove for sure that it is. The reason is that we create it with
-            deep learning. The beauty of deep learning is that it can model
+            deep learning. The benefit of deep learning is that it can model
             almost anything, even distributions we cannot define ourselves. The
             flip side is that we cannot reverse engineer the resulting model
             and fully decompose its inner workings. If we could, we would not
@@ -239,14 +239,7 @@
           </p>
           <p>
             This is why sparse autoencoders and other interpretability tools
-            are only approximations. We fix the number of features \(k\) up
-            front and write the model’s activations \(h\) as a sparse
-            combination of \(k\) learned directions \(d_i\),
-          </p>
-          <p>$$h \approx \sum_{i=1}^{k} f_i(h)\, d_i,$$</p>
-          <p>
-            and then derive behaviours from the features \(f_i\). But this is
-            never the full picture of the model’s inner workings.
+            are only approximations.
           </p>
           <p>
             That is not to say that studying models in depth is useless. On
