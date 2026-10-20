@@ -315,23 +315,11 @@ site-sidebar {
   display: none;
 }
 
-.folder-icon,
-.file-icon {
+.tree-icon {
   display: block;
-  background-repeat: no-repeat;
-  background-position: center;
-}
-
-.folder-icon {
   width: 16px;
-  height: 13px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='13' viewBox='0 0 16 13' shape-rendering='crispEdges'%3E%3Cpath d='M.5 12.5V1.5h5l2 2h8v9z' fill='%23ccf' stroke='%23000'/%3E%3Cpath d='M1 4.5h15' stroke='%23000'/%3E%3C/svg%3E");
-}
-
-.file-icon {
-  width: 12px;
-  height: 15px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='15' viewBox='0 0 12 15' shape-rendering='crispEdges'%3E%3Cpath d='M.5.5h7l4 4v10H.5z' fill='%23fff' stroke='%23000'/%3E%3Cpath d='M7.5.5v4h4' fill='none' stroke='%23000'/%3E%3C/svg%3E");
+  height: 16px;
+  overflow: visible;
 }
 
 .tree-link {
@@ -356,7 +344,7 @@ site-sidebar {
 }
 
 .tree-link:hover {
-  background: #e6e6e6;
+  background: #ccccff;
   color: var(--ink);
 }
 
@@ -368,6 +356,12 @@ site-sidebar {
 .tree-link.is-current:visited {
   background: var(--ink);
   color: var(--paper);
+}
+
+/* A white edge keeps the icon's black outline readable on the selection. */
+.tree-link.is-current .tree-icon {
+  filter: drop-shadow(1px 0 0 var(--paper)) drop-shadow(-1px 0 0 var(--paper))
+    drop-shadow(0 1px 0 var(--paper)) drop-shadow(0 -1px 0 var(--paper));
 }
 
 .tree-child-link {
@@ -1268,6 +1262,10 @@ html[data-animations="on"] .boot-screen.is-running .boot-progress span {
 
   .tree-row {
     grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .tree-children {
+    margin-left: 22px !important;
   }
 
   .sidebar-backdrop {
