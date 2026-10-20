@@ -14,6 +14,8 @@ let log = [], logStart = 0, lastMove = null;
 // Local remarks on log entries, by entry number: whether the agent agreed with your move.
 let notes = new Map();
 let meldOwners = [], laidBy = [], lastActions = [], freshMeld = -1, freshDiscard = false;
+// Table positions of the melds laid this turn, so cards added to them read as one lay.
+let newMelds = new Set();
 let difficulty = 50, players = 3, decks = 1;
 // Seats: `me` is the local player. Everyone else is drawn around the table relative to it.
 let me = 0, playerNames = [], aiSeats = new Set(), agentInfo = null;
@@ -39,13 +41,57 @@ const isLayoff = move => move[0] === LAYOFF_GROUP || move[0] === LAYOFF_RUN;
 const sameCards = (a, b) => a.length === b.length && [...a].sort((x, y) => x - y).every((v, i) => v === [...b].sort((x, y) => x - y)[i]);
 const selectedCards = () => selected.map(id => Number(id.split(':')[0]));
 const legalMoves = () => decision?.actions ?? [];
-const selectedMeld = () => legalMoves().find(a => isMeld(a) && sameCards(RULES.cards[a[2]], selectedCards()));
 const selectedDiscard = () => selected.length === 1 && legalMoves().find(a => a[0] === DISCARD && a[1] === selectedCards()[0]);
 const selectedLayoff = position => selected.length === 1 && legalMoves().find(a => isLayoff(a) && a[2] === position && a[1] === selectedCards()[0]);
 const cardAsset = card => `/resources/cards/${['clubs', 'diamonds', 'hearts', 'spades'][Math.floor(card / 13)]}-${RANKS[card % 13].toLowerCase()}.svg`;
 const plural = (n, word) => `${n} ${n === 1 ? word : word + 's'}`;
 const signed = n => (n > 0 ? '+' : '') + n;
 const cardList = counts => counts.flatMap((n, c) => Array(n).fill(c));
+const sameMove = (a, b) => a.every((v, i) => v === b[i]);
+// Throwaway copies of the table and the token writer, to look one decision ahead.
+const ownFields = source => structuredClone(Object.fromEntries(Object.entries(source).filter(([, v]) => typeof v !== 'function')));
+const cloneEngine = source => Object.assign(Object.create(RummyEngine.prototype), ownFields(source));
+const cloneWriter = (source, sim) => Object.assign(Object.create(ObservationWriter.prototype), ownFields({ ...source, engine: null }), { engine: sim });
+// The meld a three-card meld becomes once `cards` are added to it in order.
+const extendedMeld = (meld, cards) => cards.reduce((m, card) => RULES.extensions[m].find(([c]) => c === card)[1], meld);
+const planMeld = plan => extendedMeld(plan[0][2], plan.slice(1).map(a => a[1]));
+// Two plans agree when they leave the same meld (4-5-6 then 7, or 5-6-7 then 4), or are the same move.
+const samePlan = (a, b) => isMeld(a[0]) && isMeld(b[0]) ? planMeld(a) === planMeld(b) : a.length === b.length && sameMove(a[0], b[0]);
+
+// A meld of four or more goes down as three cards and then lay-offs onto them
+// (4-5-6, then 7). Selecting all of them lays them in one go: the same moves,
+// played back to back. `first` is the three-card meld to start from.
+function layPlan(first, cards) {
+  const rest = [...cards];
+  for (const c of RULES.cards[first[2]]) {
+    const at = rest.indexOf(c);
+    if (at < 0) return null;
+    rest.splice(at, 1);
+  }
+  if (!rest.length) return [first];
+  const sim = cloneEngine(engine), plan = [first];
+  sim.apply(first);
+  const position = sim.table.length - 1;
+  while (rest.length) {
+    const next = sim.candidates().find(a => isLayoff(a) && a[2] === position && rest.includes(a[1]));
+    if (!next) return null;
+    sim.apply(next); plan.push(next); rest.splice(rest.indexOf(next[1]), 1);
+  }
+  return plan;
+}
+
+// The moves that lay the selected cards; the agent's own moves when they are its pick.
+function selectedPlan() {
+  const cards = selectedCards();
+  if (cards.length < 3) return null;
+  const advised = advisedPlan();
+  if (advised && isMeld(advised[0]) && sameCards(RULES.cards[planMeld(advised)], cards)) return advised;
+  for (const first of legalMoves().filter(isMeld)) {
+    const plan = layPlan(first, cards);
+    if (plan) return plan;
+  }
+  return null;
+}
 
 function prepareDecision() {
   if (engine.done) { decision = null; return; }
@@ -66,7 +112,7 @@ function startRound() {
   generation++; round++; scored = false; selected = []; log = []; logStart = 0; lastMove = null; notes = new Map(); failure = false; busy = false;
   engine = new RummyEngine({ players, decks }); writer = new ObservationWriter(engine);
   streams = Array.from({ length: players }, () => []);
-  meldOwners = []; laidBy = []; lastActions = Array(players).fill(''); freshMeld = -1; freshDiscard = false;
+  meldOwners = []; laidBy = []; lastActions = Array(players).fill(''); freshMeld = -1; freshDiscard = false; newMelds = new Set();
   setAutoplay(false);
   $('game-error').hidden = true; $('result-dialog').hidden = true;
   showGame();
@@ -106,33 +152,39 @@ function play(move) {
   // A finished turn becomes a turn token in every other seat's stream.
   const turn = writer.record(event);
   if (turn) streams.forEach((stream, seat) => { if (seat !== event.actor) stream.push(turn[seat]); });
-  if (event.kind === EVENT_MELD) { meldOwners.push(event.actor); laidBy.push({}); freshMeld = engine.table.length - 1; }
+  if (event.kind === EVENT_MELD) { meldOwners.push(event.actor); laidBy.push({}); freshMeld = engine.table.length - 1; newMelds.add(freshMeld); }
   else if (event.kind === EVENT_LAYOFF) { laidBy[move[2]][event.card] = event.actor; freshMeld = move[2]; }
-  else if (event.kind === EVENT_STOCK || event.kind === EVENT_TAKE) freshMeld = -1;
+  else if (event.kind === EVENT_STOCK || event.kind === EVENT_TAKE) { freshMeld = -1; newMelds = new Set(); }
   freshDiscard = event.kind === 6;
-  lastActions[event.actor] = shortAction(event);
+  lastActions[event.actor] = event.kind === EVENT_LAYOFF && newMelds.has(move[2]) ? `Laid ${RULES.cards[engine.table[move[2]]].length} cards` : shortAction(event);
   lastMove = { n: log.length, actor: event.actor, move };
   log.push(event); selected = [];
   prepareDecision(); render();
   if (engine.done) finishRound();
 }
 
-function userPlay(move) {
-  if (!humanTurn() || !move) return;
-  const advice = currentHint();
-  const suggested = advice && decision.actions[advice.argmax];
-  const note = suggested && (suggested.every((v, i) => v === move[i]) ? ' The agent agrees.' : ` The agent would: ${lowerFirst(describeMove(suggested))}.`);
-  // The entry this move is about to add to the log.
-  if (note) notes.set(logStart + log.length, note);
+// One move, or a plan of moves played back to back (a meld and the cards added to it).
+function userPlay(moves) {
+  if (!humanTurn() || !moves) return;
+  const plan = typeof moves[0] === 'number' ? [moves] : moves;
+  const suggested = advisedPlan();
+  const note = suggested && (samePlan(suggested, plan) ? ' The agent agrees.' : ` The agent would: ${lowerFirst(describePlan(suggested))}.`);
+  // The last entry these moves are about to add to the log.
+  const entry = logStart + log.length + plan.length - 1;
+  if (note) notes.set(entry, note);
   if (role === 'guest') {
     pending = true; selected = []; render();
-    room.send({ type: 'move', id: decision.id, move }, hostPeer).catch(() => {
-      pending = false; notes.delete(logStart + log.length);
+    room.send({ type: 'move', id: decision.id, move: plan[0], moves: plan }, hostPeer).catch(() => {
+      pending = false; notes.delete(entry);
       $('status').textContent = 'The move did not reach the host. Try again.';
     });
     return;
   }
-  play(move);
+  for (const move of plan) {
+    const legal = humanTurn() && legalMoves().find(a => sameMove(a, move));
+    if (!legal) break;
+    play(legal);
+  }
   void advanceBots();
 }
 
@@ -149,12 +201,59 @@ async function requestHint() {
   try {
     const policy = await agent.policy(streams[me], candidateFeatures(engine, asked.actions));
     if (request !== hintRequest || asked !== decision) return;
-    hint = { id: asked.id, ...policy };
+    const chain = await followUps(me, asked.actions[policy.argmax]);
+    if (request !== hintRequest || asked !== decision) return;
+    hint = { id: asked.id, ...policy, chain };
     render();
   } catch (error) {
     console.error('Action probabilities failed.', error);
   }
 }
+
+// When the agent's pick lays three cards, ask it about the decisions after:
+// while its next move adds one of the seat's cards to that same meld, the lot is
+// shown as one lay. Runs on copies, so the table and the streams stay as they are.
+// Call it straight after an await that checked the decision is still current.
+async function followUps(seat, move) {
+  if (!isMeld(move)) return [];
+  try {
+    const sim = cloneEngine(engine), simWriter = cloneWriter(writer, sim), tokens = [...streams[seat]], chain = [];
+    let event = sim.apply(move);
+    const position = sim.table.length - 1;
+    while (true) {
+      simWriter.record(event);
+      const actions = sim.candidates();
+      if (!actions.some(a => isLayoff(a) && a[2] === position)) break;
+      tokens.push(simWriter.observe(seat));
+      const { argmax } = await agent.policy(tokens, candidateFeatures(sim, actions));
+      const next = actions[argmax];
+      if (!isLayoff(next) || next[2] !== position) break;
+      chain.push(next);
+      event = sim.apply(next);
+    }
+    return chain;
+  } catch (error) {
+    console.error('Looking past the meld failed.', error);
+    return [];
+  }
+}
+
+// The agent's next move, with the cards it would add to its new meld straight after.
+const advisedPlan = () => {
+  const advice = currentHint();
+  return advice ? [decision.actions[advice.argmax], ...(advice.chain ?? [])] : null;
+};
+
+// The hand cards the agent's next move (or lay) would play.
+function advisedCards() {
+  const plan = advisedPlan();
+  if (!plan) return new Set();
+  const [kind, card] = plan[0];
+  if (isMeld(plan[0])) return new Set(RULES.cards[planMeld(plan)]);
+  return new Set(kind === STOCK || kind === TAKE ? [] : [card]);
+}
+
+const describePlan = plan => plan.length > 1 ? `Lay ${RULES.cards[planMeld(plan)].map(name).join(' ')}` : describeMove(plan[0]);
 
 function describeMove([kind, card, meld]) {
   if (kind === STOCK) return 'Draw from the stock';
@@ -176,7 +275,7 @@ function marks(index, verb) {
 }
 const moveIndex = test => legalMoves().findIndex(test);
 const percent = p => `${Math.round(p * 100)}%`;
-const adviceText = advice => `The agent would: ${lowerFirst(describeMove(decision.actions[advice.argmax]))} · ${percent(advice.probabilities[advice.argmax])}`;
+const adviceText = advice => `The agent would: ${lowerFirst(describePlan(advisedPlan()))} · ${percent(advice.probabilities[advice.argmax])}`;
 
 async function advanceBots() {
   if (role === 'guest' || busy || failure || !engine || engine.done) return;
@@ -381,13 +480,16 @@ function renderHand(interactive) {
   const kept = engine.current === me && !engine.done ? engine.kept : NO_CARD;
   // On your play: the lay-offs you can make now. Otherwise: the cards that would extend a table meld.
   const layable = new Set(canSelect ? legalMoves().filter(isLayoff).map(a => a[1]) : engine.done ? [] : engine.hands[me].flatMap((n, c) => n && engine.layable[c] ? [c] : []));
+  // The cards the agent would play next glow, so its pick shows where the card comes from too.
+  const advised = canSelect ? advisedCards() : new Set();
   $('hand').classList.toggle('is-waiting', !canSelect && !engine.done);
   $('hand').innerHTML = cards.map(({ card, id }) => {
     const chosen = selected.includes(id), must = card === obligated && id.endsWith(':0'), held = card === kept && id.endsWith(':0');
     const badge = must ? '<span class="must-badge">Use me</span>' : held ? '<span class="must-badge is-kept">Kept</span>' : '';
     // This card can go onto a meld already on the table.
     const fits = layable.has(card) && id.endsWith(':0') ? '<span class="layoff-mark" title="Can be added to a meld on the table">+</span>' : '';
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card), 'Discard') : ''}</button>`;
+    const glow = advised.has(card) && id.endsWith(':0');
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''} ${glow ? 'is-advised' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card), 'Discard') : ''}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
   fitHand();
@@ -410,7 +512,7 @@ function fitHand() {
 }
 
 function renderActions(interactive) {
-  const meld = interactive && selectedMeld(), discard = interactive && selectedDiscard();
+  const meld = interactive && selectedPlan(), discard = interactive && selectedDiscard();
   const obligated = engine.current === me && engine.obligation !== NO_CARD;
   $('sort').textContent = `Sort by ${sortBy === 'suit' ? 'rank' : 'suit'}`;
   $('clear').disabled = !selected.length || !interactive;
@@ -426,18 +528,23 @@ function renderActions(interactive) {
   else if (engine.phase === DRAW) help = 'Your turn: draw from the stock, or take a lit card from the discard pile.';
   else if (selected.length) {
     const layoff = selected.length === 1 && legalMoves().some(a => isLayoff(a) && a[1] === selectedCards()[0]);
-    if (meld) help = `${RULES.kinds[meld[2]] ? 'Run' : 'Set'} worth ${RULES.points[meld[2]]} points. Ready to lay.`;
+    if (meld) help = `${RULES.kinds[planMeld(meld)] ? 'Run' : 'Set'} worth ${RULES.points[planMeld(meld)]} points. Ready to lay.`;
     else if (layoff) help = 'Tap a highlighted meld to add this card' + (obligated ? '.' : ', or discard it.');
     else if (discard) help = `Discard ${name(selectedCards()[0])} to end your turn.`;
     else if (selected.length === 1 && selectedCards()[0] === engine.kept) help = `You took the ${name(engine.kept)} from the pile this turn: meld it or keep it, but it can’t go straight back.`;
-    else if (selected.length > 3 && RULES.cards.some(cards => sameCards(cards, selectedCards()))) help = 'Melds go down three cards at a time. Lay three of these, then add the rest one by one.';
+    else if (selected.length > 3 && !obligated && RULES.cards.some(cards => sameCards(cards, selectedCards()))) help = 'Laying all of these would leave you no card to discard. Keep one back.';
     else help = obligated ? `That doesn’t use the ${name(engine.obligation)}. Pick a meld or lay-off with it.` : 'That is not a meld yet: three of a rank, or three in a row of one suit.';
   } else if (obligated) help = `Use the ${name(engine.obligation)} you dug out in a meld or lay-off (or extend a run up to it) before you discard.`;
   $('selection-help').textContent = help;
   const melds = interactive && engine.phase !== DRAW ? legalMoves().filter(isMeld) : [];
+  // When the agent would lay three and add to them straight away, its pick shows the whole meld.
+  const advised = advisedPlan(), longer = advised && isMeld(advised[0]) && advised.length > 1 ? advised : null;
   $('available').innerHTML = engine.done && $('result-dialog').hidden
     ? '<button class="game-button is-default" type="button" data-results>Show scores &amp; next round</button>'
-    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => `<button class="game-button meld-suggestion" type="button" data-suggestion="${m[2]}">${RULES.cards[m[2]].map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[m[2]]}</small>${marks(moveIndex(a => isMeld(a) && a[2] === m[2]), 'Lay')}</button>`).join('')}` : '';
+    : melds.length ? `<span>Melds in your hand:</span>${melds.map(m => {
+      const shown = longer && sameMove(longer[0], m) ? planMeld(longer) : m[2], cards = RULES.cards[shown];
+      return `<button class="game-button meld-suggestion" type="button" data-suggestion="${cards.join(',')}">${cards.map(c => `<span class="${Math.floor(c / 13) % 3 ? 'is-red' : ''}">${name(c)}</span>`).join(' ')}<small>+${RULES.points[shown]}</small>${marks(moveIndex(a => sameMove(a, m)), 'Lay')}</button>`;
+    }).join('')}` : '';
 }
 
 function renderScores() {
@@ -616,17 +723,25 @@ async function sendGuestHint() {
   hinted.set(peer, asked.id);
   try {
     const policy = await agent.policy(streams[asked.seat], candidateFeatures(engine, asked.actions));
-    room?.send({ type: 'hint', id: asked.id, ...policy }, peer).catch(() => {});
+    if (asked !== decision) return;
+    const chain = await followUps(asked.seat, asked.actions[policy.argmax]);
+    room?.send({ type: 'hint', id: asked.id, ...policy, chain }, peer).catch(() => {});
   } catch (error) { console.error('Guest action probabilities failed.', error); }
 }
 
 function remoteMove(message, peer) {
   const seat = peerSeat.get(peer);
   if (seat === undefined) return;
-  const legal = engine && !engine.done && !busy && !failure && decision?.seat === seat && message.id === decision.id;
-  const move = legal && decision.actions.find(a => Array.isArray(message.move) && a.every((v, i) => v === message.move[i]));
-  if (!move) { sent.delete(peer); sync(); return; }  // Resend the table so the guest can try again.
-  play(move);
+  // A plan (a meld and the cards added to it) arrives as `moves`; each is checked in turn.
+  const moves = Array.isArray(message.moves) ? message.moves.slice(0, 13) : [message.move];
+  let played = 0;
+  for (const wanted of moves) {
+    const legal = engine && !engine.done && !busy && !failure && decision?.seat === seat && (played || message.id === decision.id);
+    const move = legal && Array.isArray(wanted) && decision.actions.find(a => sameMove(a, wanted));
+    if (!move) break;
+    play(move); played++;
+  }
+  if (!played) { sent.delete(peer); sync(); return; }  // Resend the table so the guest can try again.
   void advanceBots();
 }
 
@@ -686,7 +801,7 @@ function onMessage(message, peer) {
     applyState(message);
     if (first) sendHintPreference();
   } else if (message.type === 'hint') {
-    hint = { id: message.id, probabilities: message.probabilities, argmax: message.argmax };
+    hint = { id: message.id, probabilities: message.probabilities, argmax: message.argmax, chain: Array.isArray(message.chain) ? message.chain : [] };
     render();
   } else if (message.type === 'rejected' || message.type === 'closed') {
     void leaveTable(message.message || 'The host closed this table.');
@@ -860,7 +975,7 @@ $('available').addEventListener('click', event => {
   if (event.target.closest('[data-results]')) { $('result-dialog').hidden = false; render(); $('next-round').focus(); return; }
   const button = event.target.closest('[data-suggestion]');
   if (!button || !humanTurn()) return;
-  selected = RULES.cards[Number(button.dataset.suggestion)].map(c => `${c}:0`);
+  selected = button.dataset.suggestion.split(',').map(c => `${c}:0`);
   render();
 });
 $('melds').addEventListener('click', event => {
@@ -873,7 +988,7 @@ $('discard-spread').addEventListener('click', event => {
 });
 $('draw-stock').addEventListener('click', () => userPlay(legalMoves().find(a => a[0] === STOCK)));
 $('discard').addEventListener('click', () => userPlay(selectedDiscard()));
-$('lay').addEventListener('click', () => userPlay(selectedMeld()));
+$('lay').addEventListener('click', () => userPlay(selectedPlan()));
 $('clear').addEventListener('click', () => { selected = []; render(); });
 $('sort').addEventListener('click', () => { sortBy = sortBy === 'suit' ? 'rank' : 'suit'; render(); });
 $('autoplay').addEventListener('click', () => { setAutoplay(!autoplay()); selected = []; render(); void advanceBots(); });

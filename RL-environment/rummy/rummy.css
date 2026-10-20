@@ -489,6 +489,13 @@
 .rummy-card.is-obligated img { outline: 3px solid var(--red); outline-offset: 0; }
 .rummy-card.is-obligated.is-selected img { outline-color: var(--yellow); }
 
+/* With action probabilities on: the cards the agent's next move plays from your
+   hand (a discard, a lay-off, or every card of a meld) glow with its pick. */
+.rummy-card.is-advised:not(.is-selected) { z-index: 1; transform: translateY(-10px); }
+.rummy-card.is-advised img { outline: 3px solid var(--yellow); outline-offset: 0; animation: agent-card 1.6s ease-in-out infinite; }
+@keyframes agent-card { 50% { box-shadow: 0 0 0 4px rgba(255, 214, 0, .55); } }
+@media (prefers-reduced-motion: reduce) { .rummy-card.is-advised img { animation: none; } }
+
 .must-badge {
   position: absolute;
   top: -10px;

@@ -8,10 +8,10 @@ from jsDelivr; checkpoint weights are served by this site and checked by SHA-256
 
 The rules are cardgym's from run r7 on: Scandinavian rummy with 500 Rum's
 discard pile and scoring. The UI supports 2–4 players, one or two decks,
-7-card hands, three-card melds (further cards are lay-offs, one at a time), deep discard pickups (with the obligation to use the dug-out card
+7-card hands, three-card melds (further cards are lay-offs, one at a time; selecting a longer meld lays it as three plus lay-offs in one go), deep discard pickups (with the obligation to use the dug-out card
 that turn, directly or at the end of a lay-off chain along a table run; a taken top card cannot be discarded again the same turn), sets, cyclic runs, lay-offs, points for every card laid, an agent-difficulty
 slider (the shared `../difficulty.js`: random play, T = 1 at the centre, argmax),
-action probabilities, round scores, table totals, adjustable pace, and
+action probabilities (the hand cards the agent's pick would play glow; when its pick lays three and its next move adds to them, the readout looks one decision ahead and offers the whole meld), round scores, table totals, adjustable pace, and
 auto-play. New tables clear table totals; another
 round retains them. Refreshing the page clears the current game.
 
