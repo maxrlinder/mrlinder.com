@@ -86,8 +86,8 @@
               rel="noreferrer"
               >recently argued on The Ezra Klein Show</a
             >
-            that AI is a “normal technology”, say it is simply an engineering
-            problem. Others, most prominently Eliezer Yudkowsky in
+            that AI is a “normal technology”, say alignment is simply an
+            engineering problem. Others, most prominently Eliezer Yudkowsky in
             <a
               href="https://ifanyonebuildsit.com/"
               target="_blank"
@@ -99,7 +99,7 @@
           <p>
             So which is it? The most likely answer is that a fully aligned
             model does exist, however we choose to define alignment, but that
-            proving its existence is an intractable problem.
+            proving any particular model is aligned is an intractable problem.
           </p>
 
           <h2>There exists a perfectly aligned model</h2>
@@ -107,39 +107,43 @@
             In the real world, exactly what counts as misaligned is often up
             for debate. For the purpose of the argument, we can stick to the
             most egregious violations, the ones that more than 99% of people
-            would agree are bad, such as a model helping and abetting a crime,
-            or committing one itself. Take the time
+            would agree are bad, such as a model aiding and abetting a crime,
+            or committing one itself.
+          </p>
+          <p>
+            Take the time
             <a
               href="https://huggingface.co/blog/agent-intrusion-technical-timeline"
               target="_blank"
               rel="noreferrer"
               >a swarm of OpenAI agents hacked Hugging Face</a
             >. Here we have a clear example: we can describe that exact event,
-            and every individual agent’s circumstances, and add what they did
-            to a set of actions we define as undesirable. In fact, we can do
-            this for every situation imaginable, creating the set of every
-            environment a model can be in, together with the outputs in that
+            including every individual agent’s circumstances, and add what each
+            agent did to a set of actions we define as undesirable. In
+            principle, we can do this for every imaginable situation, pairing
+            every environment a model can be in with the outputs in that
             environment that we regard as unaligned. Even limited to egregious
-            violations, there are infinitely many.
+            violations, there are infinitely many such pairs.
           </p>
           <p>
             An environment \(e\) (the prompt, tools, sandbox, everything) can
             be written down in bits, and an output \(y\) is a sequence of
-            tokens. The unaligned actions are then simply a set of pairs:
+            tokens from a vocabulary \(V\). The unaligned actions are then
+            simply a set of pairs:
           </p>
           <p>
             $$e \in \mathcal{E} \subseteq \{0,1\}^*, \qquad y \in V^*,
             \qquad \mathcal{U} \subseteq \mathcal{E} \times V^*.$$
           </p>
           <p>
-            In terms of classifiers, a perfect classifier is one that correctly
-            labels every environment–output pair:
+            A perfect classifier would then be one that correctly labels every
+            environment–output pair:
           </p>
           <p>$$c^\star(e, y) = \mathbb{1}\big[(e, y) \in \mathcal{U}\big].$$</p>
           <p>
-            So what is an aligned model? One could argue that it is one that,
-            given the environment it is in, never outputs an action from that
-            set:
+            So what is an aligned model? One could argue that it is a model
+            \(\pi\) that, whatever environment it is in, never produces an
+            output from that set:
           </p>
           <p>
             $$\pi \text{ is aligned} \iff (e, \pi(e)) \notin \mathcal{U}
@@ -147,15 +151,14 @@
           </p>
           <p>
             Unless the set covers every possible output in some environment,
-            there exists a model that is not misaligned: in every environment,
-            just pick an output that is not in \(\mathcal{U}\).
+            an aligned model trivially exists: in every environment, just pick
+            an output that is not in \(\mathcal{U}\).
           </p>
           <p>
             Going beyond this trivial case, one can ask: is it even
-            <em>possible</em> to have a model that is intelligent and not
-            misaligned? That is, can a model give useful outputs in its
-            environments while still meeting our requirement for being
-            aligned? If \(\mathcal{A}_e\) is the set of useful outputs in
+            <em>possible</em> to have a model that is both intelligent and
+            aligned? That is, can a model give useful outputs while still
+            meeting our requirement for alignment? If \(\mathcal{A}_e\) is the set of useful outputs in
             environment \(e\), we are asking whether there exists a \(\pi\)
             with
           </p>
@@ -165,87 +168,91 @@
           </p>
           <p>
             The answer is yes. Models are mathematical functions, and with
-            enough parameters they can represent a mapping between arbitrarily
-            large distributions. Since we can define one set of outputs that is
-            unaligned and another that is aligned and useful, there exists a
-            function that maps each environment to the second set and never to
-            the first. In my view, the conclusion that an AI must end up
-            indifferent to humans simply because it is more intelligent is
-            therefore incorrect.
+            enough parameters they can represent arbitrarily complex mappings.
+            As long as every environment has at least one output that is both
+            useful and aligned, there exists a function that maps each
+            environment to such an output and never to an unaligned one. This
+            is why, in my view, the conclusion that an AI must end up seeing us
+            the way we see ants, simply because it is more intelligent, is
+            incorrect.
           </p>
           <p>
-            Stated this way, such a model is guaranteed to be aligned, but the
-            problem is obviously intractable, since verifying that a model is
-            aligned means checking it over an infinite set.
+            Stated this way, such a model is aligned by definition, but the
+            problem is obviously intractable: verifying that a model is aligned
+            means checking it over an infinite set.
           </p>
 
           <h2>Relaxing the requirement</h2>
           <p>
-            Since we cannot list every input and output, one solution is to
-            instill a set of values instead, or
+            Since we cannot list every environment and output, one solution is
+            to instill a set of values instead, or
             <a
               href="https://www.anthropic.com/news/claude-new-constitution"
               target="_blank"
               rel="noreferrer"
               >a constitution, as Anthropic has done</a
-            >, which should cover the cases where more than 99% of people agree
-            on what the correct (or incorrect) behaviour is. What we are doing
-            in this case is writing a finite set of values \(C\) that maps
-            onto the infinite set:
+            >, covering the cases where more than 99% of people agree on what
+            the correct (or incorrect) behaviour is. In other words, we write
+            down a finite set of values \(C\) and rely on a mapping \(\Phi\)
+            from it onto the infinite set:
           </p>
           <p>
             $$\underbrace{C}_{\text{finite text}} \;\overset{\Phi}{\longmapsto}\;
             \underbrace{\mathcal{U}}_{\text{infinite set}}$$
           </p>
           <p>
-            We know this mapping exists in theory, but the problem remains
-            intractable. However, since models are smart and have a semantic
-            understanding, the problem is rephrased: from defining a list of
-            forbidden actions to being in line with a set of values.
+            We know this mapping exists in theory, and since models are smart
+            and have semantic understanding, the problem is rephrased: from
+            avoiding a list of forbidden actions to acting in line with a set
+            of values.
           </p>
           <p>
-            But in this case, we have only moved the intractable part: from
-            explicitly defining every item in \(\mathcal{U}\) to creating a
-            mapping \(\Phi\) with \(\Phi(C) = \mathcal{U}\), one that
-            captures every item in \(\mathcal{U}\) and nothing outside it.
+            But the problem remains intractable; we have only moved the hard
+            part. Instead of explicitly defining every item in
+            \(\mathcal{U}\), we now have to create a mapping \(\Phi\) with
+            \(\Phi(C) = \mathcal{U}\), one that captures every item in
+            \(\mathcal{U}\) and nothing outside it.
           </p>
+
           <h2>Aligned, but not provably so</h2>
           <p>
-            In practice, \(\mathcal{U}\) is not a fixed set but rather a
-            distribution. After all, the items in it have something in common,
-            and that is what lets us agree that they are all unaligned. So
-            instead of a hard membership test, we are really asking for
+            In practice, \(\mathcal{U}\) is not a fixed set but a
+            distribution. The items in it have something in common, which is
+            what lets us agree that they are all unaligned. So instead of a
+            hard membership test, we are really asking for
           </p>
           <p>$$p(\text{unaligned} \mid e, y).$$</p>
           <p>
             Models are incredibly good at learning distributions like this, so
-            having AI identify when something is unaligned is in large part an
-            engineering problem.
+            having AI recognise when something is unaligned is, in large part,
+            an engineering problem.
           </p>
           <p>
-            Even if we can make an AI that is superhuman at being aligned, that
-            is, at mapping a set of values to a set of actions, the problem
-            remains that we can never prove for sure that it is. The reason is
-            that the process of creating it is deep learning. The neat part of
-            deep learning is that we can create a model of almost anything,
-            even of distributions we cannot define ourselves. But in turn, this
-            also means we cannot reverse engineer the model and fully decompose
-            its inner workings. If we could, we would not have needed deep
-            learning in the first place.
+            Yet even if we make an AI that is superhuman at being aligned, that
+            is, at mapping a set of values to a set of actions, we can never
+            prove for sure that it is. The reason is that we create it with
+            deep learning. The beauty of deep learning is that it can model
+            almost anything, even distributions we cannot define ourselves. The
+            flip side is that we cannot reverse engineer the resulting model
+            and fully decompose its inner workings. If we could, we would not
+            have needed deep learning in the first place.
           </p>
           <p>
-            That is why sparse autoencoders and other interpretability tools
-            are only approximations. We fix the number of features \(k\)
-            up front, rewrite the model’s activations \(h\) in terms of them,
+            This is why sparse autoencoders and other interpretability tools
+            are only approximations. We fix the number of features \(k\) up
+            front and write the model’s activations \(h\) as a sparse
+            combination of \(k\) learned directions \(d_i\),
           </p>
           <p>$$h \approx \sum_{i=1}^{k} f_i(h)\, d_i,$$</p>
           <p>
-            and derive behaviours from those features. But it is never the full
-            picture of the model’s inner workings. That is not to say that
-            studying models in depth is useless; on the contrary, it is
-            probably the best, perhaps the only, way to make a model as aligned
-            as possible. By capturing as many traits and connections as we can,
-            we can push the risk of a model being unaligned and taking
+            and then derive behaviours from the features \(f_i\). But this is
+            never the full picture of the model’s inner workings.
+          </p>
+          <p>
+            That is not to say that studying models in depth is useless. On
+            the contrary, it is probably the best, perhaps the only, way to
+            make a model as aligned as possible. By capturing as many traits
+            and connections as we can, we can push the risk of a model taking
             misaligned actions towards zero, even though proving that it is
             fully aligned remains an intractable problem.
           </p>
