@@ -1,4 +1,4 @@
-import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-4';
+import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, SUITS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-4';
 import { RULES } from './rules-data.js';
 import { RummyAgent } from './model-client.js?v=mp-4';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
@@ -253,6 +253,12 @@ function advisedCards() {
   return new Set(kind === STOCK || kind === TAKE ? [] : [card]);
 }
 
+// What the agent's pick does with the hand cards it plays, as a badge word.
+function pickVerb() {
+  const plan = advisedPlan();
+  return !plan ? '' : isMeld(plan[0]) ? 'Lay' : isLayoff(plan[0]) ? 'Add' : 'Discard';
+}
+
 const describePlan = plan => plan.length > 1 ? `Lay ${RULES.cards[planMeld(plan)].map(name).join(' ')}` : describeMove(plan[0]);
 
 function describeMove([kind, card, meld]) {
@@ -430,7 +436,8 @@ function renderMelds(interactive) {
     // A card laid off by someone else carries their initial: its points are theirs.
     const faces = cards.map(c => {
       const by = laidBy[i][c];
-      return `<span class="meld-card">${cardImage(c)}${by !== undefined && by !== owner ? `<i class="laid-by" title="Laid off by ${escapeHtml(nameOf(by))}">${initial(by)}</i>` : ''}</span>`;
+      const mini = `<span class="mini-card ${Math.floor(c / 13) % 3 ? 'is-red' : ''}" aria-hidden="true">${RANKS[c % 13]}<br />${SUITS[Math.floor(c / 13)]}</span>`;
+      return `<span class="meld-card">${cardImage(c)}${mini}${by !== undefined && by !== owner ? `<i class="laid-by" title="Laid off by ${escapeHtml(nameOf(by))}">${initial(by)}</i>` : ''}</span>`;
     }).join('');
     // The agent's likeliest lay-off onto this meld, if any.
     const layoffs = legalMoves().map((a, index) => ({ a, index })).filter(({ a }) => isLayoff(a) && a[2] === i);
@@ -445,18 +452,19 @@ function renderMelds(interactive) {
     <div class="zone-melds">${melds.join('')}</div>
   </section>`;
   }).join('');
-  fitMelds();
 }
 
 // Shrink a zone's meld cards step by step until its melds fit; each zone on its own.
+// The last step trades the pictures for their corner index alone, which stays readable.
 function fitMelds() {
-  for (const zone of $('melds').querySelectorAll('.meld-zone')) {
+  const zones = [...$('melds').querySelectorAll('.meld-zone')];
+  // Probability badges may overhang a meld; they must not shrink it.
+  for (const zone of zones) { zone.classList.remove('is-overflowing'); zone.classList.add('is-fitting'); }
+  shareMeldRows(zones);
+  for (const zone of zones) {
     const melds = zone.querySelector('.zone-melds');
     const fits = () => melds.scrollHeight <= melds.clientHeight + 1 && melds.scrollWidth <= melds.clientWidth + 1;
-    // Probability badges may overhang a meld; they must not shrink it.
-    zone.classList.remove('is-overflowing');
-    zone.classList.add('is-fitting');
-    for (const density of ['', 'compact', 'tight', 'tiny', 'micro']) {
+    for (const density of ['', 'compact', 'tight', 'chips']) {
       zone.dataset.density = density;
       if (fits()) break;
     }
@@ -464,6 +472,30 @@ function fitMelds() {
     zone.classList.toggle('is-overflowing', !fits());
     zone.classList.remove('is-fitting');
   }
+}
+
+// On narrow screens the opponents' melds share one row and yours fill another.
+// Each row gets at least the height its melds need as chips, so none is cut
+// off, and the rest of the felt is split by what each row needs at full size.
+// If even the chips do not fit, the felt grows and the panel scrolls.
+function shareMeldRows(zones) {
+  const felt = $('felt');
+  felt.style.removeProperty('grid-template-rows');
+  felt.style.removeProperty('min-height');
+  if (!matchMedia('(max-width: 760px)').matches) return;
+  const need = (zone, density) => {
+    if (zone.classList.contains('is-empty')) return 0;
+    zone.dataset.density = density;
+    const melds = zone.querySelector('.zone-melds'), style = getComputedStyle(zone), label = zone.querySelector('.zone-label');
+    return melds.scrollHeight + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + (label.offsetHeight ? label.offsetHeight + parseFloat(style.rowGap) : 0);
+  };
+  const row = list => {
+    const full = Math.max(0, ...list.map(zone => need(zone, ''))), least = Math.max(0, ...list.map(zone => need(zone, 'chips')));
+    return full ? `minmax(${Math.ceil(least)}px, ${Math.round(full)}fr)` : 'auto';
+  };
+  const [own, ...theirs] = zones;
+  felt.style.gridTemplateRows = `auto ${row(theirs)} auto ${row([own])}`;
+  if (felt.scrollHeight > felt.clientHeight + 1) felt.style.minHeight = `${felt.scrollHeight}px`;
 }
 
 function renderHand(interactive) {
@@ -481,7 +513,8 @@ function renderHand(interactive) {
   // On your play: the lay-offs you can make now. Otherwise: the cards that would extend a table meld.
   const layable = new Set(canSelect ? legalMoves().filter(isLayoff).map(a => a[1]) : engine.done ? [] : engine.hands[me].flatMap((n, c) => n && engine.layable[c] ? [c] : []));
   // The cards the agent would play next glow, so its pick shows where the card comes from too.
-  const advised = canSelect ? advisedCards() : new Set();
+  const advised = canSelect ? advisedCards() : new Set(), verb = pickVerb();
+  let named = false;
   $('hand').classList.toggle('is-waiting', !canSelect && !engine.done);
   $('hand').innerHTML = cards.map(({ card, id }) => {
     const chosen = selected.includes(id), must = card === obligated && id.endsWith(':0'), held = card === kept && id.endsWith(':0');
@@ -489,7 +522,10 @@ function renderHand(interactive) {
     // This card can go onto a meld already on the table.
     const fits = layable.has(card) && id.endsWith(':0') ? '<span class="layoff-mark" title="Can be added to a meld on the table">+</span>' : '';
     const glow = advised.has(card) && id.endsWith(':0');
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''} ${glow ? 'is-advised' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${canSelect && id.endsWith(':0') ? marks(moveIndex(a => a[0] === DISCARD && a[1] === card), 'Discard') : ''}</button>`;
+    // The first card the agent would play says what it would do with it; the rest only glow.
+    const odds = !canSelect || !id.endsWith(':0') ? '' : glow ? (named ? '' : (named = true, marks(currentHint().argmax, verb)))
+      : marks(moveIndex(a => a[0] === DISCARD && a[1] === card), 'Discard');
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''} ${glow ? 'is-advised' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${odds}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
   fitHand();
@@ -505,10 +541,11 @@ function fitHand() {
   const width = cards[0].offsetWidth, widest = parseFloat(getComputedStyle(hand).getPropertyValue('--peek-max')) || 0.68;
   const peek = Math.max(0.3, Math.min(widest, (hand.clientWidth - 8 - width) / ((cards.length - 1) * width)));
   hand.style.setProperty('--peek', peek.toFixed(3));
-  // Keep the word on a badge only if the card's showing strip can hold it.
+  // Keep the word on a badge only if the card's showing strip can hold it. The
+  // agent's pick sits above its card, clear of the others, so it keeps its word.
   hand.classList.remove('is-narrow');
-  const badge = hand.querySelector('.rummy-card .prob-badge');
-  hand.classList.toggle('is-narrow', Boolean(badge) && badge.offsetWidth + 3 > peek * width);
+  const badges = [...hand.querySelectorAll('.rummy-card .prob-badge:not(.is-pick)')];
+  hand.classList.toggle('is-narrow', badges.some(badge => badge.offsetWidth + 3 > peek * width));
 }
 
 function renderActions(interactive) {
@@ -579,11 +616,14 @@ function render() {
   if (advice) status = adviceText(advice);
   else if (interactive && $('hints').checked) status += ' The agent is considering…';
   $('status').textContent = status;
+  $('status').classList.toggle('is-advice', Boolean(advice));
   renderSeats();
   renderPiles(interactive);
   renderMelds(interactive);
   renderHand(interactive);
   renderActions(interactive);
+  // After everything else, so the melds fit the room the hand and controls leave.
+  fitMelds();
   renderScores();
   $('activity').innerHTML = log.slice(-80).map((event, i) => {
     const n = logStart + log.length - Math.min(log.length, 80) + i;
@@ -999,7 +1039,12 @@ window.addEventListener('resize', () => { if (engine) { fitPile(); fitMelds(); f
 const showScores = open => { $('game').dataset.drawer = open ? 'scores' : ''; $('scores-toggle').setAttribute('aria-expanded', String(open)); };
 $('scores-toggle').addEventListener('click', () => showScores($('game').dataset.drawer !== 'scores'));
 $('scores-close').addEventListener('click', () => showScores(false));
-document.addEventListener('keydown', event => { if (event.key === 'Escape') showScores(false); });
+// On phones the table controls fold into a menu under the toolbar.
+const showMenu = open => { $('table-menu').classList.toggle('is-open', open); $('menu-toggle').setAttribute('aria-expanded', String(open)); };
+$('menu-toggle').addEventListener('click', () => showMenu($('menu-toggle').getAttribute('aria-expanded') !== 'true'));
+$('table-menu').addEventListener('click', event => { if (event.target.closest('button')) showMenu(false); });
+document.addEventListener('click', event => { if (!event.target.closest('#table-menu, #menu-toggle')) showMenu(false); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { showScores(false); showMenu(false); } });
 document.querySelectorAll('[data-rules]').forEach(button => button.addEventListener('click', () => $('rules-dialog').showModal()));
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
 $('review').addEventListener('click', () => { $('result-dialog').hidden = true; render(); });

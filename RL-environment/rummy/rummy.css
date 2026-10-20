@@ -38,6 +38,67 @@
   outline-offset: 1px;
 }
 
+/* Toolbar: the table controls on the left, speed on the right and, between
+   them, the switch that shows the agent's move. On phones the controls fold
+   into a menu (see the narrow-screen rules below). */
+
+.menu-toggle { display: none; }
+.table-menu { display: contents; }
+.rummy-toolbar .advice-toggle { order: 1; }
+.rummy-toolbar .speed-control { order: 2; margin-left: 0; }
+.rummy-toolbar .scores-toggle { order: 3; }
+
+.advice-toggle {
+  position: relative;
+  display: inline-flex;
+  margin: 0 auto;
+  padding: 4px 14px 4px 9px;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 2px 2px 0 var(--ink);
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font: 14px/18px var(--system);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.advice-toggle input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
+.advice-toggle:has(input:focus-visible) { outline: 2px dotted var(--ink); outline-offset: 3px; }
+.advice-toggle:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+.advice-toggle:has(input:checked) { background: var(--yellow); }
+
+.advice-switch {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border: 1px solid var(--ink);
+  border-radius: 9px;
+  background: var(--paper);
+  flex: none;
+}
+
+.advice-switch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+  content: "";
+  transition: transform 120ms ease-out;
+}
+
+.advice-toggle:has(input:checked) .advice-switch { background: var(--ink); }
+.advice-toggle:has(input:checked) .advice-switch::after { background: var(--yellow); transform: translateX(12px); }
+.advice-short { display: none; }
+
+/* The status line reads out the agent's move in the same yellow as its badges. */
+.rummy-page .game-status-line #status.is-advice { background: var(--yellow); }
+
 /* Table */
 
 /*
@@ -181,8 +242,7 @@
 
 .meld-zone[data-density="compact"] { --meld-card: 35px; --meld-gap: 8px; }
 .meld-zone[data-density="tight"] { --meld-card: 29px; --meld-gap: 6px; }
-.meld-zone[data-density="tiny"] { --meld-card: 24px; --meld-gap: 5px; }
-.meld-zone[data-density="micro"] { --meld-card: 20px; --meld-gap: 4px; }
+.meld-zone[data-density="chips"] { --meld-gap: 5px; }
 
 /* On short windows the seat across the table becomes one strip along the rim
    (no card backs; its count stays), leaving its zone the height. */
@@ -374,7 +434,8 @@
   min-height: 0;
   padding: 2px;
   overflow: hidden;
-  align-content: center;
+  /* "safe": a zone that has to scroll keeps its first line in reach. */
+  align-content: safe center;
   justify-content: center;
   flex: 0 1 auto;
   flex-wrap: wrap;
@@ -405,6 +466,26 @@
 .meld-card + .meld-card { margin-left: calc(var(--meld-card) * -.6); }
 /* Explicit proportions, so the fit check measures cards before their images load. */
 .meld-card .table-card { width: var(--meld-card); height: auto; aspect-ratio: 90 / 126; }
+
+/* A crowded zone shows each card as its corner index alone: smaller than the
+   smallest picture, and still readable. */
+.mini-card { display: none; }
+.meld-zone[data-density="chips"] .meld-card .table-card { display: none; }
+.meld-zone[data-density="chips"] .meld-card + .meld-card { margin-left: -1px; }
+.meld-zone[data-density="chips"] .mini-card {
+  display: block;
+  width: 15px;
+  padding: 2px 0 1px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font: bold 9px/1.05 var(--mono);
+  text-align: center;
+}
+.meld-zone[data-density="chips"] .mini-card.is-red { color: var(--red); }
+.meld-zone[data-density="chips"] .meld-cards { filter: drop-shadow(1px 1px 0 rgba(0,0,0,.3)); }
+.meld-zone[data-density="chips"] .laid-by { top: -5px; right: -3px; bottom: auto; left: auto; min-width: 0; padding: 0 1px; font-size: 7px; }
 
 .laid-by {
   position: absolute;
@@ -489,12 +570,10 @@
 .rummy-card.is-obligated img { outline: 3px solid var(--red); outline-offset: 0; }
 .rummy-card.is-obligated.is-selected img { outline-color: var(--yellow); }
 
-/* With action probabilities on: the cards the agent's next move plays from your
-   hand (a discard, a lay-off, or every card of a meld) glow with its pick. */
-.rummy-card.is-advised:not(.is-selected) { z-index: 1; transform: translateY(-10px); }
-.rummy-card.is-advised img { outline: 3px solid var(--yellow); outline-offset: 0; animation: agent-card 1.6s ease-in-out infinite; }
-@keyframes agent-card { 50% { box-shadow: 0 0 0 4px rgba(255, 214, 0, .55); } }
-@media (prefers-reduced-motion: reduce) { .rummy-card.is-advised img { animation: none; } }
+/* With the agent's move shown: the cards its next move plays from your hand
+   (a discard, a lay-off, or every card of a meld) get a yellow frame. The frame
+   is drawn inside the card, which stays in place, so it never covers a neighbour. */
+.rummy-card.is-advised img { outline: 3px solid var(--yellow); outline-offset: -3px; }
 
 .must-badge {
   position: absolute;
@@ -601,25 +680,30 @@
 .meld-suggestion:active .is-red { color: inherit; }
 
 /* Action probabilities: each badge names its move ("Discard", "Draw", "Add 8♥")
-   on the thing that move uses; the agent's next move is the yellow, pulsing one. */
+   on the thing that move uses; the agent's next move is the yellow one. */
 .rummy-page .prob-badge { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
 .badge-verb { font: bold 8px/1 var(--sans); letter-spacing: .02em; }
 .prob-badge b { font: inherit; }
-.prob-badge.is-pick { z-index: 6; border-width: 2px; background: var(--yellow); animation: agent-pick 1.6s ease-in-out infinite; }
-@keyframes agent-pick { 50% { box-shadow: 0 0 0 3px rgba(255, 214, 0, .55); } }
-@media (prefers-reduced-motion: reduce) { .prob-badge.is-pick { animation: none; } }
+.prob-badge.is-pick { z-index: 6; border-width: 2px; background: var(--yellow); }
 .rummy-meld,
 .meld-suggestion { position: relative; }
 .pile-stack .prob-badge { z-index: 5; right: -14px; bottom: 6px; }
 /* On a hand card: "Discard" over its odds, inside the part of the card left showing. */
 .rummy-card .prob-badge { right: auto; bottom: 5px; left: 2px; padding: 2px; flex-direction: column; align-items: flex-start; gap: 1px; }
-.rummy-card .prob-badge.is-pick { padding: 1px; }
 .rummy-card .badge-verb { font-size: 7px; letter-spacing: 0; }
-.rummy-hand.is-narrow .rummy-card .badge-verb { display: none; }
+.rummy-hand.is-narrow .rummy-card .prob-badge:not(.is-pick) .badge-verb { display: none; }
+/* The agent's pick ("Discard 64%", "Add 91%", "Lay 80%") sits on top of its card,
+   where the next card cannot cover it. */
+.rummy-card .prob-badge.is-pick { bottom: calc(100% + 3px); left: -1px; padding: 2px 4px; flex-direction: row; align-items: baseline; gap: 3px; }
+.rummy-card .prob-badge.is-pick .badge-verb { font-size: 8px; }
+.rummy-card.is-obligated .prob-badge.is-pick { bottom: calc(100% + 14px); }
 .rummy-meld .prob-badge { right: 0; bottom: 0; }
 .meld-zone.is-fitting .prob-badge { display: none; }
 /* On the smallest melds the badge keeps to its odds. */
-.meld-zone:is([data-density="tiny"], [data-density="micro"]) .badge-verb { display: none; }
+.meld-zone[data-density="chips"] .badge-verb { display: none; }
+/* Beside its meld rather than over it, inside the zone that clips it. */
+.meld-zone[data-density="chips"] .rummy-meld:has(.prob-badge) { display: flex; align-items: center; gap: 3px; }
+.meld-zone[data-density="chips"] .rummy-meld .prob-badge { position: static; padding: 1px 2px; font-size: 8px; }
 .meld-suggestion .prob-badge { position: static; padding: 1px 3px; }
 /* Pile cards each cast a shadow (their own stacking context), so their badges
    sit above the cards, where nothing covers them. */
@@ -691,7 +775,31 @@
 }
 
 @media (max-width: 760px) {
-  .rummy-table-panel.table-panel { padding: 40px 6px 8px; overflow: hidden; }
+  /* The table controls fold into a menu, leaving one bar: Menu, the agent's move, Scores. */
+  .rummy-game .rummy-toolbar { position: relative; z-index: 40; padding: 4px 6px; flex-wrap: nowrap; align-items: center; gap: 6px; }
+  .menu-toggle { display: inline-block; }
+  .table-menu {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 4px);
+    left: 6px;
+    display: none;
+    width: min(320px, calc(100vw - 12px));
+    padding: 10px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    box-shadow: 2px 2px 0 var(--ink);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .table-menu.is-open { display: flex; }
+  .rummy-game .table-menu .game-button { min-height: 34px; padding: 4px 12px; font-size: 13px; }
+  .table-menu .speed-control { margin: 0; flex: none; }
+  .rummy-toolbar .advice-toggle { margin: 0 auto; padding: 3px 11px 3px 7px; font-size: 13px; gap: 7px; }
+
+  /* The panel scrolls rather than squeeze the melds out of sight on very short screens. */
+  .rummy-table-panel.table-panel { padding: 44px 6px 8px; overflow-x: hidden; overflow-y: auto; }
   /* Each opponent's melds sit in a column under their seat; yours at the bottom. */
   .rummy-felt.table-felt {
     --opponents: 2;
@@ -699,14 +807,22 @@
     width: auto;
     min-height: 0;
     max-height: none;
+    min-height: 290px;
     margin: 0 6px;
     overflow: hidden;
-    padding: 12px 8px 14px;
+    padding: 10px 8px 12px;
     border-radius: 26px;
     grid-template-columns: repeat(var(--opponents), minmax(0, 1fr));
-    grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1.1fr);
-    gap: 8px 6px;
+    /* Every meld row keeps room for at least one line of melds. */
+    grid-template-rows: auto minmax(46px, 1fr) auto minmax(46px, 1.1fr);
+    gap: 7px 6px;
   }
+  .rummy-piles { --pile-card: 40px; gap: 16px; }
+  .rummy-pile,
+  .discard-area { gap: 3px; }
+  .rummy-piles .pile-label { font-size: 10px; line-height: 1.3; }
+  .discard-spread { padding-top: 4px; }
+  .discard-spread:has(.prob-badge) { padding-top: 24px; }
   .rummy-felt.players-2 { --opponents: 1; }
   .rummy-felt.players-4 { --opponents: 3; }
   .rummy-felt #seats,
@@ -722,7 +838,15 @@
   .rummy-felt .rummy-piles { grid-row: 3; grid-column: 1 / -1; }
   .rummy-felt .zone-0 { grid-row: 4; grid-column: 1 / -1; }
   .rummy-felt .meld-zone:not(.zone-0) { justify-content: flex-start; }
-  .rummy-felt .seat-name { font-size: 11px; }
+  /* Each zone sits under its owner's seat (yours above your hand), so its label
+     only repeats the seat: drop it, and the zones with nothing in them yet. */
+  .rummy-felt .zone-label,
+  .rummy-felt .meld-zone.is-empty { display: none; }
+  /* A seat is one name bar with its counts and latest move side by side under it. */
+  .rummy-felt .seat { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: center; gap: 3px 4px; }
+  .rummy-felt .seat-name { margin: 0; font-size: 11px; flex: 1 1 100%; }
+  .rummy-felt .seat-stats,
+  .rummy-felt .seat-notes { margin: 0; }
   .rummy-felt .opponent-hand,
   .rummy-felt .seat-reveal { display: none; }
   .rummy-felt .seat-stats { flex-wrap: wrap; gap: 2px 6px; }
@@ -731,8 +855,11 @@
   .rummy-hand { --hand-card: 48px; --peek-max: .82; padding-top: 16px; }
   .rummy-hand-area { margin-top: 10px; }
   .rummy-actions { margin-top: 6px; padding: 5px 6px; flex-direction: column; align-items: stretch; gap: 4px; }
-  .rummy-actions p { text-align: center; }
-  .rummy-action-buttons { flex-wrap: wrap; justify-content: center; }
+  .rummy-actions p { font-size: 11px; line-height: 1.3; text-align: center; }
+  .rummy-action-buttons { flex-wrap: wrap; justify-content: center; gap: 5px; }
+  .rummy-action-buttons .game-button { padding: 2px 9px; font-size: 12px; }
+  .rummy-suggestions { height: 30px; margin-top: 4px; }
+  .rummy-suggestions:empty { display: none; }
   .human-label { flex-wrap: wrap; justify-content: center; }
 }
 
@@ -747,6 +874,10 @@
   .rummy-game .game-toolbar { gap: 5px; padding: 4px 6px; }
   .rummy-game .game-toolbar .game-button { padding: 2px 8px; font-size: 12px; }
   .rummy-game .speed-end { display: none; }
+  /* Room for two lines, so the agent's move keeps its odds. */
+  .rummy-page .game-status-line span { display: -webkit-box; white-space: normal; line-height: 1.25; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .advice-long { display: none; }
+  .advice-short { display: inline; }
   .rummy-felt.table-felt { border-radius: 22px; }
 }
 

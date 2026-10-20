@@ -15,8 +15,8 @@
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-6" />
-  <link rel="stylesheet" href="./rummy.css?v=mp-6" />
-  <script type="module" src="./game.js?v=mp-5"></script>
+  <link rel="stylesheet" href="./rummy.css?v=ui-1" />
+  <script type="module" src="./game.js?v=ui-1"></script>
   <script type="module" src="./training-charts.js?v=1"></script>
 </head>
 <body class="plump-page rummy-page">
@@ -282,22 +282,28 @@
       </section>
 
       <section class="rummy-game" id="game" hidden aria-label="Rummy table">
-        <div class="game-toolbar">
-          <button class="game-button" type="button" id="new-table">New game…</button>
-          <button class="game-button" type="button" data-rules>Rules</button>
-          <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
-          <span class="live-table-badge" id="live-badge" hidden></span>
-          <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
-          <label class="speed-control" id="speed-control">
-            <span class="speed-title">Speed</span>
-            <span class="speed-end" aria-hidden="true">Slower</span>
-            <input type="range" id="speed" min="0" max="100" step="1" value="60" aria-label="Game speed" />
-            <span class="speed-end" aria-hidden="true">Faster</span>
-            <output id="speed-output">1.0×</output>
-          </label>
-          <div class="game-toggles">
-            <label class="switch-label"><input type="checkbox" id="hints" /> Action probabilities</label>
+        <div class="game-toolbar rummy-toolbar">
+          <!-- On phones the table controls fold into this menu; on wider screens they sit in the bar. -->
+          <button class="game-button menu-toggle" type="button" id="menu-toggle" aria-controls="table-menu" aria-expanded="false">Menu</button>
+          <div class="table-menu" id="table-menu">
+            <button class="game-button" type="button" id="new-table">New game…</button>
+            <button class="game-button" type="button" data-rules>Rules</button>
+            <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
+            <span class="live-table-badge" id="live-badge" hidden></span>
+            <label class="speed-control" id="speed-control">
+              <span class="speed-title">Speed</span>
+              <span class="speed-end" aria-hidden="true">Slower</span>
+              <input type="range" id="speed" min="0" max="100" step="1" value="60" aria-label="Game speed" />
+              <span class="speed-end" aria-hidden="true">Faster</span>
+              <output id="speed-output">1.0×</output>
+            </label>
           </div>
+          <label class="advice-toggle" title="Mark the move the agent would play in your place, with how sure it is">
+            <input type="checkbox" id="hints" />
+            <span class="advice-switch" aria-hidden="true"></span>
+            <span class="advice-long">Show the agent’s move</span><span class="advice-short">Agent’s move</span>
+          </label>
+          <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
         </div>
 
         <div class="game-layout">
