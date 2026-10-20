@@ -148,10 +148,35 @@
           <p>
             Unless the set covers every possible output in some environment,
             there exists a model that is not misaligned: in every environment,
-            just pick an output that is not in \(\mathcal{U}\). Stated this
-            way, such a model is guaranteed to be aligned, but the problem is
-            obviously intractable, since verifying that a model is aligned
-            means checking it over an infinite set.
+            just pick an output that is not in \(\mathcal{U}\).
+          </p>
+          <p>
+            Going beyond this trivial case, one can ask: is it even
+            <em>possible</em> to have a model that is intelligent and not
+            misaligned? That is, can a model give useful outputs in its
+            environments while still meeting our requirement for being
+            aligned? If \(\mathcal{A}_e\) is the set of useful outputs in
+            environment \(e\), we are asking whether there exists a \(\pi\)
+            with
+          </p>
+          <p>
+            $$\pi(e) \in \mathcal{A}_e \;\text{ and }\; (e, \pi(e)) \notin
+            \mathcal{U} \;\text{ for all } e.$$
+          </p>
+          <p>
+            The answer is yes. Models are mathematical functions, and with
+            enough parameters they can represent a mapping between arbitrarily
+            large distributions. Since we can define one set of outputs that is
+            unaligned and another that is aligned and useful, there exists a
+            function that maps each environment to the second set and never to
+            the first. In my view, the conclusion that an AI must end up
+            indifferent to humans simply because it is more intelligent is
+            therefore incorrect.
+          </p>
+          <p>
+            Stated this way, such a model is guaranteed to be aligned, but the
+            problem is obviously intractable, since verifying that a model is
+            aligned means checking it over an infinite set.
           </p>
 
           <h2>Relaxing the requirement</h2>
