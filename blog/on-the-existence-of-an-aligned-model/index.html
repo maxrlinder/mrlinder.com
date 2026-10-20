@@ -209,6 +209,46 @@
             mapping \(\Phi\) with \(\Phi(C) = \mathcal{U}\), one that
             captures every item in \(\mathcal{U}\) and nothing outside it.
           </p>
+          <h2>Aligned, but not provably so</h2>
+          <p>
+            In practice, \(\mathcal{U}\) is not a fixed set but rather a
+            distribution. After all, the items in it have something in common,
+            and that is what lets us agree that they are all unaligned. So
+            instead of a hard membership test, we are really asking for
+          </p>
+          <p>$$p(\text{unaligned} \mid e, y).$$</p>
+          <p>
+            Models are incredibly good at learning distributions like this, so
+            having AI identify when something is unaligned is in large part an
+            engineering problem.
+          </p>
+          <p>
+            Even if we can make an AI that is superhuman at being aligned, that
+            is, at mapping a set of values to a set of actions, the problem
+            remains that we can never prove for sure that it is. The reason is
+            that the process of creating it is deep learning. The neat part of
+            deep learning is that we can create a model of almost anything,
+            even of distributions we cannot define ourselves. But in turn, this
+            also means we cannot reverse engineer the model and fully decompose
+            its inner workings. If we could, we would not have needed deep
+            learning in the first place.
+          </p>
+          <p>
+            That is why sparse autoencoders and other interpretability tools
+            are only approximations. We fix the number of features \(k\)
+            up front, rewrite the model’s activations \(h\) in terms of them,
+          </p>
+          <p>$$h \approx \sum_{i=1}^{k} f_i(h)\, d_i,$$</p>
+          <p>
+            and derive behaviours from those features. But it is never the full
+            picture of the model’s inner workings. That is not to say that
+            studying models in depth is useless; on the contrary, it is
+            probably the best, perhaps the only, way to make a model as aligned
+            as possible. By capturing as many traits and connections as we can,
+            we can push the risk of a model being unaligned and taking
+            misaligned actions towards zero, even though proving that it is
+            fully aligned remains an intractable problem.
+          </p>
           <p class="post-continued">
             <em>To be continued.</em> (As of 19 October 2026.)
           </p>
