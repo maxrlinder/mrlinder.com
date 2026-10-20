@@ -25,6 +25,17 @@ send moves by decision id; the host checks them against the legal list before
 playing them. The host also computes a guest's action probabilities from that
 guest's own stream. If a guest leaves, the agent takes over the seat.
 
+## Training charts
+
+`training-charts.js` draws the "How the agent was trained" charts with the
+shared `../line-chart.js` (also used by Plump) from `training-data.js`, which
+`python scripts/export-rummy-training-data.py` generates (numpy only) from the
+gym's run r7: the checkpoint round robin and the argmax comparison written by
+`tools/tournament.py --output`, refitted without update 0 so ratings are points
+per game above the field average, plus the hold rate and training totals up to
+the checkpoint in `model/manifest.json`. Re-run it after publishing a new
+checkpoint or tournament.
+
 ## Updating the checkpoint
 
 Use a Python environment with `torch`, `numpy`, `onnx`, and `onnxruntime`

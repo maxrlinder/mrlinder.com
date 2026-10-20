@@ -14,9 +14,10 @@
   <title>Rummy — RL Playground</title>
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-5" />
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-6" />
   <link rel="stylesheet" href="./rummy.css?v=mp-5" />
   <script type="module" src="./game.js?v=mp-4"></script>
+  <script type="module" src="./training-charts.js?v=1"></script>
 </head>
 <body class="plump-page rummy-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -152,9 +153,11 @@
               <h2 id="training-title">How the agent was trained</h2>
               <p class="training-lead">
                 The AI you play is a small transformer, 8.9M parameters, that
-                learned Rummy from scratch by playing against itself: about 48
-                hours on one Mac GPU and roughly 1.3 billion decisions over 21
-                million games. It only sees what you see: its own hand, the
+                learned Rummy from scratch by playing against itself:
+                <span data-training-hours>about 62 hours</span> on one Mac GPU
+                and roughly <span data-training-decisions>1.8 billion</span>
+                decisions over <span data-training-games>29 million</span>
+                games. It only sees what you see: its own hand, the
                 table, the discard pile and what each opponent did.
               </p>
             </header>
@@ -226,9 +229,54 @@
               <li>
                 <span class="section-label">From 16,100</span>
                 <strong>Hold or play</strong>
-                <small>A learned gate decides when to keep melds back · checkpoint 25,900 is live</small>
+                <small>A learned gate decides when to keep melds back · checkpoint <span data-live-checkpoint>31,900</span> is live</small>
               </li>
             </ol>
+
+            <figure class="training-chart training-chart-hero">
+              <figcaption>
+                <strong>Checkpoint round robin</strong>
+                <span>Nine checkpoints from update <span data-rr-first>3,100</span>
+                to <span data-rr-last>28,200</span> play each other on duplicate
+                deals (every seating of the same cards, so luck cancels),
+                <span data-rr-games>32,768</span> games each across 2–4 players
+                and one or two decks. Points per game above the field average;
+                the band is a 95% interval. The untrained network (update 0)
+                scores about <span data-rr-untrained>104</span> points per game
+                below update <span data-rr-first>3,100</span>, far off the
+                chart.</span>
+              </figcaption>
+              <div class="chart-plot" data-chart="round-robin"></div>
+              <details class="chart-table">
+                <summary>Show as table</summary>
+                <div data-chart-table="round-robin"></div>
+              </details>
+            </figure>
+
+            <div class="training-multiples is-pair">
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>Late checkpoints at full strength</strong>
+                  <span>The same comparison with every seat playing its top
+                  move (argmax). Played this way the late checkpoints keep
+                  improving, a gap the sampled round robin flattens.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="argmax"></div>
+              </figure>
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>Hold or play</strong>
+                  <span>How often the agent keeps a meld or lay-off back when
+                  it could table it, overall and when an opponent is down to
+                  two cards or fewer.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="hold"></div>
+              </figure>
+            </div>
+            <p class="training-footnote">
+              x-axis: training updates. From update 28,200 each update takes
+              four optimizer steps instead of two.
+            </p>
           </div>
         </section>
       </section>

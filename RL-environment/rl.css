@@ -860,6 +860,8 @@
   gap: 18px;
 }
 
+.training-multiples.is-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 .chart-plot {
   position: relative;
   min-height: 120px;
@@ -976,7 +978,8 @@
 }
 
 @media (max-width: 920px) {
-  .training-multiples { grid-template-columns: 1fr; }
+  .training-multiples,
+  .training-multiples.is-pair { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
