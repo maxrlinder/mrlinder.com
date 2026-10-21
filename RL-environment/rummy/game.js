@@ -16,7 +16,7 @@ let notes = new Map();
 let meldOwners = [], laidBy = [], lastActions = [], freshMeld = -1, freshDiscard = false;
 // Table positions of the melds laid this turn, so cards added to them read as one lay.
 let newMelds = new Set();
-let difficulty = 50, players = 3, decks = 1;
+let difficulty = 50, players = 2, decks = 1;
 // Seats: `me` is the local player. Everyone else is drawn around the table relative to it.
 let me = 0, playerNames = [], aiSeats = new Set(), agentInfo = null;
 // Multiplayer: the host deals, checks every move and runs the agent; guests mirror its state.
@@ -681,7 +681,7 @@ const setSetupError = (message = '') => { $('setup-error').hidden = !message; $(
 function setOpponentOptions(mode) {
   const previous = Number($('opponents').value);
   const max = mode === 'multiplayer' ? Math.max(0, 3 - guests.size) : 3, min = mode === 'multiplayer' ? 0 : 1;
-  const chosen = Math.max(min, Math.min(max, Number.isFinite(previous) ? previous : 2));
+  const chosen = Math.max(min, Math.min(max, Number.isFinite(previous) ? previous : 1));
   const noun = mode === 'multiplayer' ? 'AI opponent' : 'opponent';
   $('opponents').innerHTML = Array.from({ length: max - min + 1 }, (_, i) => min + i)
     .map(n => `<option value="${n}" ${n === chosen ? 'selected' : ''}>${n} ${noun}${n === 1 ? '' : 's'}</option>`).join('');
