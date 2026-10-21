@@ -1,6 +1,6 @@
 {
   "format": "onnx",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tokenWidth": 78,
   "fieldVocab": [
     2,
@@ -47,14 +47,24 @@
     "ledger_kernel": 5,
     "score_dim": 64
   },
-  "file": "rummy-r7-35400-fp32.onnx",
-  "bytes": 35179625,
-  "sha256": "14faa1324979c895497a235d83183504af1e58ed4921bb58be2fefd71c7d8a01",
+  "file": "rummy-r7-35400-values-fp32.onnx",
+  "bytes": 35637765,
+  "sha256": "c2bef861802ae4f1080d9bac07dea1e6dc03dc47a6e3747d670fa6a7cf951a97",
   "sourceSha256": "dc5ad766262e1c0c004b09cd0d74df9cc67cabb8f08e3cf18ae40a18b8804555",
   "precision": "fp32",
+  "outputs": [
+    "logits",
+    "value",
+    "following_values"
+  ],
+  "valueSeats": 4,
   "validation": {
     "samples": 90,
-    "maxAbsoluteError": 9.1552734375e-05
+    "maxAbsoluteError": {
+      "logits": 9.1552734375e-05,
+      "value": 0.000102996826171875,
+      "following_values": 9.1552734375e-05
+    }
   },
   "rules": {
     "players": [

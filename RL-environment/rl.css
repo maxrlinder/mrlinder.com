@@ -1294,6 +1294,14 @@
 }
 
 .human-label.is-current { background: var(--ink); color: var(--paper); }
+/* Your advantage now: the value head's estimate of your lead over the table. */
+.human-label .advantage-now { margin: -3px -10px -3px 0; padding: 3px 8px; border-left: 1px solid var(--ink); background: var(--yellow); color: var(--ink); font-weight: bold; }
+
+/* A move's advantage once made, on its badge; the best move's in green. Moves
+   the agent all but never makes are greyed: the value head extrapolates there. */
+.badge-value { font: inherit; font-style: normal; }
+.badge-value.is-best { color: #006e2d; }
+.badge-value.is-rare { color: #8c8c8c; font-weight: normal; }
 
 .human-hand {
   display: flex;
@@ -1344,7 +1352,7 @@
   font: bold 9px/1 var(--mono);
 }
 
-.prob-badge { right: -3px; bottom: 5px; padding: 3px 4px; }
+.prob-badge { right: -3px; bottom: 5px; padding: 3px 4px; white-space: nowrap; }
 .argmax-mark { top: -5px; right: -4px; display: grid; width: 19px; height: 19px; background: var(--yellow); place-items: center; }
 .hand-card-button .prob-badge { right: auto; bottom: 6px; left: 4px; }
 .hand-card-button .argmax-mark { top: 3px; right: auto; left: 4px; }

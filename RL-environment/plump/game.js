@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=rl6-66400-1";
+} from "./model-client.js?v=values-1";
 import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-66400-1";
 import {
   generateRoomCode,
@@ -292,6 +292,62 @@ function legalDistribution(logits, legalIndices, temperature) {
   };
 }
 
+// Your advantage (the actor's value head: your expected points this round minus
+// the other seats' average) once each legal action is made, one action ahead
+// on copies of the game. A bid or a card reveals nothing hidden, and an action
+// that ends the round scores exactly. The readings after the moves miss the
+// value now by the head's noise, a fraction of a point; they share it, so that
+// under the policy they average to the value now, as an advantage function's
+// must. The head learned from the states the agent's own play reaches, so
+// after a move it all but never makes its reading is an extrapolation: those
+// are greyed and never marked best.
+const RARE = 0.01;
+async function adviseValues(player, prediction) {
+  const bidding = game.round.phase === "bidding";
+  const actions = bidding ? game.legalBids() : game.legalCards(player);
+  const policy = bidding
+    ? legalDistribution(prediction.bidLogits, actions, INSIGHT_TEMPERATURE)
+    : legalDistribution(prediction.cardLogits, actions.map(modelCardId), INSIGHT_TEMPERATURE);
+  const after = new Map();
+  const ahead = [];
+  for (const action of actions) {
+    const copy = hydrateGame(structuredClone(game));
+    if (bidding) copy.bid(action);
+    else copy.play(action);
+    const index = bidding ? action : modelCardId(action);
+    if (["bidding", "playing"].includes(copy.round.phase)) ahead.push([index, copy]);
+    else after.set(index, relativeScoreValue(copy.round.roundScores, player));
+  }
+  const values = await agent.predictValues(ahead.map(([, copy]) => copy), player);
+  const now = prediction.playerValues[0];
+  let gap = -now;
+  for (const [index, value] of after) gap += policy.probabilities.get(index) * value;
+  ahead.forEach(([index], position) => { gap += policy.probabilities.get(index) * values[position]; });
+  const shift = ahead.reduce((mass, [index]) => mass + policy.probabilities.get(index), 0);
+  ahead.forEach(([index], position) => after.set(index, values[position] - (shift ? gap / shift : 0)));
+  const rare = [...after.keys()].filter((index) => policy.probabilities.get(index) < RARE);
+  return withBest({ now, after, rare: new Set(rare) });
+}
+
+function withBest(advantage) {
+  const common = [...advantage.after].filter(([index]) => !advantage.rare.has(index));
+  return { ...advantage, best: Math.max(...(common.length ? common : [...advantage.after]).map(([, value]) => value)) };
+}
+
+function serializeAdvantage(advantage) {
+  return advantage && {
+    now: advantage.now,
+    after: advantage.after ? [...advantage.after.entries()] : null,
+    rare: advantage.rare ? [...advantage.rare] : [],
+  };
+}
+
+function deserializeAdvantage(advantage) {
+  if (!advantage || !Number.isFinite(advantage.now)) return null;
+  if (!Array.isArray(advantage.after)) return { now: advantage.now, after: null };
+  return withBest({ now: advantage.now, after: new Map(advantage.after), rare: new Set(advantage.rare || []) });
+}
+
 function sampleDistribution(distribution) {
   let cursor = Math.random();
   let last = null;
@@ -370,8 +426,10 @@ const dom = {
   speed: $("[data-speed]"),
   speedOutput: $("[data-speed-output]"),
   beliefToggle: $("[data-belief-toggle]"),
+  valueToggle: $("[data-value-toggle]"),
   setupProbabilityToggle: $("[data-setup-probability-toggle]"),
   setupBeliefToggle: $("[data-setup-belief-toggle]"),
+  setupValueToggle: $("[data-setup-value-toggle]"),
   intelStrip: $("[data-intel-strip]"),
   intelTitle: $(".intel-title"),
   intelItems: $("[data-intel-items]"),
@@ -400,6 +458,8 @@ let humanPrediction = null;
 let humanPredictionRound = null;
 let autoPlayRound = null;
 let humanPolicy = null;
+// Your advantage after each legal action on your turn: { now, after: Map, best }.
+let humanAdvantage = null;
 let beliefLoading = false;
 let beliefError = "";
 let lastStatus = "";
@@ -641,7 +701,7 @@ function serializeActorBeliefs(prediction) {
 async function sendHostInsights(peerId) {
   if (!isHost() || !game || !agent.session || !peerToSeat.has(peerId)) return;
   const preferences = insightPreferences.get(peerId);
-  if (!preferences || (!preferences.action && !preferences.beliefs)) return;
+  if (!preferences || (!preferences.action && !preferences.beliefs && !preferences.values)) return;
   const seat = peerToSeat.get(peerId);
   if (seat === undefined || !["bidding", "playing"].includes(game.round.phase)) return;
   const revision = networkRevision;
@@ -657,12 +717,19 @@ async function sendHostInsights(peerId) {
           INSIGHT_TEMPERATURE,
         );
     }
+    let advantage = null;
+    if (preferences.values) {
+      advantage = game.round.currentPlayer === seat
+        ? await adviseValues(seat, prediction)
+        : { now: prediction.playerValues[0], after: null };
+    }
     if (revision !== networkRevision) return;
     await multiplayer.send({
       type: "insights",
       revision,
       policy: serializePolicy(policy),
       prediction: preferences.beliefs ? serializeActorBeliefs(prediction) : null,
+      advantage: serializeAdvantage(advantage),
     }, peerId);
   } catch (error) {
     if (revision !== networkRevision) return;
@@ -681,6 +748,7 @@ function requestRemoteInsights() {
   if (multiplayerRole !== "guest" || !multiplayer || !hostPeerId || !game) return;
   predictionRequest += 1;
   humanPolicy = null;
+  humanAdvantage = null;
   beliefError = "";
   beliefLoading = dom.beliefToggle.checked;
   render();
@@ -688,6 +756,7 @@ function requestRemoteInsights() {
     type: "insight_preferences",
     action: dom.probabilityToggle.checked,
     beliefs: dom.beliefToggle.checked,
+    values: dom.valueToggle.checked,
     revision: appliedNetworkRevision,
   }, hostPeerId).catch(() => {
     beliefLoading = false;
@@ -731,12 +800,13 @@ function applyNetworkState(message) {
     game.completedRounds.at(-1)?.aiComparison?.status !== "pending";
   if (game.round.phase === "round_over" && comparisonReady) showRoundResult();
   if (game.round.phase === "game_over" && comparisonReady) showGameOver();
-  if (dom.probabilityToggle.checked || dom.beliefToggle.checked) requestRemoteInsights();
+  if (wantsInsights()) requestRemoteInsights();
 }
 
 function applyRemoteInsights(message) {
   if (message.revision !== appliedNetworkRevision) return;
   humanPolicy = deserializePolicy(message.policy);
+  humanAdvantage = deserializeAdvantage(message.advantage);
   setHumanPrediction(message.prediction);
   beliefLoading = false;
   beliefError = "";
@@ -818,6 +888,7 @@ function handleNetworkMessage(message, peerId) {
       insightPreferences.set(peerId, {
         action: Boolean(message.action),
         beliefs: Boolean(message.beliefs),
+        values: Boolean(message.values),
       });
       sendHostInsights(peerId);
     }
@@ -916,6 +987,7 @@ function invalidatePredictionReadouts({ keepBeliefs = false } = {}) {
   predictionRequest += 1;
   if (!keepBeliefs) humanPrediction = null;
   humanPolicy = null;
+  humanAdvantage = null;
   beliefLoading = false;
   beliefError = "";
 }
@@ -1091,12 +1163,30 @@ function renderTrick() {
   });
 }
 
+// An action's badge: its probability, your advantage once it is made, or both.
 function policyBadge(index) {
-  if (!dom.probabilityToggle.checked || !humanPolicy) return "";
-  const probability = humanPolicy.probabilities.get(index);
-  if (probability === undefined) return "";
-  const best = humanPolicy.argmax === index ? '<span class="argmax-mark" title="Model argmax">★</span>' : "";
-  return `${best}<span class="prob-badge">${Math.round(probability * 100)}%</span>`;
+  const probability = dom.probabilityToggle.checked ? humanPolicy?.probabilities.get(index) : undefined;
+  const value = dom.valueToggle.checked ? humanAdvantage?.after?.get(index) : undefined;
+  if (probability === undefined && value === undefined) return "";
+  const best = probability !== undefined && humanPolicy.argmax === index ? '<span class="argmax-mark" title="Model argmax">★</span>' : "";
+  const odds = probability === undefined ? "" : `${Math.round(probability * 100)}%`;
+  const rare = value !== undefined && humanAdvantage.rare.has(index);
+  const worth = value === undefined
+    ? ""
+    : `<i class="badge-value${rare ? " is-rare" : value >= humanAdvantage.best - 0.05 ? " is-best" : ""}">${formatRelativeScoreValue(value)}</i>`;
+  const title = value === undefined
+    ? ""
+    : ` title="Your advantage after this action: ${formatRelativeScoreValue(value)} (now ${formatRelativeScoreValue(humanAdvantage.now)})${rare ? ". The agent almost never plays this, so this value is a rough extrapolation" : ""}"`;
+  return `${best}<span class="prob-badge"${title}>${[odds, worth].filter(Boolean).join(" ")}</span>`;
+}
+
+const wantsInsights = () =>
+  dom.probabilityToggle.checked || dom.beliefToggle.checked || dom.valueToggle.checked;
+
+// Your advantage now: from this turn's readout, else the latest belief readout.
+function currentAdvantage() {
+  if (!dom.valueToggle.checked) return null;
+  return humanAdvantage?.now ?? currentBeliefs()?.playerValues[0] ?? null;
 }
 
 function renderHumanHand() {
@@ -1105,7 +1195,8 @@ function renderHumanHand() {
   const legal = new Set((humanTurn ? game.legalCards(localPlayer) : []).map(cardKey));
   const bid = playerBid(localPlayer);
   dom.humanLabel.classList.toggle("is-current", game.round.currentPlayer === localPlayer);
-  dom.humanLabel.textContent = `You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[localPlayer]} · total ${game.scores[localPlayer]}`;
+  const advantage = ["bidding", "playing"].includes(game.round.phase) ? currentAdvantage() : null;
+  dom.humanLabel.innerHTML = `<span>You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[localPlayer]} · total ${game.scores[localPlayer]}</span>${advantage === null ? "" : `<span class="advantage-now" title="The agent’s estimate of your points this round, minus the other players’ average">Advantage ${formatRelativeScoreValue(advantage)}</span>`}`;
   const activeCards = new Set(hand.map(cardKey));
 
   $$('[data-play-card]', dom.humanHand).forEach((button) => {
@@ -1137,7 +1228,8 @@ function renderHumanHand() {
       `Play ${cardLabel(card)}${unavailable ? ", unavailable" : ""}`,
     );
     $$(".prob-badge, .argmax-mark", button).forEach((marker) => marker.remove());
-    button.insertAdjacentHTML("beforeend", policyBadge(modelCardId(card)));
+    // Only on your play: during bidding the readouts are keyed by bid, not card.
+    if (humanTurn) button.insertAdjacentHTML("beforeend", policyBadge(modelCardId(card)));
 
     const cardAtPosition = dom.humanHand.children[index];
     if (cardAtPosition !== button) {
@@ -1462,15 +1554,17 @@ async function refreshHumanPrediction() {
     predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
+    humanAdvantage = null;
     beliefLoading = false;
     beliefError = "";
     render();
     return;
   }
-  if (!dom.probabilityToggle.checked && !dom.beliefToggle.checked) {
+  if (!wantsInsights()) {
     predictionRequest += 1;
     humanPrediction = null;
     humanPolicy = null;
+    humanAdvantage = null;
     beliefLoading = false;
     beliefError = "";
     render();
@@ -1485,6 +1579,7 @@ async function refreshHumanPrediction() {
     if (request !== predictionRequest) return;
     setHumanPrediction(prediction);
     beliefLoading = false;
+    humanAdvantage = null;
     if (game.round.currentPlayer === localPlayer) {
       if (game.round.phase === "bidding") {
         humanPolicy = legalDistribution(
@@ -1499,8 +1594,14 @@ async function refreshHumanPrediction() {
           INSIGHT_TEMPERATURE,
         );
       }
+      if (dom.valueToggle.checked) {
+        const advantage = await adviseValues(localPlayer, prediction);
+        if (request !== predictionRequest) return;
+        humanAdvantage = advantage;
+      }
     } else {
       humanPolicy = null;
+      humanAdvantage = null;
     }
     render();
   } catch (error) {
@@ -1508,6 +1609,7 @@ async function refreshHumanPrediction() {
     console.error("Actor belief inference failed.", error);
     humanPrediction = null;
     humanPolicy = null;
+    humanAdvantage = null;
     beliefLoading = false;
     beliefError = dom.beliefToggle.checked
       ? "The actor belief readout hit a temporary inference error. Toggle it off and on to retry."
@@ -1532,7 +1634,7 @@ async function chooseBotAction(player) {
   const autopilot = player === localPlayer;
   const temperature = autopilot ? 0 : temperatureFor(difficulty);
   const readBeliefs =
-    dom.beliefToggle.checked && multiplayerRole !== "guest" && !autopilot;
+    (dom.beliefToggle.checked || dom.valueToggle.checked) && multiplayerRole !== "guest" && !autopilot;
   const request = readBeliefs ? ++predictionRequest : null;
   try {
     const [prediction, observerPrediction] = await agent.predictMany(
@@ -1543,6 +1645,7 @@ async function chooseBotAction(player) {
     if (localView && (autopilot || request === predictionRequest)) {
       setHumanPrediction(localView);
       humanPolicy = null;
+      humanAdvantage = null;
       beliefLoading = false;
       beliefError = "";
       render();
@@ -2280,6 +2383,15 @@ dom.probabilityToggle.addEventListener("change", () => {
 
 dom.beliefToggle.addEventListener("change", () => {
   dom.setupBeliefToggle.checked = dom.beliefToggle.checked;
+  refreshHumanPrediction();
+});
+
+dom.setupValueToggle.addEventListener("change", () => {
+  dom.valueToggle.checked = dom.setupValueToggle.checked;
+});
+
+dom.valueToggle.addEventListener("change", () => {
+  dom.setupValueToggle.checked = dom.valueToggle.checked;
   refreshHumanPrediction();
 });
 

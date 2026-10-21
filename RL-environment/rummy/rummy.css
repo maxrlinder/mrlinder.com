@@ -39,19 +39,20 @@
 }
 
 /* Toolbar: the table controls on the left, speed on the right and, between
-   them, the switch that shows the agent's move. On phones the controls fold
+   them, the switches for the agent's move and your advantage. On phones the controls fold
    into a menu (see the narrow-screen rules below). */
 
 .menu-toggle { display: none; }
 .table-menu { display: contents; }
-.rummy-toolbar .advice-toggle { order: 1; }
+.rummy-toolbar .advice-toggles { order: 1; }
 .rummy-toolbar .speed-control { order: 2; margin-left: 0; }
 .rummy-toolbar .scores-toggle { order: 3; }
+
+.advice-toggles { display: flex; margin: 0 auto; gap: 8px; }
 
 .advice-toggle {
   position: relative;
   display: inline-flex;
-  margin: 0 auto;
   padding: 4px 14px 4px 9px;
   border: 1px solid var(--ink);
   border-radius: 8px;
@@ -679,8 +680,9 @@
 
 .meld-suggestion:active .is-red { color: inherit; }
 
-/* Action probabilities: each badge names its move ("Discard", "Draw", "Add 8♥")
-   on the thing that move uses; the agent's next move is the yellow one. */
+/* Badges name their move ("Discard", "Draw", "Add 8♥") on the thing that move
+   uses, with its odds, its advantage, or both; the agent's next move is the
+   yellow one. */
 .rummy-page .prob-badge { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
 .badge-verb { font: bold 8px/1 var(--sans); letter-spacing: .02em; }
 .prob-badge b { font: inherit; }
@@ -796,7 +798,8 @@
   .table-menu.is-open { display: flex; }
   .rummy-game .table-menu .game-button { min-height: 34px; padding: 4px 12px; font-size: 13px; }
   .table-menu .speed-control { margin: 0; flex: none; }
-  .rummy-toolbar .advice-toggle { margin: 0 auto; padding: 3px 11px 3px 7px; font-size: 13px; gap: 7px; }
+  .rummy-toolbar .advice-toggles { gap: 6px; }
+  .rummy-toolbar .advice-toggle { padding: 3px 9px 3px 6px; font-size: 13px; gap: 6px; }
 
   /* The panel scrolls rather than squeeze the melds out of sight on very short screens. */
   .rummy-table-panel.table-panel { padding: 44px 6px 8px; overflow-x: hidden; overflow-y: auto; }

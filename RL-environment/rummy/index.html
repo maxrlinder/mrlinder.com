@@ -14,9 +14,9 @@
   <title>Rummy — RL Playground</title>
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
-  <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-6" />
-  <link rel="stylesheet" href="./rummy.css?v=ui-1" />
-  <script type="module" src="./game.js?v=ui-3"></script>
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
+  <link rel="stylesheet" href="./rummy.css?v=values-1" />
+  <script type="module" src="./game.js?v=values-1"></script>
   <script type="module" src="./training-charts.js?v=2"></script>
 </head>
 <body class="plump-page rummy-page">
@@ -82,7 +82,11 @@
                   <legend>Your game view</legend>
                   <label>
                     <input type="checkbox" id="setup-hints" />
-                    <span><strong>Action probabilities</strong><small>Show how the agent weighs each move on your turns.</small></span>
+                    <span><strong>Agent’s move</strong><small>Show how the agent weighs each move on your turns.</small></span>
+                  </label>
+                  <label>
+                    <input type="checkbox" id="setup-values" />
+                    <span><strong>Advantage</strong><small>Show your expected lead over the table, now and after each move.</small></span>
                   </label>
                   <p>Each player controls their own view and can change it during the game.</p>
                 </fieldset>
@@ -298,11 +302,18 @@
               <output id="speed-output">1.0×</output>
             </label>
           </div>
-          <label class="advice-toggle" title="Mark the move the agent would play in your place, with how sure it is">
-            <input type="checkbox" id="hints" />
-            <span class="advice-switch" aria-hidden="true"></span>
-            <span class="advice-long">Show the agent’s move</span><span class="advice-short">Agent’s move</span>
-          </label>
+          <div class="advice-toggles">
+            <label class="advice-toggle" title="Mark the move the agent would play in your place, with how sure it is of every move">
+              <input type="checkbox" id="hints" />
+              <span class="advice-switch" aria-hidden="true"></span>
+              <span class="advice-long">Agent’s move</span><span class="advice-short">Move</span>
+            </label>
+            <label class="advice-toggle" title="Your advantage (the agent’s estimate of your points at the end of the round, minus the other players’ average) now, and on every move after you make it">
+              <input type="checkbox" id="values" />
+              <span class="advice-switch" aria-hidden="true"></span>
+              <span>Advantage</span>
+            </label>
+          </div>
           <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
         </div>
 

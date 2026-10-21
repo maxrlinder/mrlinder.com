@@ -1,6 +1,6 @@
 import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, SUITS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-4';
 import { RULES } from './rules-data.js';
-import { RummyAgent } from './model-client.js?v=mp-4';
+import { RummyAgent } from './model-client.js?v=values-1';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 
@@ -189,24 +189,28 @@ function userPlay(moves) {
 }
 
 const lowerFirst = text => text[0].toLowerCase() + text.slice(1);
-const currentHint = () => $('hints').checked && hint && decision && hint.id === decision.id ? hint : null;
+// Two switches: the agent's move (its odds on every move) and the advantage.
+const showOdds = () => $('hints').checked, showWorth = () => $('values').checked;
+const wantsAdvice = () => showOdds() || showWorth();
+const currentAdvice = () => wantsAdvice() && hint && decision && hint.id === decision.id ? hint : null;
+const currentHint = () => showOdds() ? currentAdvice() : null;
+const currentWorth = () => showWorth() && currentAdvice()?.after ? hint : null;
 
-// Ask the agent for its policy at your decision; the readout reports temperature 1.
+// Ask the agent about your decision: its policy (the readout reports temperature 1)
+// and your advantage now and after each move. One request serves both switches.
 // A guest's readout comes from the host, which runs the agent on the guest's own view.
 async function requestHint() {
   if (role === 'guest') return;
   const request = ++hintRequest;
-  if (!$('hints').checked || !humanTurn()) { if (hint) { hint = null; render(); } return; }
-  const asked = decision;
+  if (!wantsAdvice() || !humanTurn()) { if (hint) { hint = null; render(); } return; }
+  if (hint?.id === decision.id) { render(); return; }
   try {
-    const policy = await agent.policy(streams[me], candidateFeatures(engine, asked.actions));
-    if (request !== hintRequest || asked !== decision) return;
-    const chain = await followUps(me, asked.actions[policy.argmax]);
-    if (request !== hintRequest || asked !== decision) return;
-    hint = { id: asked.id, ...policy, chain };
+    const advice = await assess(me, decision);
+    if (request !== hintRequest || !advice) return;
+    hint = advice;
     render();
   } catch (error) {
-    console.error('Action probabilities failed.', error);
+    console.error('The agent’s readout failed.', error);
   }
 }
 
@@ -236,6 +240,87 @@ async function followUps(seat, move) {
     console.error('Looking past the meld failed.', error);
     return [];
   }
+}
+
+// ---- Advantage ----------------------------------------------------------
+// The value head estimates a seat's points at the end of the round minus the
+// other seats' average: its advantage over the table. Looking one decision
+// ahead values every move. A draw, meld or lay-off leaves the seat deciding
+// again, so its value is read at that next decision token, and a stock draw is
+// averaged over every card the seat cannot see. A discard ends the turn, and
+// what follows turns on the opponents' hidden hands, so the seat's next token
+// is written as if it were deciding again straight away. That reads a few
+// points high (it skips the opponents' turns), so the discards share one
+// offset, set so that the moves' advantages average to the advantage now
+// under the policy, as an advantage function's must. With little policy mass
+// on discards the offset leans on its typical size. Going out scores exactly.
+const OFFSET_PRIOR = 5, OFFSET_WEIGHT = 0.05;
+// The value head learned from the states the agent's own play reaches: after a
+// move it all but never makes, its reading is an extrapolation, shown greyed.
+const RARE = 0.01;
+const bestOf = (after, probabilities) => Math.max(...after.filter((_, i) => probabilities[i] >= RARE));
+// The value head reads seats from the viewer's; zero-sum over the seats in play.
+const ownValue = (values, n) => values[0] - values.slice(0, n).reduce((a, b) => a + b, 0) / n;
+
+// Copies of each card type `seat` cannot see: in the stock or in hidden hands.
+function unseenCopies(seat) {
+  const unseen = Array(52).fill(engine.decks);
+  engine.hands[seat].forEach((n, c) => { unseen[c] -= n; });
+  engine.pile.forEach(c => { unseen[c]--; });
+  for (let s = 0; s < engine.players; s++) {
+    engine.placed[s].forEach((n, c) => { unseen[c] -= n; });
+    if (s !== seat) engine.known[s].forEach((n, c) => { unseen[c] -= n; });
+  }
+  return unseen.map(n => Math.max(0, n));
+}
+
+// Each candidate's next decision token for `seat`, on copies of the table. A
+// plan entry lists its tokens with weights, or holds the exact score of going out.
+function lookAhead(seat, actions) {
+  const rows = [], plan = [];
+  const after = (move, card) => {
+    const sim = cloneEngine(engine), simWriter = cloneWriter(writer, sim);
+    if (card !== undefined) sim.stock[sim.stock.length - 1] = card;
+    simWriter.record(sim.apply(move));
+    if (sim.done) {
+      const scores = sim.scores(), total = scores.reduce((a, b) => a + b, 0);
+      return { exact: scores[seat] - (total - scores[seat]) / (sim.players - 1) };
+    }
+    rows.push(simWriter.observe(seat));
+    return rows.length - 1;
+  };
+  for (const move of actions) {
+    if (move[0] === STOCK) plan.push({ parts: unseenCopies(seat).flatMap((n, card) => n ? [[after(move, card), n]] : []) });
+    else {
+      const next = after(move);
+      plan.push(typeof next === 'number' ? { parts: [[next, 1]], discard: move[0] === DISCARD } : next);
+    }
+  }
+  return { rows, plan };
+}
+
+// The seat's advantage now and after each move, from one forward pass with the plan's tokens.
+function advantages(policy, plan) {
+  const n = engine.players, now = ownValue(policy.value, n);
+  const raw = plan.map(entry => entry.exact ?? entry.parts.reduce((sum, [row, w]) => sum + w * ownValue(policy.after[row], n), 0) / entry.parts.reduce((sum, [, w]) => sum + w, 0));
+  let mass = 0, gap = -now;
+  plan.forEach((entry, i) => { gap += policy.probabilities[i] * raw[i]; if (entry.discard) mass += policy.probabilities[i]; });
+  // Without discards (a draw) every after-state is a decision token: they miss
+  // the value now only by the head's noise, a fraction of a point, and share it.
+  const discards = plan.some(entry => entry.discard);
+  const offset = discards ? (gap * mass + OFFSET_WEIGHT * OFFSET_PRIOR) / (mass * mass + OFFSET_WEIGHT) : gap;
+  const after = raw.map((v, i) => (discards ? plan[i].discard : plan[i].exact === undefined) ? v - offset : v);
+  return { now, after, best: bestOf(after, policy.probabilities) };
+}
+
+// Everything the readouts show for `seat`'s decision: policy, the meld it would grow, advantages.
+async function assess(seat, asked) {
+  const ahead = lookAhead(seat, asked.actions);
+  const policy = await agent.policy(streams[seat], candidateFeatures(engine, asked.actions), ahead.rows);
+  if (asked !== decision) return null;
+  const chain = await followUps(seat, asked.actions[policy.argmax]);
+  if (asked !== decision) return null;
+  return { id: asked.id, probabilities: policy.probabilities, argmax: policy.argmax, chain, ...advantages(policy, ahead.plan) };
 }
 
 // The agent's next move, with the cards it would add to its new meld straight after.
@@ -269,18 +354,27 @@ function describeMove([kind, card, meld]) {
   return `Discard the ${name(card)}`;
 }
 
-// A badge naming the move and its odds, on the thing the move uses. The agent's
-// own pick is the highlighted one: that is its next move.
+// A badge naming the move, on the thing the move uses: with the agent's move
+// on, its odds (the agent's own pick is the highlighted one, its next move);
+// with the advantage on, your advantage once the move is made.
 function marks(index, verb) {
-  const advice = currentHint();
+  const advice = currentAdvice();
   if (!advice || index < 0) return '';
-  const pick = advice.argmax === index;
-  // Moves the agent all but rules out stay unmarked, to keep the table readable.
-  if (!pick && advice.probabilities[index] < 0.005) return '';
-  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" ${pick ? 'title="The agent’s next move"' : ''}><span class="badge-verb">${verb}</span><b>${percent(advice.probabilities[index])}</b></span>`;
+  const odds = Boolean(currentHint()), worth = Boolean(currentWorth()), pick = odds && advice.argmax === index;
+  // Without the advantage, moves the agent all but rules out stay unmarked, to keep the table readable.
+  if (!worth && (!odds || (!pick && advice.probabilities[index] < 0.005))) return '';
+  const value = worth ? advice.after[index] : 0;
+  const rare = advice.probabilities[index] < RARE;
+  const title = [pick ? 'The agent’s next move' : '', worth ? `Your advantage after this move: ${points(value, 1)} (now ${points(advice.now, 1)})` : '', worth && rare ? 'The agent almost never plays this, so this value is a rough extrapolation' : ''].filter(Boolean).join('. ');
+  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" title="${title}"><span class="badge-verb">${verb}</span>${odds ? `<b>${percent(advice.probabilities[index])}</b>` : ''}${worth ? `<i class="badge-value ${rare ? 'is-rare' : value >= advice.best - 0.5 ? 'is-best' : ''}">${points(value)}</i>` : ''}</span>`;
 }
 const moveIndex = test => legalMoves().findIndex(test);
 const percent = p => `${Math.round(p * 100)}%`;
+// Points with their sign, a true minus, and `digits` decimals.
+const points = (v, digits = 0) => {
+  const text = Math.abs(v).toFixed(digits);
+  return Number(text) === 0 ? text : `${v < 0 ? '−' : '+'}${text}`;
+};
 const adviceText = advice => `The agent would: ${lowerFirst(describePlan(advisedPlan()))} · ${percent(advice.probabilities[advice.argmax])}`;
 
 async function advanceBots() {
@@ -441,7 +535,7 @@ function renderMelds(interactive) {
     }).join('');
     // The agent's likeliest lay-off onto this meld, if any.
     const layoffs = legalMoves().map((a, index) => ({ a, index })).filter(({ a }) => isLayoff(a) && a[2] === i);
-    const best = currentHint() && layoffs.sort((x, y) => hint.probabilities[y.index] - hint.probabilities[x.index])[0];
+    const best = currentAdvice() && layoffs.sort((x, y) => hint.probabilities[y.index] - hint.probabilities[x.index])[0];
     zones[offsetOf(owner)].push(`<button class="rummy-meld ${target ? 'is-target' : ''} ${i === freshMeld ? 'is-fresh' : ''}" type="button" data-meld="${i}" ${target ? '' : 'disabled'}
       aria-label="${RULES.kinds[m] ? 'Run' : 'Set'} by ${escapeHtml(nameOf(owner))}: ${cards.map(name).join(', ')}${target ? '. Add the selected card here' : ''}"><span class="meld-cards">${faces}</span>${best ? marks(best.index, `Add ${name(best.a[1])}`) : ''}</button>`);
   });
@@ -501,7 +595,8 @@ function shareMeldRows(zones) {
 function renderHand(interactive) {
   const label = $('human-label');
   const penalty = engine.penalties()[me];
-  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>`;
+  const worth = interactive && currentWorth();
+  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>${worth ? `<span class="advantage-now" title="The agent’s estimate of your points at the end of the round, minus the other players’ average">Advantage ${points(worth.now, 1)}</span>` : ''}`;
   label.classList.toggle('is-current', !engine.done && engine.current === me);
   const cards = engine.hands[me].flatMap((n, c) => Array.from({ length: n }, (_, copy) => ({ card: c, id: `${c}:${copy}` })));
   if (sortBy === 'rank') cards.sort((a, b) => a.card % 13 - b.card % 13 || a.card - b.card);
@@ -522,8 +617,8 @@ function renderHand(interactive) {
     // This card can go onto a meld already on the table.
     const fits = layable.has(card) && id.endsWith(':0') ? '<span class="layoff-mark" title="Can be added to a meld on the table">+</span>' : '';
     const glow = advised.has(card) && id.endsWith(':0');
-    // The first card the agent would play says what it would do with it; the rest only glow.
-    const odds = !canSelect || !id.endsWith(':0') ? '' : glow ? (named ? '' : (named = true, marks(currentHint().argmax, verb)))
+    // The first card the agent would play says what it would do with it; every other card, its discard.
+    const odds = !canSelect || !id.endsWith(':0') ? '' : glow && !named ? (named = true, marks(currentHint().argmax, verb))
       : marks(moveIndex(a => a[0] === DISCARD && a[1] === card), 'Discard');
     return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${must ? 'is-obligated' : ''} ${glow ? 'is-advised' : ''}" data-card="${id}" aria-label="${name(card)}${must ? ', must be used this turn' : held ? ', taken from the pile this turn: cannot be discarded' : ''}${fits ? ', can be added to a meld on the table' : ''}" aria-pressed="${chosen}" ${canSelect ? '' : 'disabled'}><img src="${cardAsset(card)}" alt="" draggable="false" />${badge}${fits}${odds}</button>`;
   }).join('');
@@ -614,7 +709,7 @@ function render() {
   else status = 'Lay what you can, then discard one card.';
   const advice = interactive && currentHint();
   if (advice) status = adviceText(advice);
-  else if (interactive && $('hints').checked) status += ' The agent is considering…';
+  else if (interactive && wantsAdvice() && !currentAdvice()) status += ' The agent is considering…';
   $('status').textContent = status;
   $('status').classList.toggle('is-advice', Boolean(advice));
   renderSeats();
@@ -755,18 +850,16 @@ function sync() {
   });
 }
 
-// A guest who asked for action probabilities gets the agent's policy on their own turn.
+// A guest with either readout on gets the agent's policy and their advantages on their own turn.
 async function sendGuestHint() {
   if (!decision || engine.done || busy || failure) return;
   const peer = seatPeer.get(decision.seat), asked = decision;
   if (!peer || !hintPeers.has(peer) || hinted.get(peer) === asked.id) return;
   hinted.set(peer, asked.id);
   try {
-    const policy = await agent.policy(streams[asked.seat], candidateFeatures(engine, asked.actions));
-    if (asked !== decision) return;
-    const chain = await followUps(asked.seat, asked.actions[policy.argmax]);
-    room?.send({ type: 'hint', id: asked.id, ...policy, chain }, peer).catch(() => {});
-  } catch (error) { console.error('Guest action probabilities failed.', error); }
+    const advice = await assess(asked.seat, asked);
+    if (advice) room?.send({ type: 'hint', ...advice }, peer).catch(() => {});
+  } catch (error) { console.error('The guest’s readout failed.', error); }
 }
 
 function remoteMove(message, peer) {
@@ -841,14 +934,15 @@ function onMessage(message, peer) {
     applyState(message);
     if (first) sendHintPreference();
   } else if (message.type === 'hint') {
-    hint = { id: message.id, probabilities: message.probabilities, argmax: message.argmax, chain: Array.isArray(message.chain) ? message.chain : [] };
+    const after = Array.isArray(message.after) && message.after.length === message.probabilities?.length && Number.isFinite(message.now) ? message.after : null;
+    hint = { id: message.id, probabilities: message.probabilities, argmax: message.argmax, chain: Array.isArray(message.chain) ? message.chain : [], now: message.now, after, best: after && bestOf(after, message.probabilities) };
     render();
   } else if (message.type === 'rejected' || message.type === 'closed') {
     void leaveTable(message.message || 'The host closed this table.');
   }
 }
 
-const sendHintPreference = () => { if (role === 'guest' && hostPeer) room.send({ type: 'hints', on: $('hints').checked }, hostPeer).catch(() => {}); };
+const sendHintPreference = () => { if (role === 'guest' && hostPeer) room.send({ type: 'hints', on: wantsAdvice() }, hostPeer).catch(() => {}); };
 
 function onPeerJoin(peer) {
   if (role === 'host') room.send({ type: 'host_hello' }, peer).catch(() => {});
@@ -997,6 +1091,7 @@ $('difficulty').addEventListener('input', () => {
   $('difficulty-output').textContent = difficultyLabel(Number($('difficulty').value));
 });
 $('setup-hints').addEventListener('change', () => { $('hints').checked = $('setup-hints').checked; });
+$('setup-values').addEventListener('change', () => { $('values').checked = $('setup-values').checked; });
 window.addEventListener('beforeunload', () => { room?.leave(); });
 $('hand').addEventListener('click', event => {
   const button = event.target.closest('[data-card]');
@@ -1033,7 +1128,9 @@ $('clear').addEventListener('click', () => { selected = []; render(); });
 $('sort').addEventListener('click', () => { sortBy = sortBy === 'suit' ? 'rank' : 'suit'; render(); });
 $('autoplay').addEventListener('click', () => { setAutoplay(!autoplay()); selected = []; render(); void advanceBots(); });
 $('speed').addEventListener('input', updateSpeed);
-$('hints').addEventListener('change', () => { $('setup-hints').checked = $('hints').checked; render(); sendHintPreference(); void requestHint(); });
+for (const [id, mirror] of [['hints', 'setup-hints'], ['values', 'setup-values']]) {
+  $(id).addEventListener('change', () => { $(mirror).checked = $(id).checked; render(); sendHintPreference(); void requestHint(); });
+}
 window.addEventListener('resize', () => { if (engine) { fitPile(); fitMelds(); fitHand(); } });
 // On phones the score sheet is a drawer over the table.
 const showScores = open => { $('game').dataset.drawer = open ? 'scores' : ''; $('scores-toggle').setAttribute('aria-expanded', String(open)); };

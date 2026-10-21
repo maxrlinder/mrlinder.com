@@ -13,7 +13,7 @@ async function load(id) {
   const response = await fetch(new URL('./model/manifest.json', import.meta.url), { cache: 'no-cache' });
   if (!response.ok) throw new Error('The agent manifest could not be loaded.');
   manifest = await response.json();
-  if (manifest.schemaVersion !== 2 || manifest.tokenWidth !== 78 || manifest.rules.handSize !== 7 || manifest.rules.openingPoints !== 0 || manifest.rules.maxTurns !== 200) throw new Error('This checkpoint needs a newer game version. Please refresh.');
+  if (manifest.schemaVersion !== 3 || manifest.tokenWidth !== 78 || manifest.rules.handSize !== 7 || manifest.rules.openingPoints !== 0 || manifest.rules.maxTurns !== 200) throw new Error('This checkpoint needs a newer game version. Please refresh.');
   const download = await fetch(new URL(`./model/${manifest.file}`, import.meta.url));
   if (!download.ok || !download.body) throw new Error('The checkpoint download failed. Please retry.');
   const reader = download.body.getReader(), chunks = [];
@@ -39,7 +39,7 @@ async function load(id) {
 let queue = Promise.resolve();
 onmessage = ({ data }) => {
   queue = queue.then(async () => {
-    const { id, type, tokens, features } = data;
+    const { id, type, tokens, features, following } = data;
     try {
       if (type === 'load') { postMessage({ id, result: await load(id) }); return; }
       if (!session) throw new Error('The agent is not loaded.');
@@ -52,13 +52,18 @@ onmessage = ({ data }) => {
         cards: tensor(features.cards, [1, count, 13]),
         target: tensor(features.target, [1, count, 13]),
         taken: tensor(taken, [1, count, 52]),
+        // One-token continuations of the stream, valued one decision ahead; a
+        // plain move still sends one (its own last token) and ignores the result.
+        following: tensor(following?.length ? following : [tokens.at(-1)], [following?.length || 1, 78]),
       };
       let outputs;
       try {
         outputs = await session.run(feeds);
-        const logits = Array.from(outputs.logits.data);
-        if (!logits.every(Number.isFinite)) throw new Error('The agent returned an invalid move.');
-        postMessage({ id, result: { logits } });
+        const logits = Array.from(outputs.logits.data), value = Array.from(outputs.value.data);
+        const seats = manifest.valueSeats, flat = Array.from(outputs.following_values.data);
+        const after = following?.length ? following.map((_, i) => flat.slice(i * seats, (i + 1) * seats)) : [];
+        if (![...logits, ...value, ...flat].every(Number.isFinite)) throw new Error('The agent returned an invalid move.');
+        postMessage({ id, result: { logits, value, after } });
       } finally {
         Object.values(feeds).forEach(t => t.dispose());
         if (outputs) Object.values(outputs).forEach(t => t.dispose());

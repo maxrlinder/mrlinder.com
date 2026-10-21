@@ -29,7 +29,7 @@
       crossorigin
     />
     <link rel="stylesheet" href="/styles.css?v=icons-1" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-6" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -129,6 +129,13 @@
                       <span>
                         <strong>Actor beliefs</strong>
                         <small>Show every value and belief head from your model's point of view.</small>
+                      </span>
+                    </label>
+                    <label>
+                      <input type="checkbox" data-setup-value-toggle />
+                      <span>
+                        <strong>Advantage</strong>
+                        <small>Show your expected lead over the table, now and after each action.</small>
                       </span>
                     </label>
                     <p>Each player controls their own view and can change it during the game.</p>
@@ -294,7 +301,10 @@
                     training, to cut the noise in the reward signal. Side heads
                     also learn to predict opponents’ suits, card ranges and trick
                     counts. Those are the <em>Actor beliefs</em> you can switch
-                    on in the game.
+                    on in the game. Its value head estimates each player’s
+                    points this round against the table’s average: switch on
+                    <em>Advantage</em> to see yours now, and after each action
+                    you could take.
                   </p>
                 </article>
               </div>
@@ -419,6 +429,10 @@
                   <input type="checkbox" data-belief-toggle />
                   Actor beliefs
                 </label>
+                <label class="switch-label" title="Your expected points this round minus the other players’ average, now and after each action">
+                  <input type="checkbox" data-value-toggle />
+                  Advantage
+                </label>
               </div>
             </div>
 
@@ -538,7 +552,7 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=rl6-66400-2"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=values-1"></script>
     <script type="module" src="/RL-environment/plump/training-charts.js?v=3"></script>
   </body>
 </html>

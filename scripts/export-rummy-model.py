@@ -5,6 +5,7 @@ Usage: python scripts/export-rummy-model.py [--checkpoint path/to/iter_N.pt]
 Requires torch, numpy, onnx and onnxruntime; see RL-environment/rummy/README.md.
 """
 import argparse
+import copy
 import hashlib
 import json
 import random
@@ -78,14 +79,38 @@ def score(scorer, hidden, grid, kind, cards, target, taken):
 
 
 class BrowserActor(nn.Module):
+    """The policy over the candidates, the value head now, and the value head
+    after each of a batch of one-token continuations of the stream.
+
+    A continuation is the stream plus one token (the seat's next decision token
+    after a candidate move, for the advantage readout). Its token attends to the
+    stream's keys and values, computed once, so looking one decision ahead
+    costs a token per candidate rather than a stream per candidate.
+    """
+
     def __init__(self, actor):
         super().__init__()
         self.actor = actor
 
-    def forward(self, tokens, kind, cards, target, taken):
-        hidden = self.actor.forward_hidden(tokens)[:, -1]
-        grid = self.actor.pop_context()[:, -1]
-        return score(self.actor.scorer, hidden, grid, kind, cards, target, taken)
+    def forward(self, tokens, kind, cards, target, taken, following):
+        actor, trunk = self.actor, self.actor.trunk
+        x, ple, values = actor.prepare(tokens)
+        grid = actor.pop_context()[:, -1]
+        # The continuations as a batch of one-token rows.
+        y, ple_y, values_y = (None if t is None else t.transpose(0, 1) for t in actor.prepare(following[None]))
+        actor.pop_context()
+        rows, pos = y.shape[0], torch.arange(x.shape[1], device=x.device)
+        for layer, block in enumerate(trunk.blocks):
+            q, k, v = block._qkv(block.ln_attn(x), trunk._value(values, layer))
+            qy, ky, vy = block._qkv(block.ln_attn(y), trunk._value(values_y, layer))
+            keys, vals = (torch.cat([a.expand(rows, -1, -1, -1), b], dim=2).repeat_interleave(block.head_group, dim=1) for a, b in ((k, ky), (v, vy)))
+            k, v = (t.repeat_interleave(block.head_group, dim=1) for t in (k, v))
+            scores = ((q @ k.transpose(-1, -2)) * block.scale).masked_fill(pos[None, :] > pos[:, None], -1e9)
+            x = trunk._add_ple(block._finish(x, scores.softmax(-1) @ v), ple, layer)
+            y = trunk._add_ple(block._finish(y, ((qy @ keys.transpose(-1, -2)) * block.scale).softmax(-1) @ vals), ple_y, layer)
+        hidden, after = trunk.final_norm(x)[:, -1], trunk.final_norm(y)[:, -1]
+        logits = score(actor.scorer, hidden, grid, kind, cards, target, taken)
+        return logits, actor.player_values(hidden), actor.player_values(after)
 
 
 def main():
@@ -98,7 +123,7 @@ def main():
     from cardgym.games.rummy.engine import DRAW, TAKE, RummyEngine
     from cardgym.games.rummy.heuristic import HeuristicPolicy
     from cardgym.games.rummy.melds import MELDS, MELD_CARDS, MELD_KIND, MELD_POINTS, EXTENSIONS
-    from cardgym.games.rummy.model import RummyActor, RummyModelConfig
+    from cardgym.games.rummy.model import MAX_PLAYERS, RummyActor, RummyModelConfig
     from cardgym.games.rummy.selfplay import candidate_features
     from cardgym.games.rummy.tokens import ObservationWriter, WIDTH, FIELD_VOCAB
     from cardgym.rl.checkpoint import load_weights
@@ -116,16 +141,30 @@ def main():
     rules = dict(melds=MELDS, cards=MELD_CARDS, kinds=MELD_KIND, points=MELD_POINTS, extensions=EXTENSIONS)
     (out.parent / 'rules-data.js').write_text('// Generated from cardgym; regenerate with scripts/export-rummy-model.py.\nexport const RULES = ' + json.dumps(rules, separators=(',', ':')) + ';\n')
 
-    def reference(stream, features):
+    def reference(stream, features, following):
         taken = features.get('taken', np.zeros((len(features['kind']), NUM_CARDS), dtype=np.int8))
         inputs = (torch.tensor(np.array([stream]), dtype=torch.long),
-                  *(torch.tensor(np.asarray(x)[None], dtype=torch.long) for x in (features['kind'], features['cards'], features['target'], taken)))
+                  *(torch.tensor(np.asarray(x)[None], dtype=torch.long) for x in (features['kind'], features['cards'], features['target'], taken)),
+                  torch.tensor(np.array(following), dtype=torch.long))
         with torch.inference_mode():
             hidden = actor.forward_hidden(inputs[0])[:, -1]
             grid = actor.pop_context()[:, -1]
             # The training scorer, with no pickup slot on play decisions.
-            expected = actor.scorer(hidden, grid, *inputs[1:4], inputs[4] if 'taken' in features else None).numpy()
+            logits = actor.scorer(hidden, grid, *inputs[1:4], inputs[4] if 'taken' in features else None).numpy()
+            # Each continuation run as a whole stream of its own.
+            after = [actor.player_values(actor.forward_hidden(torch.cat([inputs[0], row[None, None]], dim=1))[:, -1]) for row in inputs[5]]
+            actor.pop_context()
+            expected = (logits, actor.player_values(hidden).numpy(), torch.cat(after).numpy())
         return inputs, expected
+
+    def continuations(engine, writer, seat, actions):
+        """The seat's next decision token after a few of its candidate moves."""
+        rows = []
+        for index in sorted(set([0, len(actions) // 2, len(actions) - 1])):
+            sim = copy.deepcopy((engine, writer))
+            sim[1].record(sim[0].apply(actions[index]))
+            rows.append(sim[1].observe(seat)[0])
+        return rows
 
     # Reference games covering every shape the browser offers, with every legal
     # move list, candidate feature, decision token, and opponent-turn token.
@@ -147,7 +186,7 @@ def main():
                     features = candidate_features(engine, actions)
                     deep = [i for i, a in enumerate(actions) if a.kind == TAKE and a.meld > 0]
                     if len(samples) < 90 and (len(steps) in (0, 1, 9, 30) or deep or rng.random() < 0.08):
-                        samples.append(reference(streams[seat], features))
+                        samples.append(reference(streams[seat], features, continuations(engine, writer, seat, actions)))
                     # Mostly heuristic play, salted with random moves and deep pickups.
                     if deep and rng.random() < 0.6:
                         chosen = rng.choice(deep)
@@ -169,29 +208,35 @@ def main():
     fixture_path.write_text(json.dumps(fixtures, separators=(',', ':')) + '\n')
     print(f'{len(fixtures)} games, {sum(len(f["steps"]) for f in fixtures)} decisions, {len(samples)} model samples')
 
-    file = out / f'rummy-{args.checkpoint.parent.parent.name}-{payload["iteration"]}-fp32.onnx'
-    names = ['tokens', 'kind', 'cards', 'target', 'taken']
+    file = out / f'rummy-{args.checkpoint.parent.parent.name}-{payload["iteration"]}-values-fp32.onnx'
+    names = ['tokens', 'kind', 'cards', 'target', 'taken', 'following']
+    outputs = ['logits', 'value', 'following_values']
+    # Logits to within 5e-5; values are in points (tens), so to within 5e-6 of their scale.
+    tolerance = dict(logits=5e-5, value=1e-3, following_values=1e-3)
     with torch.inference_mode(), export_patches():
         for inputs, expected in samples:
-            np.testing.assert_allclose(wrapper(*inputs).numpy(), expected, atol=3e-5, rtol=3e-5)
-        torch.onnx.export(wrapper, samples[0][0], file, input_names=names, output_names=['logits'],
+            for name, actual, wanted in zip(outputs, wrapper(*inputs), expected):
+                np.testing.assert_allclose(actual.numpy(), wanted, atol=tolerance[name] * 0.6, rtol=3e-5)
+        torch.onnx.export(wrapper, samples[0][0], file, input_names=names, output_names=outputs,
                           dynamic_axes={'tokens': {1: 'sequence'}, 'kind': {1: 'candidates'}, 'cards': {1: 'candidates'},
-                                        'target': {1: 'candidates'}, 'taken': {1: 'candidates'}, 'logits': {1: 'candidates'}},
+                                        'target': {1: 'candidates'}, 'taken': {1: 'candidates'}, 'logits': {1: 'candidates'},
+                                        'following': {0: 'following'}, 'following_values': {0: 'following'}},
                           opset_version=18, dynamo=False)
     import onnx
     import onnxruntime as ort
     onnx.checker.check_model(str(file))
     session = ort.InferenceSession(str(file), providers=['CPUExecutionProvider'])
-    error = 0.0
+    error = dict.fromkeys(outputs, 0.0)
     for inputs, expected in samples:
-        actual = session.run(None, {name: x.numpy() for name, x in zip(names, inputs)})[0]
-        error = max(error, float(np.max(np.abs(expected - actual))))
-        np.testing.assert_allclose(actual, expected, atol=5e-5, rtol=5e-5)
+        for name, actual, wanted in zip(outputs, session.run(outputs, {name: x.numpy() for name, x in zip(names, inputs)}), expected):
+            error[name] = max(error[name], float(np.max(np.abs(wanted - actual))))
+            np.testing.assert_allclose(actual, wanted, atol=tolerance[name], rtol=5e-5)
     # Only publish the pointer after export and numerical verification succeed.
-    manifest = dict(format='onnx', schemaVersion=2, tokenWidth=WIDTH, fieldVocab=FIELD_VOCAB, iteration=payload['iteration'],
+    manifest = dict(format='onnx', schemaVersion=3, tokenWidth=WIDTH, fieldVocab=FIELD_VOCAB, iteration=payload['iteration'],
                     run=args.checkpoint.parent.parent.name, checkpoint=args.checkpoint.name, modelConfig=payload['model'],
                     file=file.name, bytes=file.stat().st_size, sha256=hashlib.sha256(file.read_bytes()).hexdigest(),
                     sourceSha256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(), precision='fp32',
+                    outputs=outputs, valueSeats=MAX_PLAYERS,
                     validation=dict(samples=len(samples), maxAbsoluteError=error),
                     rules=dict(players=[2, 3, 4], decks=[1, 2], handSize=HAND_SIZE, openingPoints=0, maxTurns=MAX_TURNS))
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

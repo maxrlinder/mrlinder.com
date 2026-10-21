@@ -231,6 +231,33 @@ export class BrowserPpoAgent {
     }));
   }
 
+  /**
+   * The observer's value head (its lead over the table, zero-sum) at the end
+   * of each game's stream: the advantage readout's look one action ahead.
+   * Streams of equal length share a batch; the candidates of one decision
+   * all add the same events, so they normally run as one.
+   */
+  async predictValues(games, observer) {
+    if (!this.session) throw new Error("The PPO agent is not loaded.");
+    const streams = games.map((game) => buildTokens(game, observer));
+    const values = Array(games.length);
+    for (const length of new Set(streams.map((rows) => rows.length))) {
+      const batch = streams.flatMap((rows, index) => (rows.length === length ? [index] : []));
+      const tensor = new ort.Tensor(
+        "int64",
+        flattenInt64(batch.flatMap((index) => streams[index])),
+        [batch.length, length, WIDTH],
+      );
+      const output = await this.enqueueInference(() => this.session.run({ tokens: tensor }));
+      const data = output.player_values.data;
+      const size = data.length / batch.length;
+      batch.forEach((index, row) => {
+        values[index] = data[row * size];
+      });
+    }
+    return values;
+  }
+
   async loadOracle() {
     if (this.oracleSession) return this;
     if (this.oracleLoadPromise) return this.oracleLoadPromise;
