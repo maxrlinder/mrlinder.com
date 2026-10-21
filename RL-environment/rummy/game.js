@@ -599,7 +599,7 @@ function render() {
   const interactive = humanTurn();
   $('plaque').innerHTML = `<strong>Round ${round}</strong>Turn ${engine.turns + 1} · ${plural(decks, 'deck')}`;
   $('turn-count').textContent = `Turn ${engine.turns + 1}`;
-  $('agent-label').textContent = agentInfo ? `Self-play agent · checkpoint ${agentInfo.run} / ${agentInfo.iteration.toLocaleString()}${role === 'guest' ? ', run by the host' : ''}. An early checkpoint; newer ones will replace it.` : '';
+  $('agent-label').textContent = agentInfo ? `Self-play agent · checkpoint ${agentInfo.run} / ${agentInfo.iteration.toLocaleString()}${role === 'guest' ? ', run by the host' : ''}.` : '';
   const latest = lastMessage();
   let status;
   if (engine.done) status = `${latest} Round complete.`;

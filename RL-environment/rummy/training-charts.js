@@ -1,5 +1,5 @@
 /** Charts for the Rummy "How the agent was trained" window. */
-import { RUMMY_TRAINING_DATA as DATA } from "./training-data.js?v=1";
+import { RUMMY_TRAINING_DATA as DATA } from "./training-data.js?v=2";
 import { BLUE, RED, html, mountCharts, paddedDomain, signed, updateLabel } from "../line-chart.js";
 
 const percent = (value) => `${Math.round(value * 100)}%`;

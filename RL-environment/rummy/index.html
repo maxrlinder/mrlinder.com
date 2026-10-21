@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#ffffff" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Rummy — RL Playground" />
-  <meta property="og:description" content="Seven cards, a discard pile you can dig into, and points for every meld. Play Rummy against a learning AI." />
+  <meta property="og:description" content="Seven cards, a discard pile you can dig into, and points for every meld. Play Rummy against a self-play AI." />
   <meta property="og:url" content="https://mrlinder.com/RL-environment/rummy/" />
   <meta property="og:image" content="https://mrlinder.com/resources/og-name-only.png" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -16,8 +16,8 @@
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
   <link rel="stylesheet" href="/RL-environment/rl.css?v=mac-6" />
   <link rel="stylesheet" href="./rummy.css?v=ui-1" />
-  <script type="module" src="./game.js?v=ui-1"></script>
-  <script type="module" src="./training-charts.js?v=1"></script>
+  <script type="module" src="./game.js?v=ui-2"></script>
+  <script type="module" src="./training-charts.js?v=2"></script>
 </head>
 <body class="plump-page rummy-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -137,7 +137,7 @@
                 <div class="model-download-track"><span id="load-bar"></span></div>
               </div>
               <p class="setup-error" id="setup-error" role="alert" hidden></p>
-              <p class="model-note">An early self-play agent, still finding its feet: expect the occasional curious move. Inference runs in the browser; in multiplayer, only the host loads the agent. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
+              <p class="model-note">A self-play agent trained from scratch. Inference runs in the browser; in multiplayer, only the host loads the agent. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
             </form>
           </div>
         </div>
