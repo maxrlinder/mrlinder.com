@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Piquet, the two-player classic: exchange with the talon, declare your point, sequence and sets, then play twelve tricks against Max Linder's self-play AI in your browser." />
+  <meta name="theme-color" content="#ffffff" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Piquet — RL Playground" />
+  <meta property="og:description" content="Thirty-two cards, two players, one talon. Play Piquet against a self-play AI." />
+  <meta property="og:url" content="https://mrlinder.com/RL-environment/piquet/" />
+  <meta property="og:image" content="https://mrlinder.com/resources/og-name-only.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>Piquet — RL Playground</title>
+  <link rel="icon" href="./piquet.svg" type="image/svg+xml" />
+  <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/styles.css?v=icons-1" />
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
+  <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=values-1" />
+  <link rel="stylesheet" href="./piquet.css?v=1" />
+  <script type="module" src="./game.js?v=1"></script>
+  <script type="module" src="./training-charts.js?v=1"></script>
+</head>
+<body class="plump-page rummy-page piquet-page">
+  <a class="skip-link" href="#main">Skip to game</a>
+
+  <div class="plump-shell">
+    <header class="plump-menubar">
+      <a class="plump-home-link" href="/RL-environment/">← Games directory</a>
+      <strong>Piquet</strong>
+      <span class="model-state" id="model-state">Agent not loaded</span>
+    </header>
+
+    <main id="main">
+      <section class="plump-setup" id="setup" aria-labelledby="setup-title">
+        <div class="mac-window plump-setup-window">
+          <div class="window-titlebar">
+            <span class="window-control"></span>
+            <strong>New game of Piquet</strong>
+            <span class="window-control window-control-double"></span>
+          </div>
+          <div class="plump-setup-grid">
+            <div class="plump-rules">
+              <h1 id="setup-title">Piquet</h1>
+              <p class="plump-subtitle">Thirty-two cards. Two players. One talon.</p>
+              <p class="plump-rules-lead">A deal is three games in one: swap cards with the talon, show off your best combinations, then fight for twelve tricks. Every part scores.</p>
+              <ol class="rule-list">
+                <li><span>Twelve cards each, 7 to Ace. The non-dealer, <b>Elder</b>, exchanges 1–5 cards with the talon; then <b>Younger</b> may exchange up to what is left.</span></li>
+                <li><span>Declare your <b>point</b> (longest suit), <b>sequence</b> (cards in a row) and <b>sets</b> (three or four of a kind, 10 and up). Only the better hand in each scores.</span></li>
+                <li><span>Play twelve tricks, no trumps, following suit. Leading scores 1, winning the opponent’s lead 1, the last trick 1, most tricks 10, all twelve 40.</span></li>
+                <li><span>Reach 30 before your opponent scores and the bonus is huge: repique (+60) on declarations alone, or pique (+30) for Elder in play.</span></li>
+              </ol>
+              <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
+              <a class="training-jump" href="#training">How the agent was trained ↓</a>
+            </div>
+
+            <form class="plump-controls" id="setup-form">
+              <h2>Set the table</h2>
+              <p class="setup-caption">You against the agent · the deal alternates</p>
+
+              <div class="control-row">
+                <label for="length">Game</label>
+                <select id="length">
+                  <option value="6" selected>A partie · six deals, Rubicon scoring</option>
+                  <option value="0">Endless deals · running total</option>
+                </select>
+              </div>
+              <div class="difficulty-control">
+                <div class="difficulty-header">
+                  <label for="difficulty">Agent difficulty</label>
+                  <output for="difficulty" id="difficulty-output">Temperature 1 · as trained</output>
+                </div>
+                <input id="difficulty" type="range" min="0" max="100" value="50" aria-describedby="difficulty-labels" />
+                <div class="slider-labels" id="difficulty-labels">
+                  <span>Random plays<br />T = ∞</span>
+                  <span>As trained<br />T = 1</span>
+                  <span>Argmax<br />Hardest</span>
+                </div>
+              </div>
+
+              <button class="start-game-button" id="start" type="submit">Load agent &amp; deal</button>
+
+              <div class="model-download" id="loading" hidden>
+                <p><span id="load-message" role="status">Preparing…</span><span id="load-percent">0%</span></p>
+                <div class="model-download-track"><span id="load-bar"></span></div>
+              </div>
+              <p class="setup-error" id="setup-error" role="alert" hidden></p>
+              <p class="model-note">A self-play agent trained from scratch. Inference runs in your browser. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
+            </form>
+          </div>
+        </div>
+
+        <section class="mac-window plump-training-window" id="training" aria-labelledby="training-title">
+          <div class="window-titlebar">
+            <span class="window-control"></span>
+            <strong>How the agent was trained</strong>
+            <span class="window-control window-control-double"></span>
+          </div>
+          <div class="plump-training">
+            <header class="training-intro">
+              <h2 id="training-title">How the agent was trained</h2>
+              <p class="training-lead">
+                The AI you play is a small transformer,
+                <span data-training-parameters>9.1M</span> parameters, that
+                learned Piquet from scratch by playing against itself:
+                <span data-training-hours>about 12 hours</span> on one Mac GPU
+                and roughly <span data-training-decisions>420 million</span>
+                decisions over <span data-training-deals>13 million</span>
+                deals. It only sees what you see: its own hand, what it threw
+                away and saw in the talon, what was declared and shown, and the
+                cards played.
+              </p>
+            </header>
+
+            <div class="training-columns">
+              <article class="training-block">
+                <p class="section-label">01 · Encoding</p>
+                <h3>Every event is a token, and each one restates the 32 cards.</h3>
+                <div class="token-strip" role="img" aria-label="A seat's stream: the deal, both exchanges, the declarations, then the cards played, and the next decision the model makes.">
+                  <span class="token-group"><span class="token-row"><span class="token">DEAL</span><span class="token">SWAP 5</span><span class="token">SWAP 3</span></span><small>exchange</small></span>
+                  <span class="token-group"><span class="token-row"><span class="token">POINT 5·47</span><span class="token is-red">GOOD</span></span><small>declarations</small></span>
+                  <span class="token-group"><span class="token-row"><span class="token">K♠</span><span class="token is-red">7♠</span></span><small>a trick</small></span>
+                  <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>next</small></span>
+                </div>
+                <p>
+                  A Piquet hand changes twice (discard and draw) and then only
+                  shrinks, but what each player knows keeps shifting: Elder sees
+                  the talon cards it left, a winning declaration shows its
+                  cards, and each side’s discards stay secret. So every token
+                  states, for each of the 32 cards, where it is as far as the
+                  agent knows (its hand, its discards, seen in the talon, shown
+                  by the opponent, played) and restates the score, the tricks
+                  and the suits the opponent has failed to follow.
+                </p>
+                <p>
+                  A small grid reads the cards as four suits of eight ranks:
+                  a convolution along each suit finds sequences and a pool over
+                  suits finds sets. A 16-layer causal transformer reads the
+                  stream, about 50 tokens a deal.
+                </p>
+              </article>
+
+              <article class="training-block">
+                <p class="section-label">02 · Actions &amp; objective</p>
+                <h3>One card at a time. Win the deal by as much as possible.</h3>
+                <p>
+                  Every action is a card, “stop”, or a yes/no declaration. The
+                  exchange (1,585 possible discards for Elder) is chosen one
+                  card at a time and closed with “stop”, each choice with the
+                  whole network behind it. Cards are scored by attention over
+                  their place on the grid, so the agent sees a card’s suit
+                  length, sequence and guards, not just its name.
+                </p>
+                <p>
+                  The reward is the point difference of the deal. Both seats
+                  are the same network, trained with PPO. Its value head is the
+                  baseline (there is no separate critic), and side heads
+                  predict where every hidden card is, who wins each
+                  declaration, how many tricks each side takes and the fate of
+                  every card.
+                </p>
+              </article>
+            </div>
+
+            <figure class="training-chart training-chart-hero">
+              <figcaption>
+                <strong>Against a rule-based player</strong>
+                <span>Each checkpoint plays <span data-eval-deals>1,024</span>
+                seeded deals against the gym’s heuristic (it keeps sequences,
+                sets and its long suit, always declares, and cashes sure
+                winners), every deal twice with the hands swapped so luck
+                cancels. Points per deal; the band is a 95% interval. The
+                untrained network loses by <span data-eval-untrained>30</span>
+                points a deal; checkpoint <span data-live-checkpoint>13,000</span>
+                is live.</span>
+              </figcaption>
+              <div class="chart-plot" data-chart="heuristic"></div>
+              <details class="chart-table">
+                <summary>Show as table</summary>
+                <div data-chart-table="heuristic"></div>
+              </details>
+            </figure>
+
+            <div class="training-multiples is-pair">
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>Elder’s edge</strong>
+                  <span>In self-play, how many points a deal Elder wins by, and
+                  the points each player scores. Elder exchanges more cards and
+                  leads to the first trick; the agent learns to press that edge.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="elder"></div>
+              </figure>
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>The big swings</strong>
+                  <span>How often a self-play deal has a pique, a repique or a
+                  capot: the bonuses that swing a deal by 30 to 60 points.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="bonuses"></div>
+              </figure>
+            </div>
+            <p class="training-footnote">
+              x-axis: training updates, 1,024 deals each. Self-play curves are
+              means over each 100 updates.
+            </p>
+          </div>
+        </section>
+      </section>
+
+      <section class="rummy-game piquet-game" id="game" hidden aria-label="Piquet table">
+        <div class="game-toolbar rummy-toolbar">
+          <!-- On phones the table controls fold into this menu; on wider screens they sit in the bar. -->
+          <button class="game-button menu-toggle" type="button" id="menu-toggle" aria-controls="table-menu" aria-expanded="false">Menu</button>
+          <div class="table-menu" id="table-menu">
+            <button class="game-button" type="button" id="new-table">New game…</button>
+            <button class="game-button" type="button" data-rules>Rules</button>
+            <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
+            <label class="speed-control" id="speed-control">
+              <span class="speed-title">Speed</span>
+              <span class="speed-end" aria-hidden="true">Slower</span>
+              <input type="range" id="speed" min="0" max="100" step="1" value="60" aria-label="Game speed" />
+              <span class="speed-end" aria-hidden="true">Faster</span>
+              <output id="speed-output">1.0×</output>
+            </label>
+          </div>
+          <div class="advice-toggles">
+            <label class="advice-toggle" title="Mark the move the agent would play in your place, with how sure it is of every move">
+              <input type="checkbox" id="hints" />
+              <span class="advice-switch" aria-hidden="true"></span>
+              <span class="advice-long">Agent’s move</span><span class="advice-short">Move</span>
+            </label>
+            <label class="advice-toggle" title="Your advantage (the agent’s estimate of your points minus your opponent’s at the end of the deal) now, and on every move after you make it">
+              <input type="checkbox" id="values" />
+              <span class="advice-switch" aria-hidden="true"></span>
+              <span>Advantage</span>
+            </label>
+          </div>
+          <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
+        </div>
+
+        <div class="game-layout">
+          <div class="table-panel rummy-table-panel">
+            <div class="game-status-line" aria-live="polite"><span id="status">Dealing…</span></div>
+
+            <div class="table-felt piquet-felt" id="felt">
+              <div class="round-plaque" id="plaque"></div>
+              <div class="seat piquet-seat" id="opponent"></div>
+              <div class="piquet-center">
+                <div class="talon-area" id="talon-area"></div>
+                <div class="piquet-board" id="board"></div>
+                <div class="trick-area" id="trick" aria-live="polite"></div>
+              </div>
+            </div>
+
+            <section class="rummy-hand-area" aria-label="Your hand">
+              <div class="human-label" id="human-label">You</div>
+              <div class="rummy-hand piquet-hand" id="hand"></div>
+              <div class="rummy-actions">
+                <p id="selection-help"></p>
+                <div class="rummy-action-buttons" id="action-buttons"></div>
+              </div>
+            </section>
+
+            <div class="round-dialog rummy-result" id="result-dialog" role="dialog" aria-labelledby="result-title" hidden>
+              <div class="window-titlebar">
+                <span class="window-control"></span>
+                <strong id="result-kicker">Deal complete</strong>
+                <span class="window-control window-control-double"></span>
+              </div>
+              <div class="round-dialog-body">
+                <h2 id="result-title"></h2>
+                <p id="result-description"></p>
+                <div class="result-scores" id="scores"></div>
+                <p class="result-reveal" id="result-reveal"></p>
+                <div class="result-actions">
+                  <button class="game-button review-button" type="button" id="review">Review table</button>
+                  <button class="game-button" type="button" id="next-round">Deal next</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="round-dialog rummy-error" id="game-error" hidden>
+              <div class="window-titlebar">
+                <span class="window-control"></span>
+                <strong>Agent paused</strong>
+                <span class="window-control window-control-double"></span>
+              </div>
+              <div class="round-dialog-body">
+                <p role="alert" id="game-error-message"></p>
+                <button class="game-button" type="button" id="retry">Retry agent</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="score-panel rummy-score-panel" id="score-panel" aria-label="Score sheet">
+            <div class="score-titlebar"><span>Score sheet</span><span id="score-caption">Deal 1</span><button type="button" id="scores-close" aria-label="Close score sheet">×</button></div>
+            <div class="score-scroll"><table class="score-table" id="score-table"></table></div>
+            <p class="score-legend" id="score-legend"></p>
+            <div class="score-titlebar log-titlebar">
+              <span>The agent’s card read</span>
+              <label class="read-toggle"><input type="checkbox" id="beliefs" /> Show</label>
+            </div>
+            <div class="card-read" id="card-read" hidden></div>
+            <div class="score-titlebar log-titlebar"><span>Table log</span><span id="turn-count"></span></div>
+            <ol class="table-log" id="activity"></ol>
+            <p class="score-legend" id="agent-label"></p>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="mac-dialog" id="rules-dialog" aria-labelledby="rules-title">
+    <div class="window-titlebar"><span class="window-control"></span><strong>Rules</strong><span class="window-control window-control-double"></span></div>
+    <div class="mac-dialog-body">
+      <h2 id="rules-title">How to play Piquet</h2>
+      <p>Two players, 32 cards (7 to Ace in each suit, Ace high), twelve cards each and eight left face down as the talon. The non-dealer is <b>Elder</b>, the dealer <b>Younger</b>; the deal alternates.</p>
+      <h3>1 · The exchange</h3>
+      <p>Elder must discard 1 to 5 cards and draws as many from the top of the talon; Elder may look at any of its five it left behind. Then Younger may discard up to all the cards left and draws the same way. Discards stay face down. A hand without a King, Queen or Jack is <b>carte blanche</b>: it is shown and scores 10 before its owner exchanges.</p>
+      <h3>2 · Declarations</h3>
+      <p>Three categories, in order. Elder declares its best combination or says nothing; Younger then answers “good” (concedes), contests with a better one, or declares its own if Elder said nothing. Only the better combination scores, and its cards are shown. Equal point or sequence scores for neither. Saying nothing hides (sinks) a combination: it scores nothing.</p>
+      <ul class="rule-list">
+        <li><span><b>Point:</b> the most cards in one suit; equal lengths go to the higher total (A 11, K Q J 10 count 10, others face value). Scores 1 a card.</span></li>
+        <li><span><b>Sequence:</b> three or more in a row in a suit: tierce, quart, quint and up. Longer wins, then the higher top card. The winner scores every sequence it holds: 3, 4, then 15–18 for five to eight cards.</span></li>
+        <li><span><b>Sets:</b> three (trio, 3) or four (quatorze, 14) of a rank from the 10 up. Four beat three, then the higher rank. The winner scores every set.</span></li>
+      </ul>
+      <h3>3 · The tricks</h3>
+      <p>Elder leads. Follow suit if you can; there are no trumps, so the higher card of the suit led wins. Leading a card scores 1, winning a trick your opponent led scores 1, and the last trick 1 more. Seven or more tricks win “the cards” for 10; all twelve (capot) score 40 instead.</p>
+      <h3>Pique and repique</h3>
+      <p><b>Repique (+60):</b> reach 30 from carte blanche and declarations alone, before your opponent scores anything. <b>Pique (+30, Elder only):</b> reach 30 from declarations and play before Younger scores anything.</p>
+      <h3>The partie</h3>
+      <p>Six deals. The higher total wins 100 plus the difference; if the loser stayed under 100 (rubiconed), the winner scores 100 plus both totals.</p>
+      <p>Single-option moves (a forced follow, the last trick) are played for you.</p>
+      <div class="mac-dialog-actions"><button class="game-button is-default" type="button" data-close>Got it</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="mac-dialog" id="leave-dialog" aria-labelledby="leave-title">
+    <div class="window-titlebar"><span class="window-control"></span><strong>New game</strong><span class="window-control window-control-double"></span></div>
+    <div class="mac-dialog-body">
+      <h2 id="leave-title">Leave this table?</h2>
+      <p>The current deal and the score sheet will be cleared.</p>
+      <div class="mac-dialog-actions"><button class="game-button" type="button" data-close>Keep playing</button><button class="game-button is-default" type="button" id="leave">New game</button></div>
+    </div>
+  </dialog>
+
+  <noscript><p class="noscript">JavaScript is needed to play Piquet and run the agent.</p></noscript>
+</body>
+</html>

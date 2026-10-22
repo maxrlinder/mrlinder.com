@@ -30,6 +30,17 @@ const required = [
   "RL-environment/rummy/model/manifest.json",
   "RL-environment/rummy/training-charts.js",
   "RL-environment/rummy/training-data.js",
+  "RL-environment/piquet/index.html",
+  "RL-environment/piquet/piquet.css",
+  "RL-environment/piquet/piquet.svg",
+  "RL-environment/piquet-logo.svg",
+  "RL-environment/piquet/game.js",
+  "RL-environment/piquet/engine.js",
+  "RL-environment/piquet/model-client.js",
+  "RL-environment/piquet/model-worker.js",
+  "RL-environment/piquet/model/manifest.json",
+  "RL-environment/piquet/training-charts.js",
+  "RL-environment/piquet/training-data.js",
   "RL-environment/line-chart.js",
   "RL-environment/multiplayer.js",
   "RL-environment/difficulty.js",
@@ -81,6 +92,7 @@ const pages = await Promise.all(
     "RL-environment/index.html",
     "RL-environment/plump/index.html",
     "RL-environment/rummy/index.html",
+    "RL-environment/piquet/index.html",
   ].map((file) =>
     readFile(resolve(root, file), "utf8"),
   ),
@@ -104,3 +116,4 @@ console.log("Checked routes, assets, metadata, and accessibility hooks.");
 // and a mismatch is silent at runtime. Importing this runs the comparison.
 await import("./check-plump-tokens.mjs");
 await import("./check-rummy.mjs");
+await import("./check-piquet.mjs");

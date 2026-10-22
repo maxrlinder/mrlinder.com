@@ -47,6 +47,7 @@ const navigationItems = [
     children: [
       { label: "Plump", href: "/RL-environment/plump/", icon: "spade" },
       { label: "Rummy", href: "/RL-environment/rummy/", icon: "diamond" },
+      { label: "Piquet", href: "/RL-environment/piquet/", icon: "club" },
     ],
   },
   {
@@ -350,6 +351,23 @@ const treeIcons = {
     "...kwwwwwwwwk...",
     "...kwwwwwwwwk...",
     "...kwwwwwwwrk...",
+    "...kkkkkkkkkk...",
+  ],
+  club: [
+    "................",
+    "...kkkkkkkkkk...",
+    "...kkwwwwwwwk...",
+    "...kwwwwwwwwk...",
+    "...kwwwkkwwwk...",
+    "...kwwkkkkwwk...",
+    "...kwwwkkwwwk...",
+    "...kwkkkkkkwk...",
+    "...kwkkkkkkwk...",
+    "...kwwwkkwwwk...",
+    "...kwwkkkkwwk...",
+    "...kwwwwwwwwk...",
+    "...kwwwwwwwwk...",
+    "...kwwwwwwwkk...",
     "...kkkkkkkkkk...",
   ],
   calendar: [

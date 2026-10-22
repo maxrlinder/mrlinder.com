@@ -1,0 +1,207 @@
+/*
+ * Piquet sits on Rummy's shell (rl.css, then rummy/rummy.css): the same
+ * menubar, setup window, toolbar and switches, hand, badges, score drawer and
+ * dialogs. This file adds the Piquet felt: the opponent across the table, the
+ * talon, the declarations board and the trick, and the agent's card read.
+ */
+
+/* Table: the opponent at the far edge; talon, declarations and trick across the middle. */
+
+.piquet-felt.table-felt {
+  display: flex;
+  width: min(940px, calc(100% - 24px));
+  height: auto;
+  min-height: 320px;
+  max-height: 600px;
+  margin: 34px auto 0;
+  padding: 104px 64px 26px;
+  border-radius: 999px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.piquet-seat.seat { top: -24px; left: 50%; width: 330px; transform: translateX(-50%); }
+.piquet-seat.seat.is-current { transform: translateX(-50%) translateY(-3px); }
+.piquet-seat .opponent-hand { height: 46px; }
+.piquet-seat .opponent-card { width: 30px; height: 42px; margin-left: -19px; }
+.piquet-seat .opponent-card:first-child { margin-left: 0; }
+
+.piquet-center {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(118px, 150px) minmax(0, 1fr) minmax(170px, 210px);
+  align-items: center;
+  gap: 14px;
+}
+
+/* The talon, what Elder saw of it, and the discards. */
+.talon-area {
+  --pile-card: 50px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.talon-note {
+  display: flex;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px 5px 3px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 4px;
+  font: 10px/1.35 var(--mono);
+}
+
+.talon-note > span { width: 100%; font: 9px/1.3 var(--sans); text-align: center; }
+.card-chip { font-weight: normal; white-space: nowrap; }
+.card-chip.is-red { color: var(--red); }
+
+/* The board: the exchange, then each category's call, answer and score. */
+.piquet-board {
+  min-width: 0;
+  padding: 8px 10px 9px;
+  border: 1px solid var(--ink);
+  background: rgba(255,255,255,.94);
+  box-shadow: 2px 2px 0 rgba(0,0,0,.35);
+}
+
+.piquet-board h3 { margin: 0 0 6px; font: 13px/1.2 var(--system); font-weight: normal; }
+.board-lines { margin: 0; padding: 0; list-style: none; font: 12px/1.45 var(--sans); }
+.board-lines li { padding: 2px 0; border-bottom: 1px solid var(--hairline); }
+.board-lines li:last-child { border-bottom: 0; }
+.board-lines li.is-current { font-weight: bold; }
+.board-lines li.is-score { color: var(--green); }
+
+.board-table { width: 100%; border-collapse: collapse; font: 11px/1.3 var(--sans); }
+.board-table th { padding: 2px 4px; font: inherit; font-weight: bold; text-align: left; }
+.board-table thead th { border-bottom: 1px solid var(--ink); font-weight: normal; }
+.board-table thead small { color: var(--muted); font-size: 9px; }
+.board-table td { padding: 3px 4px; border-bottom: 1px solid var(--hairline); }
+.board-table tbody tr:last-child td,
+.board-table tbody tr:last-child th { border-bottom: 0; }
+.board-table tr.is-active { background: #fffbe0; }
+.board-table tr.is-active th { box-shadow: inset 3px 0 0 var(--yellow); }
+.board-result { font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+.board-table tr.is-mine .board-result { color: var(--green); font-weight: bold; }
+.board-table tr.is-theirs .board-result { color: var(--red); font-weight: bold; }
+
+/* The trick: the card led and the answer; the last finished trick stays until the next lead. */
+.trick-area { display: grid; justify-items: center; gap: 4px; color: #fff; }
+.played-cards { display: flex; min-height: 104px; justify-content: center; align-items: flex-end; gap: 10px; }
+.played-card { display: grid; width: 62px; margin: 0; justify-items: center; gap: 3px; }
+.played-card img { display: block; width: 100%; height: auto; filter: drop-shadow(2px 3px 0 rgba(0,0,0,.32)); }
+.played-card.is-winner img { outline: 3px solid var(--yellow); outline-offset: -1px; }
+.played-card.is-empty span { display: block; width: 100%; aspect-ratio: 90 / 126; border: 1px dashed rgba(255,255,255,.7); border-radius: 4px; }
+.played-card figcaption { font: 10px/1.2 var(--sans); white-space: nowrap; }
+.trick-caption,
+.trick-count { margin: 0; padding: 1px 7px; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); font: 11px/1.4 var(--sans); text-align: center; }
+.trick-count { font: 10px/1.4 var(--mono); }
+
+/* Hand and controls */
+
+.piquet-hand { --peek-max: .72; }
+.rummy-card.is-illegal img { filter: grayscale(.8) brightness(.86); }
+.rummy-action-buttons .prob-badge { position: static; margin-left: 6px; padding: 1px 3px; }
+.rummy-action-buttons .game-button { display: inline-flex; align-items: center; }
+.piquet-page .rummy-action-buttons .game-button.is-default { margin: 4px; }
+
+/* The agent's card read: a suit-by-rank grid; every hidden card shows how the agent splits it. */
+.read-toggle { display: inline-flex; align-items: center; gap: 4px; font: 11px/1 var(--sans); cursor: pointer; }
+.card-read { padding: 8px 12px 4px; }
+.read-grid { display: grid; grid-template-columns: 16px repeat(8, minmax(0, 1fr)); gap: 3px; }
+.read-suit { display: grid; place-items: center; font: 13px/1 var(--sans); }
+.read-suit.is-red { color: var(--red); }
+
+.read-card {
+  position: relative;
+  display: grid;
+  height: 30px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  place-items: center;
+  font: 10px/1 var(--mono);
+}
+
+.read-card b { position: relative; z-index: 1; font-weight: normal; }
+.read-card.is-mine { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.read-card.is-theirs { border-color: var(--red); background: #f7dcd9; }
+.read-card.is-talon { border-color: var(--blue); background: #d9e8f3; }
+.read-card.is-played { border-style: dashed; color: var(--rule); }
+.read-card.is-hidden { border-color: var(--ink); overflow: hidden; }
+/* Three stacked bars from the bottom: Fern's hand, Fern's discards, the talon. */
+.read-card.is-hidden i {
+  position: absolute;
+  inset: auto 0 0;
+  height: 100%;
+  background: linear-gradient(to top,
+    #e8a29b 0 calc(var(--hand) * 100%),
+    #c9c9c3 calc(var(--hand) * 100%) calc((var(--hand) + var(--discard)) * 100%),
+    #a8c9e2 calc((var(--hand) + var(--discard)) * 100%) 100%);
+}
+
+.read-legend { display: flex; margin: 8px 0 2px; flex-wrap: wrap; align-items: center; gap: 4px 6px; font: 10px/1.3 var(--sans); }
+.read-legend span { width: 10px; height: 10px; border: 1px solid var(--ink); }
+.read-legend span + span { margin-left: 0; }
+.key-hand { background: #e8a29b; }
+.key-discard { background: #c9c9c3; }
+.key-talon { background: #a8c9e2; }
+
+.result-reveal { margin: -6px 0 14px; font: 11px/1.5 var(--sans); }
+
+/* Short windows: a flatter felt. */
+@media (max-height: 820px) and (min-width: 761px) {
+  .piquet-felt.table-felt { padding-top: 96px; padding-bottom: 18px; }
+  .played-card { width: 52px; }
+  .played-cards { min-height: 88px; }
+  .talon-area { --pile-card: 40px; }
+}
+
+@media (max-width: 1100px) and (min-width: 761px) {
+  .piquet-felt.table-felt { padding-right: 40px; padding-left: 40px; }
+  .piquet-center { grid-template-columns: 112px minmax(0, 1fr) 160px; gap: 10px; }
+  .played-card { width: 52px; }
+}
+
+/* Narrow screens: a rounded felt; the opponent on top, the board and the trick stacked. */
+@media (max-width: 760px) {
+  .piquet-felt.table-felt {
+    display: grid;
+    width: auto;
+    min-height: 0;
+    max-height: none;
+    margin: 0 6px;
+    padding: 10px 8px 12px;
+    border-radius: 26px;
+    align-content: space-evenly;
+    gap: 8px;
+  }
+  .piquet-felt .round-plaque { display: none; }
+  .piquet-seat.seat,
+  .piquet-seat.seat.is-current { position: static; width: auto; transform: none; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: center; gap: 3px 4px; }
+  .piquet-seat .seat-name { margin: 0; flex: 1 1 100%; font-size: 11px; }
+  .piquet-seat .seat-name span:first-child { max-width: none; }
+  .piquet-seat .seat-stats { font-size: 9px; }
+  .piquet-seat .opponent-hand { display: none; }
+  .piquet-seat .seat-stats,
+  .piquet-seat .seat-notes { margin: 0; }
+  .piquet-seat .seat-stats { flex-wrap: wrap; gap: 2px 6px; }
+  .piquet-center { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "board board" "talon trick"; gap: 8px; }
+  .piquet-board { grid-area: board; padding: 6px 7px; }
+  .talon-area { --pile-card: 32px; grid-area: talon; align-self: start; }
+  .trick-area { grid-area: trick; }
+  .played-card { width: 46px; }
+  .played-cards { min-height: 74px; gap: 6px; }
+  .board-table { font-size: 10px; }
+  .board-result { font-size: 9px; }
+  .piquet-hand { --hand-card: 46px; --peek-max: .8; }
+}
+
+@media (max-width: 380px) {
+  .piquet-hand { --hand-card: 42px; }
+  .played-card { width: 40px; }
+}
