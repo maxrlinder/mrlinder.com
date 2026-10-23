@@ -154,6 +154,12 @@
 .result-reveal { margin: -6px 0 14px; font: 11px/1.5 var(--sans); }
 
 /* Short windows: a flatter felt. */
+/* Training: two stages side by side (one column on phones, as rl.css stacks it), and the partie chart below the pair. */
+@media (min-width: 761px) {
+  .piquet-page .training-lineage { grid-template-columns: repeat(2, 1fr); }
+}
+.piquet-page .training-partie { margin-top: 18px; }
+
 @media (max-height: 820px) and (min-width: 761px) {
   .piquet-felt.table-felt { padding-top: 96px; padding-bottom: 18px; }
   .played-card { width: 52px; }

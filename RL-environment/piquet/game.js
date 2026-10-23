@@ -1,19 +1,21 @@
 import {
-  PiquetDeal, shuffledDeck, name, isRed, suitOf, rankOf, popcount, cardsOf, has, best, compare, score, viewCodes,
+  PiquetDeal, shuffledDeck, rubicon, name, isRed, suitOf, rankOf, popcount, cardsOf, has, best, compare, score, viewCodes,
   EXCHANGE, DECLARE, PLAY, STOP, QUIET, SPEAK, POINT, SEQUENCE, SETS, RANKS, SUITS, SUIT_WORDS,
   EV_DEAL, EV_CARTE_BLANCHE, EV_EXCHANGE, EV_ANNOUNCE, EV_RESOLVE, EV_PLAY, EV_DEAL_END,
   SAID_NOTHING, DECLARED, CONCEDED, BONUS_REPIQUE, BONUS_PIQUE, BONUS_CARDS, BONUS_CAPOT,
   V_UNKNOWN, V_MINE, V_MINE_LEGAL, V_SELECTED, V_DISCARDED, V_SEEN_TALON, V_OPP, V_OPP_MAYBE, V_PLAYED_ME, V_PLAYED_OPP, V_TRICK_ME, V_TRICK_OPP,
-} from './engine.js?v=1';
-import { PiquetAgent } from './model-client.js?v=1';
+} from './engine.js?v=2';
+import { PiquetAgent } from './model-client.js?v=2';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 
 const $ = id => document.getElementById(id);
 const agent = new PiquetAgent();
 // You are seat 0, the agent seat 1; the deal decides who is Elder.
 const ME = 0, BOT = 1, NAMES = ['You', 'Fern'];
+// A partie: six deals, Rubicon scoring.
+const PARTIE_DEALS = 6;
 let deal = null, engine = null, busy = false, failure = false, generation = 0, stateId = 0;
-let selected = [], difficulty = 50, partieLength = 6, dealNumber = 0, firstDealer = 0;
+let selected = [], difficulty = 50, dealNumber = 0, firstDealer = 0;
 let totals = [0, 0], history = [], scored = false, agentInfo = null;
 // Local remarks on log entries, by entry number: whether the agent agreed with your move.
 let notes = new Map();
@@ -71,8 +73,9 @@ function newPartie() {
 function startDeal() {
   generation++; dealNumber++; scored = false; selected = []; notes = new Map(); failure = false; busy = false;
   hint = null; reading = null;
-  // The cut for deal decides the first dealer; then the deal alternates.
-  deal = new PiquetDeal({ deck: shuffledDeck(), dealer: firstDealer ^ ((dealNumber - 1) % 2) });
+  // The cut for deal decides the first dealer; then the deal alternates. Each
+  // deal is a fresh context whose tokens carry the score, as in training.
+  deal = new PiquetDeal({ deck: shuffledDeck(), dealer: firstDealer ^ ((dealNumber - 1) % 2), partie: { totals, deal: dealNumber - 1 } });
   engine = deal.engine;
   stateId++;
   setAutoplay(false);
@@ -83,7 +86,7 @@ function startDeal() {
   void advanceBots();
 }
 
-const partieOver = () => partieLength > 0 && dealNumber >= partieLength;
+const partieOver = () => dealNumber >= PARTIE_DEALS;
 
 function apply(action) {
   deal.apply(action);
@@ -179,9 +182,16 @@ const currentAdvice = () => wantsAdvice() && hint && hint.id === stateId ? hint 
 const currentHint = () => showOdds() ? currentAdvice() : null;
 const currentWorth = () => showWorth() && currentAdvice() ? hint : null;
 
-// The value head reads both seats from the viewer's; its zero-sum part is your
-// expected margin: your points minus your opponent's at the end of the deal.
+// The value head reads both seats from the viewer's; its zero-sum part is what
+// you can expect to score: the partie's Rubicon payoff (positive when you win
+// it), or with a single-deal model your points minus your opponent's this deal.
 const ownValue = values => (values[0] - values[1]) / 2;
+const partieValue = () => agentInfo?.valueTarget !== 'deal';
+// Payoffs run to hundreds: whole points. Deal margins: tenths.
+const worthDigits = () => (partieValue() ? 0 : 1);
+const worthMeaning = () => (partieValue()
+  ? 'the agent’s estimate of what this partie will score for you: the Rubicon payoff, positive if you win it'
+  : 'the agent’s estimate of your points minus Fern’s at the end of this deal');
 // The value head learned from the states the agent's own play reaches: after a
 // move it all but never makes, its reading is an extrapolation, shown greyed.
 const RARE = 0.01;
@@ -281,7 +291,7 @@ function lookAhead(sim, seat, actions) {
 
 // Your advantage now and after each move. The moves' values are shifted
 // together so that they average to the value now under the policy, as an
-// advantage function's must; the shift is the value head's noise, a fraction of a point.
+// advantage function's must; the shift is the value head's noise.
 function advantages(policy, plan) {
   const now = ownValue(policy.value);
   const raw = plan.map(parts => parts.length ? parts.reduce((sum, row) => sum + ownValue(policy.after[row]), 0) / parts.length : null);
@@ -371,9 +381,11 @@ function marks(index, word) {
   const value = advice.after[index];
   const known = worth && value !== null;
   const rare = advice.probabilities[index] < RARE;
-  const title = [pick ? 'The agent’s next move' : '', known ? `Your advantage after this move: ${points(value, 1)} (now ${points(advice.now, 1)})` : '', known && rare ? 'The agent almost never plays this, so this value is a rough extrapolation' : ''].filter(Boolean).join('. ');
-  const cls = rare ? 'is-rare' : advice.best !== null && value >= advice.best - 0.05 ? 'is-best' : '';
-  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" title="${title}"><span class="badge-verb">${word}</span>${odds ? `<b>${percent(advice.probabilities[index])}</b>` : ''}${known ? `<i class="badge-value ${cls}">${points(value, 1)}</i>` : ''}</span>`;
+  const digits = worthDigits();
+  const title = [pick ? 'The agent’s next move' : '', known ? `Your advantage after this move: ${points(value, digits)} (now ${points(advice.now, digits)})` : '', known && rare ? 'The agent almost never plays this, so this value is a rough extrapolation' : ''].filter(Boolean).join('. ');
+  // The best move, and any that shows the same number.
+  const cls = rare ? 'is-rare' : advice.best !== null && value >= advice.best - 0.5 * 10 ** -digits ? 'is-best' : '';
+  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" title="${title}"><span class="badge-verb">${word}</span>${odds ? `<b>${percent(advice.probabilities[index])}</b>` : ''}${known ? `<i class="badge-value ${cls}">${points(value, digits)}</i>` : ''}</span>`;
 }
 
 // ---- Rendering --------------------------------------------------------------------
@@ -381,7 +393,7 @@ function marks(index, word) {
 function render() {
   if (!engine) return;
   const interactive = humanTurn();
-  $('plaque').innerHTML = `<strong>Deal ${dealNumber}${partieLength ? ` of ${partieLength}` : ''}</strong>You are ${roleOf(ME)}`;
+  $('plaque').innerHTML = `<strong>Deal ${dealNumber} of ${PARTIE_DEALS}</strong>You are ${roleOf(ME)}`;
   $('agent-label').textContent = agentInfo ? `Self-play agent · checkpoint ${agentInfo.run} / ${agentInfo.iteration.toLocaleString()}.` : '';
   renderStatus(interactive);
   renderOpponent();
@@ -518,7 +530,7 @@ function renderTrick() {
 
 function renderHand(interactive) {
   const worth = interactive && currentWorth();
-  $('human-label').innerHTML = `<span>You · ${roleOf(ME)}</span><span>${plural(popcount(engine.hands[ME]), 'card')}</span><span>${plural(engine.tricks[ME], 'trick')}</span><span>${engine.points[ME]} pts</span><span>Σ ${totals[ME]}</span>${worth ? `<span class="advantage-now" title="The agent’s estimate of your points minus Fern’s at the end of this deal">Advantage ${points(worth.now, 1)}</span>` : ''}`;
+  $('human-label').innerHTML = `<span>You · ${roleOf(ME)}</span><span>${plural(popcount(engine.hands[ME]), 'card')}</span><span>${plural(engine.tricks[ME], 'trick')}</span><span>${engine.points[ME]} pts</span><span>Σ ${totals[ME]}</span>${worth ? `<span class="advantage-now" title="${upperFirst(worthMeaning())}">Advantage ${points(worth.now, worthDigits())}</span>` : ''}`;
   $('human-label').classList.toggle('is-current', !engine.done && engine.current === ME);
   const exchanging = interactive && engine.phase === EXCHANGE, playing = interactive && engine.phase === PLAY;
   const legal = new Set(interactive ? engine.legalActions() : []);
@@ -604,10 +616,8 @@ function renderScores() {
   const rows = history.map(h => `<tr><td>${h.deal}</td>${cell(h.points[ME], h.points[BOT])}${cell(h.points[BOT], h.points[ME])}</tr>`).join('');
   const live = engine && !scored ? `<tr class="is-active"><td>${dealNumber}</td><td>${engine.points[ME]}</td><td>${engine.points[BOT]}</td></tr>` : '';
   $('score-table').innerHTML = `${head}<tbody>${rows}${live}<tr class="score-total-row"><td>Total</td><td>${totals[ME]}</td><td>${totals[BOT]}</td></tr></tbody>`;
-  $('score-caption').textContent = `Deal ${dealNumber}${partieLength ? ` of ${partieLength}` : ''}`;
-  $('score-legend').textContent = partieLength
-    ? 'Six deals. The higher total wins 100 plus the difference; a loser under 100 is rubiconed, and the winner scores 100 plus both totals.'
-    : 'Each deal’s points; the totals run on until you start a new game.';
+  $('score-caption').textContent = `Deal ${dealNumber} of ${PARTIE_DEALS}`;
+  $('score-legend').textContent = 'Six deals. The higher total wins 100 plus the difference; a loser under 100 is rubiconed, and the winner scores 100 plus both totals.';
 }
 
 function renderLog() {
@@ -681,14 +691,6 @@ function breakdown() {
   return parts;
 }
 
-// The Rubicon payoff: the winner scores 100 plus the difference, or 100 plus both totals when the loser is under 100.
-function rubicon() {
-  const [a, b] = totals;
-  if (a === b) return { winner: -1, payoff: 0 };
-  const winner = a > b ? ME : BOT, low = Math.min(a, b), high = Math.max(a, b);
-  return { winner, payoff: 100 + (low >= 100 ? high - low : high + low), rubiconed: low < 100 };
-}
-
 function finishDeal() {
   if (scored || !engine?.done) return;
   scored = true;
@@ -702,12 +704,12 @@ function showResult() {
   const over = partieOver();
   $('result-kicker').textContent = over ? 'Partie complete' : `Deal ${dealNumber} complete`;
   if (over) {
-    const { winner, payoff, rubiconed } = rubicon();
+    const { winner, payoff, rubiconed } = rubicon(totals);
     $('result-title').textContent = winner < 0 ? 'The partie is tied.' : winner === ME ? `You win the partie, ${totals[ME]} to ${totals[BOT]}.` : `Fern wins the partie, ${totals[BOT]} to ${totals[ME]}.`;
     $('result-description').textContent = winner < 0 ? 'Equal totals: nobody scores the game.' : `${rubiconed ? `${winner === ME ? 'Fern' : 'You'} stayed under 100: rubiconed! ` : ''}Rubicon score: ${winner === ME ? 'you' : 'Fern'} +${payoff}.`;
   } else {
     $('result-title').textContent = mine === theirs ? `A tie, ${mine} all.` : mine > theirs ? `You win the deal, ${mine} to ${theirs}.` : `Fern wins the deal, ${theirs} to ${mine}.`;
-    $('result-description').textContent = `Totals: you ${totals[ME]}, Fern ${totals[BOT]}.${partieLength ? ` ${plural(partieLength - dealNumber, 'deal')} to go.` : ''}`;
+    $('result-description').textContent = `Totals: you ${totals[ME]}, Fern ${totals[BOT]}. ${plural(PARTIE_DEALS - dealNumber, 'deal')} to go.`;
   }
   const lines = [['Carte blanche', 'blanche'], ['Point', 'point'], ['Sequence', 'sequence'], ['Sets', 'sets'], ['Repique / pique', 'bonus'], ['Tricks played', 'play'], ['The cards / capot', 'cards']];
   $('scores').innerHTML = `<table class="score-table"><thead><tr><th></th><th>You</th><th>Fern</th></tr></thead><tbody>${lines.filter(([, key]) => parts[key][0] || parts[key][1] || key === 'play').map(([label, key]) => `<tr><td>${label}</td><td>${parts[key][ME]}</td><td>${parts[key][BOT]}</td></tr>`).join('')}<tr class="score-total-row"><td>Deal</td><td>${mine}</td><td>${theirs}</td></tr></tbody></table>`;
@@ -740,7 +742,7 @@ async function loadAgent() {
     const manifest = await agent.load(({ percent, message }) => {
       $('load-message').textContent = message; $('load-percent').textContent = `${percent}%`; $('load-bar').style.width = `${percent}%`;
     });
-    agentInfo = { run: manifest.run, iteration: manifest.iteration };
+    agentInfo = { run: manifest.run, iteration: manifest.iteration, valueTarget: manifest.valueTarget };
     $('model-state').textContent = `Agent ${manifest.run} · ${manifest.iteration.toLocaleString()}`;
     $('model-state').classList.add('is-ready');
     return true;
@@ -756,7 +758,6 @@ async function loadAgent() {
 $('setup-form').addEventListener('submit', async event => {
   event.preventDefault();
   difficulty = Number($('difficulty').value);
-  partieLength = Number($('length').value);
   if (await loadAgent()) newPartie();
 });
 $('difficulty').addEventListener('input', () => {

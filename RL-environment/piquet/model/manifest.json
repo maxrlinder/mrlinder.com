@@ -1,7 +1,7 @@
 {
   "format": "onnx",
-  "schemaVersion": 1,
-  "tokenWidth": 63,
+  "schemaVersion": 2,
+  "tokenWidth": 64,
   "fieldVocab": [
     8,
     4,
@@ -27,17 +27,18 @@
     13,
     100,
     100,
-    100,
-    100,
+    141,
+    141,
     6,
     2,
     9,
     16,
-    4
+    4,
+    149
   ],
-  "iteration": 13000,
-  "run": "p2",
-  "checkpoint": "iter_013000.pt",
+  "iteration": 12700,
+  "run": "partie1",
+  "checkpoint": "iter_012700.pt",
   "modelConfig": {
     "d_model": 256,
     "n_layers": 16,
@@ -52,10 +53,10 @@
     "card_kernel": 3,
     "score_dim": 64
   },
-  "file": "piquet-p2-13000-fp32.onnx",
-  "bytes": 36884481,
-  "sha256": "40ccf6e31dbbd397cf89941db4c5a9900e747828770693dcef17007a4a18db48",
-  "sourceSha256": "051460d8218b78484645fe229cde0a7f3ca835c04ce7231ebc94e9c1ec7a2893",
+  "file": "piquet-partie1-12700-fp32.onnx",
+  "bytes": 38540305,
+  "sha256": "454bbb40673319c9391699563e64da81b0c3838c4b86aa3e1951d30ee16f5bce",
+  "sourceSha256": "e027d3447a148607214afc45dc39d53b152d09599636129a8682b00f1aa2be5b",
   "precision": "fp32",
   "outputs": [
     "exchange_logits",
@@ -66,20 +67,22 @@
     "belief_logits"
   ],
   "valueSeats": 2,
+  "valueTarget": "partie",
   "maxStream": 59,
   "validation": {
-    "samples": 164,
+    "samples": 163,
     "maxAbsoluteError": {
-      "exchange_logits": 0.0001068115234375,
-      "declare_logits": 5.7220458984375e-06,
-      "play_logits": 0.0001983642578125,
-      "value": 6.866455078125e-05,
-      "following_values": 6.866455078125e-05,
-      "belief_logits": 8.58306884765625e-06
+      "exchange_logits": 0.00017547607421875,
+      "declare_logits": 4.76837158203125e-06,
+      "play_logits": 0.000274658203125,
+      "value": 0.00018310546875,
+      "following_values": 0.00028228759765625,
+      "belief_logits": 8.165836334228516e-06
     }
   },
   "rules": {
-    "mode": "deal",
+    "mode": "rubicon",
+    "deals": 6,
     "handSize": 12,
     "talon": 8,
     "elderMax": 5

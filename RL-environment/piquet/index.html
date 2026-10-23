@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Piquet, the two-player classic: exchange with the talon, declare your point, sequence and sets, then play twelve tricks against Max Linder's self-play AI in your browser." />
+  <meta name="description" content="Piquet, the two-player classic: exchange with the talon, declare your point, sequence and sets, play twelve tricks, and win a six-deal Rubicon partie against Max Linder's self-play AI in your browser." />
   <meta name="theme-color" content="#ffffff" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Piquet — RL Playground" />
@@ -17,9 +17,9 @@
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
   <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
   <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=values-1" />
-  <link rel="stylesheet" href="./piquet.css?v=1" />
-  <script type="module" src="./game.js?v=1"></script>
-  <script type="module" src="./training-charts.js?v=1"></script>
+  <link rel="stylesheet" href="./piquet.css?v=2" />
+  <script type="module" src="./game.js?v=2"></script>
+  <script type="module" src="./training-charts.js?v=2"></script>
 </head>
 <body class="plump-page rummy-page piquet-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -49,6 +49,7 @@
                 <li><span>Declare your <b>point</b> (longest suit), <b>sequence</b> (cards in a row) and <b>sets</b> (three or four of a kind, 10 and up). Only the better hand in each scores.</span></li>
                 <li><span>Play twelve tricks, no trumps, following suit. Leading scores 1, winning the opponent’s lead 1, the last trick 1, most tricks 10, all twelve 40.</span></li>
                 <li><span>Reach 30 before your opponent scores and the bonus is huge: repique (+60) on declarations alone, or pique (+30) for Elder in play.</span></li>
+                <li><span>Six deals make a <b>partie</b>. The higher total wins 100 plus the difference; finish under 100 and you are <b>rubiconed</b>: the winner adds both totals.</span></li>
               </ol>
               <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
               <a class="training-jump" href="#training">How the agent was trained ↓</a>
@@ -56,15 +57,8 @@
 
             <form class="plump-controls" id="setup-form">
               <h2>Set the table</h2>
-              <p class="setup-caption">You against the agent · the deal alternates</p>
+              <p class="setup-caption">You against the agent · a partie of six deals, Rubicon scoring · the deal alternates</p>
 
-              <div class="control-row">
-                <label for="length">Game</label>
-                <select id="length">
-                  <option value="6" selected>A partie · six deals, Rubicon scoring</option>
-                  <option value="0">Endless deals · running total</option>
-                </select>
-              </div>
               <div class="difficulty-control">
                 <div class="difficulty-header">
                   <label for="difficulty">Agent difficulty</label>
@@ -102,13 +96,18 @@
               <p class="training-lead">
                 The AI you play is a small transformer,
                 <span data-training-parameters>9.1M</span> parameters, that
-                learned Piquet from scratch by playing against itself:
-                <span data-training-hours>about 12 hours</span> on one Mac GPU
-                and roughly <span data-training-decisions>420 million</span>
-                decisions over <span data-training-deals>13 million</span>
-                deals. It only sees what you see: its own hand, what it threw
-                away and saw in the talon, what was declared and shown, and the
-                cards played.
+                learned Piquet from scratch by playing against itself: first
+                single deals, <span data-training-hours>about 12 hours</span>
+                on one Mac GPU and roughly
+                <span data-training-decisions>420 million</span> decisions over
+                <span data-training-deals>13 million</span> deals<span data-partie-only>,
+                then whole six-deal parties,
+                <span data-partie-hours>about an hour</span> more on the Mac and
+                a desktop NVIDIA GPU over
+                <span data-partie-parties>170 thousand</span> parties</span>.
+                It only sees what you see: its own hand, what it threw away and
+                saw in the talon, what was declared and shown, the cards
+                played and the score.
               </p>
             </header>
 
@@ -142,7 +141,7 @@
 
               <article class="training-block">
                 <p class="section-label">02 · Actions &amp; objective</p>
-                <h3>One card at a time. Win the deal by as much as possible.</h3>
+                <h3>One card at a time. First the deal, then the partie.</h3>
                 <p>
                   Every action is a card, “stop”, or a yes/no declaration. The
                   exchange (1,585 possible discards for Elder) is chosen one
@@ -152,15 +151,36 @@
                   length, sequence and guards, not just its name.
                 </p>
                 <p>
-                  The reward is the point difference of the deal. Both seats
-                  are the same network, trained with PPO. Its value head is the
-                  baseline (there is no separate critic), and side heads
-                  predict where every hidden card is, who wins each
-                  declaration, how many tricks each side takes and the fate of
-                  every card.
+                  The reward was first the point difference of a single deal.
+                  Then the agent played whole parties for the Rubicon payoff:
+                  100 for the win plus the margin, or plus both totals when the
+                  loser stays under 100. Each deal is still a fresh context,
+                  and every token states the score: both running totals, the
+                  lead and the deal number. So it can trade points for the win
+                  or for the rubicon line when the score makes that worth it.
+                </p>
+                <p>
+                  Both seats are the same network, trained with PPO. Its value
+                  head is the baseline (there is no separate critic) and
+                  predicts the partie’s payoff; side heads predict where every
+                  hidden card is, who wins each declaration, how many tricks
+                  each side takes and the fate of every card.
                 </p>
               </article>
             </div>
+
+            <ol class="training-lineage" aria-label="Training lineage" data-partie-only>
+              <li>
+                <span class="section-label">Stage 1 · single deals</span>
+                <strong>PPO from scratch</strong>
+                <small>Reward: the deal’s point difference · 1,024 deals per update · to checkpoint <span data-deal-checkpoint>13,600</span></small>
+              </li>
+              <li>
+                <span class="section-label">Stage 2 · six-deal parties</span>
+                <strong>Fine-tuned for the Rubicon payoff</strong>
+                <small>The score in every token · 192 parties per update · checkpoint <span data-live-checkpoint>900</span> is live</small>
+              </li>
+            </ol>
 
             <figure class="training-chart training-chart-hero">
               <figcaption>
@@ -171,8 +191,8 @@
                 winners), every deal twice with the hands swapped so luck
                 cancels. Points per deal; the band is a 95% interval. The
                 untrained network loses by <span data-eval-untrained>30</span>
-                points a deal; checkpoint <span data-live-checkpoint>13,000</span>
-                is live.</span>
+                points a deal. The partie training starts from checkpoint
+                <span data-deal-checkpoint>13,600</span>.</span>
               </figcaption>
               <div class="chart-plot" data-chart="heuristic"></div>
               <details class="chart-table">
@@ -200,9 +220,24 @@
                 <div class="chart-plot" data-chart="bonuses"></div>
               </figure>
             </div>
+            <figure class="training-chart training-partie" data-partie-only>
+              <figcaption>
+                <strong>Whole parties, against the single-deal agent</strong>
+                <span>Each checkpoint of the partie training plays
+                <span data-partie-games>2,048</span> seeded parties against the
+                agent it started from, every partie twice with the hands
+                swapped. Rubicon points per partie; the band is a 95%
+                interval. At checkpoint <span data-partie-checkpoint>900</span>
+                it scores <span data-partie-live>−5.0 ± 3.6</span>:
+                <span data-partie-verdict>about even with the agent it started
+                from</span>.</span>
+              </figcaption>
+              <div class="chart-plot" data-chart="partie"></div>
+            </figure>
             <p class="training-footnote">
-              x-axis: training updates, 1,024 deals each. Self-play curves are
-              means over each 100 updates.
+              x-axis: training updates, 1,024 single deals each, then 192
+              parties (1,152 deals) each. Self-play curves are means over each
+              100 updates.
             </p>
           </div>
         </section>
@@ -230,7 +265,7 @@
               <span class="advice-switch" aria-hidden="true"></span>
               <span class="advice-long">Agent’s move</span><span class="advice-short">Move</span>
             </label>
-            <label class="advice-toggle" title="Your advantage (the agent’s estimate of your points minus your opponent’s at the end of the deal) now, and on every move after you make it">
+            <label class="advice-toggle" title="Your advantage (the agent’s estimate of what the partie will score for you: the Rubicon payoff, positive if you win it) now, and on every move after you make it">
               <input type="checkbox" id="values" />
               <span class="advice-switch" aria-hidden="true"></span>
               <span>Advantage</span>
@@ -340,7 +375,7 @@
     <div class="window-titlebar"><span class="window-control"></span><strong>New game</strong><span class="window-control window-control-double"></span></div>
     <div class="mac-dialog-body">
       <h2 id="leave-title">Leave this table?</h2>
-      <p>The current deal and the score sheet will be cleared.</p>
+      <p>The current partie and the score sheet will be cleared.</p>
       <div class="mac-dialog-actions"><button class="game-button" type="button" data-close>Keep playing</button><button class="game-button is-default" type="button" id="leave">New game</button></div>
     </div>
   </dialog>

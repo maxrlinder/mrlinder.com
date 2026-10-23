@@ -1,7 +1,9 @@
 // Piquet for the browser: a line-for-line port of cardgym's piquet engine
-// (cards.py, rules.py, engine.py) and its token writer (tokens.py), one deal
-// at a time, as the agent was trained. scripts/check-piquet.mjs replays Python
-// deals through it and compares every legal action and every token.
+// (cards.py, rules.py, engine.py) and its token writer (tokens.py). An engine
+// plays one deal; inside a Rubicon partie it carries the score so far, and
+// every token restates it, as the agent was trained (each deal a fresh
+// context). scripts/check-piquet.mjs replays Python parties through it and
+// compares every legal action and every token.
 
 // ---- Cards ----------------------------------------------------------------
 // A card is suit * 8 + rank (rank 0 is the 7, rank 7 the Ace); a hand is a
@@ -132,12 +134,24 @@ export function shuffledDeck(random = Math.random) {
   return deck;
 }
 
+// The Rubicon payoff of a partie's final totals: the winner scores 100 plus
+// the difference, or 100 plus both totals when the loser stayed under 100.
+export function rubicon([a, b]) {
+  if (a === b) return { winner: -1, payoff: 0, rubiconed: false };
+  const low = Math.min(a, b), high = Math.max(a, b);
+  return { winner: a > b ? 0 : 1, payoff: 100 + (low >= 100 ? high - low : high + low), rubiconed: low < 100 };
+}
+
 export class PiquetEngine {
   // One deal. `deck`: the first 12 cards are Elder's, the next 12 Younger's, the rest the talon (top first).
-  constructor({ deck = shuffledDeck(), dealer = 0, listener = null } = {}) {
+  // `partie`: { totals, deal } in a Rubicon partie (both seats' points from earlier deals, deals finished).
+  constructor({ deck = shuffledDeck(), dealer = 0, listener = null, partie = null } = {}) {
     this.listener = listener;
     this.events = [];
     this.dealer = dealer;
+    this.rubicon = partie !== null;
+    this.totals = partie ? [...partie.totals] : [0, 0];
+    this.dealIndex = partie ? partie.deal : 0;
     this.done = false;
     this.deal(deck);
     this.advance();
@@ -414,9 +428,19 @@ const EVENT_KINDS = { [EV_DEAL]: 1, [EV_CARTE_BLANCHE]: 2, [EV_EXCHANGE]: 3, [EV
 const F_KIND = 0, F_HEAD = 1, F_ACTOR = 2, F_ROLE = 3, F_CARD = 4, F_COUNT = 5, F_LIMIT = 6, F_CATEGORY = 7, F_STATUS = 8,
   F_LENGTH = 9, F_VALUE = 10, F_TOP = 11, F_COMPARE = 12, F_WINNER = 13, F_POINTS = 14, F_BONUS = 15, F_BONUS_SEAT = 16,
   F_TRICK = 17, F_TRICK_POS = 18, F_LEAD_SUIT = 19, F_MY_TRICKS = 20, F_OPP_TRICKS = 21, F_MY_POINTS = 22, F_OPP_POINTS = 23,
-  F_MY_TOTAL = 24, F_OPP_TOTAL = 25, F_DEAL = 26, F_MODE = 27, F_TALON = 28, F_OPP_VOID = 29, F_PHASE = 30;
-export const NUM_FIELDS = 31, CARD_START = NUM_FIELDS, WIDTH = NUM_FIELDS + NUM_CARDS;
-const MAX_POINTS = 99, POINTS_VOCAB = 64;
+  F_MY_TOTAL = 24, F_OPP_TOTAL = 25, F_DEAL = 26, F_MODE = 27, F_TALON = 28, F_OPP_VOID = 29, F_PHASE = 30, F_LEAD = 31;
+export const NUM_FIELDS = 32, CARD_START = NUM_FIELDS, WIDTH = NUM_FIELDS + NUM_CARDS;
+const MAX_POINTS = 99, POINTS_VOCAB = 64, MAX_DEALS = 6;
+// Partie totals are exact below EXACT_TOTAL (the rubicon line is 100), then in tens up to 320.
+const EXACT_TOTAL = 120, TOTAL_VOCAB = EXACT_TOTAL + 21;
+// The running lead is exact within ±EXACT_LEAD, then in tens out to ±200.
+const EXACT_LEAD = 60, LEAD_STEPS = EXACT_LEAD + 14;
+const totalCode = total => total < EXACT_TOTAL ? total : Math.min(EXACT_TOTAL + Math.floor((total - EXACT_TOTAL) / 10), TOTAL_VOCAB - 1);
+function leadCode(lead) {
+  let size = Math.abs(lead);
+  if (size > EXACT_LEAD) size = Math.min(EXACT_LEAD + Math.ceil((size - EXACT_LEAD) / 10), LEAD_STEPS);
+  return LEAD_STEPS + (lead >= 0 ? size : -size);
+}
 
 // Card codes: where the viewer knows each card to be.
 export const V_UNKNOWN = 0, V_MINE = 1, V_MINE_LEGAL = 2, V_SELECTED = 3, V_DISCARDED = 4, V_SEEN_TALON = 5,
@@ -467,7 +491,15 @@ export class ObservationWriter {
     row[F_OPP_TRICKS] = engine.tricks[other];
     row[F_MY_POINTS] = Math.min(engine.points[seat], MAX_POINTS);
     row[F_OPP_POINTS] = Math.min(engine.points[other], MAX_POINTS);
-    // One deal at a time: partie totals, deal number and mode stay 0.
+    if (engine.rubicon) {
+      // Earlier deals plus this deal's points so far.
+      const mine = engine.totals[seat] + engine.points[seat], theirs = engine.totals[other] + engine.points[other];
+      row[F_MY_TOTAL] = totalCode(mine);
+      row[F_OPP_TOTAL] = totalCode(theirs);
+      row[F_LEAD] = leadCode(mine - theirs);
+      row[F_DEAL] = Math.min(engine.dealIndex, MAX_DEALS - 1);
+      row[F_MODE] = 1;
+    }
     row[F_TALON] = engine.talon.length;
     row[F_OPP_VOID] = engine.voids[other];
     row[F_PHASE] = engine.phase;
@@ -540,7 +572,8 @@ export class ObservationWriter {
 }
 
 // A deal with both seats' token streams, built as selfplay builds them: every
-// event reaches both streams, and the seat about to decide gets its decision token.
+// event reaches both streams, and the seat about to decide gets its decision
+// token. Each deal of a partie is a fresh context: its streams start empty.
 export class PiquetDeal {
   constructor(options = {}) {
     this.writer = new ObservationWriter();

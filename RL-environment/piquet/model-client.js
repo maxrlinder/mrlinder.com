@@ -1,4 +1,4 @@
-import { STOP, NUM_CARDS } from './engine.js';
+import { STOP, NUM_CARDS } from './engine.js?v=2';
 
 // Each head's logits index its actions: a card id (exchange adds STOP), or QUIET / SPEAK.
 const HEAD_OUTPUT = { exchange: 'exchange', declare: 'declare', play: 'play' };
@@ -11,7 +11,7 @@ export class PiquetAgent {
   constructor() { this.next = 0; this.pending = new Map(); }
   request(type, payload = {}, progress) {
     if (!this.worker) {
-      this.worker = new Worker(new URL('./model-worker.js?v=1', import.meta.url), { type: 'module' });
+      this.worker = new Worker(new URL('./model-worker.js?v=2', import.meta.url), { type: 'module' });
       this.worker.onmessage = ({ data }) => {
         const request = this.pending.get(data.id);
         if (!request) return;

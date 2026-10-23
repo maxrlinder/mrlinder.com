@@ -87,7 +87,7 @@ export function drawChart(container, spec) {
   }
   for (const tick of niceTicks(spec.xDomain, plotW < 300 ? 3 : 6)) {
     if (tick < x0 || tick > x1) continue;
-    svg("text", { x: sx(tick), y: height - 8, "text-anchor": "middle" }, axis).textContent = thousands(tick);
+    svg("text", { x: sx(tick), y: height - 8, "text-anchor": "middle" }, axis).textContent = (spec.xFormat ?? thousands)(tick);
   }
   svg("line", { x1: margin.left, x2: margin.left + plotW, y1: margin.top + plotH, y2: margin.top + plotH, class: "chart-baseline" }, root);
   if (spec.zeroLabel && plotW >= 480) {

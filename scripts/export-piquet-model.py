@@ -9,6 +9,7 @@ import hashlib
 import json
 import random
 import sys
+import tomllib
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -94,16 +95,22 @@ def main():
     parser.add_argument('--checkpoint', type=Path)
     args = parser.parse_args()
     sys.path.insert(0, str(args.source.resolve()))
-    from cardgym.games.piquet.cards import FACE_MASK, NUM_CARDS, mask_of
-    from cardgym.games.piquet.engine import PiquetEngine
-    from cardgym.games.piquet.heuristic import HeuristicPolicy, RandomPolicy
+    from cardgym.games.piquet.cards import FACE_MASK, NUM_CARDS, mask_array
+    from cardgym.games.piquet.engine import EV_DEAL, PiquetEngine
+    from cardgym.games.piquet.heuristic import HeuristicPolicy
     from cardgym.games.piquet.model import PiquetActor, PiquetModelConfig
-    from cardgym.games.piquet.tokens import FIELD_VOCAB, WIDTH, ObservationWriter, max_stream_length
+    from cardgym.games.piquet.selfplay import RUBICON_DEALS
+    from cardgym.games.piquet.tokens import DEAL_TOKENS, FIELD_VOCAB, WIDTH, ObservationWriter
     from cardgym.rl.checkpoint import load_weights
 
     if args.checkpoint is None:
         latest = max((args.source / 'runs/piquet').glob('*/checkpoints/latest.json'), key=lambda p: p.stat().st_mtime)
         args.checkpoint = latest.parent / json.loads(latest.read_text())['path']
+    # What the value head learned: a run trained on parties predicts the partie's
+    # Rubicon payoff; a single-deal model (a release has no config) the deal's margin.
+    config = args.checkpoint.parent.parent / 'config.toml'
+    modes = tomllib.loads(config.read_text())['game']['modes'] if config.exists() else ['deal']
+    value_target = 'partie' if 'rubicon' in modes else 'deal'
     payload = load_weights(args.checkpoint, 'piquet')
     torch.set_num_threads(4)
     actor = PiquetActor(PiquetModelConfig(**payload['model'])).eval()
@@ -112,30 +119,39 @@ def main():
     out = ROOT / 'RL-environment/piquet/model'
     out.mkdir(parents=True, exist_ok=True)
 
-    def record(deck, dealer, policies, rng):
-        """One deal, both seats' streams as selfplay builds them, every decision and its legal actions."""
-        streams, writer = [[], []], ObservationWriter()
+    def cards(mask):
+        return np.flatnonzero(mask_array(mask)).tolist()
+
+    def record(seed, deck, dealer, policies, rng):
+        """One Rubicon partie, deal by deal: both seats' streams as selfplay builds
+        them (each deal a fresh context), every decision and its legal actions."""
+        deals, writer = [], ObservationWriter()
 
         def listen(engine, event):
+            if event.kind == EV_DEAL:
+                deals.append(dict(totals=list(engine.totals), streams=[[], []], decisions=[]))
             rows = writer.event_rows(engine, event)
             if rows is not None:
                 for seat in (0, 1):
-                    streams[seat].append(rows[seat].tolist())
+                    deals[-1]['streams'][seat].append(rows[seat].tolist())
 
-        engine = PiquetEngine(0, dealer=dealer, deck=deck, listener=listen)
-        decisions = []
+        engine = PiquetEngine(seed, deals=RUBICON_DEALS, rubicon=True, dealer=dealer, deck=deck, listener=listen)
         while not engine.done:
-            seat = engine.current
+            seat, streams = engine.current, deals[-1]['streams']
             streams[seat].append(writer.decision_row(engine, seat).tolist())
             legal = engine.legal()
             action = policies[seat](engine, rng)
-            decisions.append(dict(seat=seat, head=engine.head, legal=np.flatnonzero(legal).tolist(), action=action,
-                                  position=len(streams[seat]) - 1))
+            deals[-1]['decisions'].append(dict(seat=seat, head=engine.head, legal=np.flatnonzero(legal).tolist(),
+                                               action=action, position=len(streams[seat]) - 1))
             engine.apply(action)
-        result = engine.results[0]
-        return dict(deck=deck, dealer=dealer, decisions=decisions, streams=streams, points=result.points,
-                    tricks=result.tricks, repique=result.repique, pique=result.pique, capot=result.capot,
-                    carteBlanche=result.carte_blanche, categoryWinners=result.category_winners)
+        for deal, result in zip(deals, engine.results):
+            # The deck as the browser deals it: Elder's twelve, Younger's twelve, the talon top first.
+            elder = result.elder
+            deal.update(deck=[*cards(result.dealt[elder]), *cards(result.dealt[1 - elder]), *result.talon],
+                        dealer=1 - elder, points=result.points, tricks=result.tricks, repique=result.repique,
+                        pique=result.pique, capot=result.capot, carteBlanche=result.carte_blanche,
+                        categoryWinners=result.category_winners)
+        return dict(deals=deals, totals=list(engine.totals), returns=engine.returns().tolist())
 
     heuristic = HeuristicPolicy()
 
@@ -145,33 +161,41 @@ def main():
             return rng.choice(legal) if rng.random() < chance else heuristic.act(engine)
         return act
 
-    # Reference deals: heuristic play salted with random moves, plus forced carte blanche for each role.
+    # Reference parties: heuristic play salted with random moves; the first deal
+    # of parties 1-3 is forced to carte blanche for Elder (1) or Younger (2, 3).
+    # At least eight, and on until a repique, a pique and a capot have come up.
     rng = random.Random(81)
     fixtures = []
     plain = [c for c in range(NUM_CARDS) if not FACE_MASK >> c & 1]
-    faces = [c for c in range(NUM_CARDS) if FACE_MASK >> c & 1]
+
+    def covered():
+        dealt = [deal for partie in fixtures for deal in partie['deals']]
+        return all(any(deal[key] >= 0 for deal in dealt) for key in ('repique', 'pique', 'capot'))
+
     for index in range(40):
+        if index >= 8 and covered():
+            break
         deck = list(range(NUM_CARDS))
         rng.shuffle(deck)
-        if index in (5, 6, 7):
-            # Carte blanche for Elder (5) or Younger (6, 7).
+        if index in (1, 2, 3):
             rest = plain[:]
             rng.shuffle(rest)
             blanche = rest[:12]
             others = [c for c in range(NUM_CARDS) if c not in blanche]
             rng.shuffle(others)
-            deck = blanche + others if index == 5 else others[:12] + blanche + others[12:]
+            deck = blanche + others if index == 1 else others[:12] + blanche + others[12:]
         chance = (0.0, 0.15, 0.5, 1.0)[index % 4]
-        fixtures.append(record(deck, index % 2, [mixed(chance), mixed((chance + 0.3) % 1.0)], rng))
-    assert any(f['carteBlanche'][0] or f['carteBlanche'][1] for f in fixtures)
+        fixtures.append(record(index, deck, index % 2, [mixed(chance), mixed((chance + 0.3) % 1.0)], rng))
+    deals = [deal for partie in fixtures for deal in partie['deals']]
+    assert any(d['carteBlanche'][0] or d['carteBlanche'][1] for d in deals)
     fixture_path = ROOT / 'scripts/fixtures/piquet-deals.json'
     fixture_path.write_text(json.dumps(fixtures, separators=(',', ':')) + '\n')
-    total = sum(len(f['decisions']) for f in fixtures)
-    print(f'{len(fixtures)} deals, {total} decisions, longest stream {max(len(s) for f in fixtures for s in f["streams"])}')
+    total = sum(len(d['decisions']) for d in deals)
+    print(f'{len(fixtures)} parties, {len(deals)} deals, {total} decisions, longest stream {max(len(s) for d in deals for s in d["streams"])}')
 
     # Model samples: a seat's stream up to one of its decisions, continued by a few later tokens.
     samples = []
-    for fixture in fixtures[:24]:
+    for fixture in deals[:24]:
         for decision in fixture['decisions'][::5]:
             stream = fixture['streams'][decision['seat']]
             prefix, later = stream[: decision['position'] + 1], stream[decision['position'] + 1 : decision['position'] + 4]
@@ -192,8 +216,8 @@ def main():
     file = out / f'piquet-{args.checkpoint.parent.parent.name}-{payload["iteration"]}-fp32.onnx'
     names = ['tokens', 'following']
     outputs = ['exchange_logits', 'declare_logits', 'play_logits', 'value', 'following_values', 'belief_logits']
-    # Logits to within 5e-5; values are points (tens).
-    tolerance = dict(exchange_logits=5e-5, declare_logits=5e-5, play_logits=5e-5, value=1e-3, following_values=1e-3, belief_logits=5e-5)
+    # Logits to within 5e-5; values are points (tens, or hundreds for a partie).
+    tolerance = dict(exchange_logits=5e-5, declare_logits=5e-5, play_logits=5e-5, value=2e-3, following_values=2e-3, belief_logits=5e-5)
     with torch.inference_mode(), export_patches():
         for inputs, expected in samples:
             for name, actual, wanted in zip(outputs, wrapper(*inputs), expected):
@@ -211,13 +235,13 @@ def main():
             error[name] = max(error[name], float(np.max(np.abs(wanted - actual))))
             np.testing.assert_allclose(actual, wanted, atol=tolerance[name], rtol=5e-5, err_msg=name)
     # Only publish the pointer after export and numerical verification succeed.
-    manifest = dict(format='onnx', schemaVersion=1, tokenWidth=WIDTH, fieldVocab=list(FIELD_VOCAB), iteration=payload['iteration'],
+    manifest = dict(format='onnx', schemaVersion=2, tokenWidth=WIDTH, fieldVocab=list(FIELD_VOCAB), iteration=payload['iteration'],
                     run=args.checkpoint.parent.parent.name, checkpoint=args.checkpoint.name, modelConfig=payload['model'],
                     file=file.name, bytes=file.stat().st_size, sha256=hashlib.sha256(file.read_bytes()).hexdigest(),
                     sourceSha256=hashlib.sha256(args.checkpoint.read_bytes()).hexdigest(), precision='fp32',
-                    outputs=outputs, valueSeats=2, maxStream=max_stream_length(1),
+                    outputs=outputs, valueSeats=2, valueTarget=value_target, maxStream=DEAL_TOKENS,
                     validation=dict(samples=len(samples), maxAbsoluteError=error),
-                    rules=dict(mode='deal', handSize=12, talon=8, elderMax=5))
+                    rules=dict(mode='rubicon', deals=RUBICON_DEALS, handSize=12, talon=8, elderMax=5))
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps({k: v for k, v in manifest.items() if k != 'fieldVocab'}, indent=2))
 

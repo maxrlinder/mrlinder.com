@@ -1,7 +1,7 @@
 // Keep model compilation and inference off the UI thread.
 let ort, session, manifest;
 const runtime = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
-const WIDTH = 63;
+const WIDTH = 64;
 const tensor = (rows, shape) => new ort.Tensor('int64', BigInt64Array.from(rows.flat(), BigInt), shape);
 
 async function load(id) {
@@ -14,7 +14,7 @@ async function load(id) {
   const response = await fetch(new URL('./model/manifest.json', import.meta.url), { cache: 'no-cache' });
   if (!response.ok) throw new Error('The agent manifest could not be loaded.');
   manifest = await response.json();
-  if (manifest.schemaVersion !== 1 || manifest.tokenWidth !== WIDTH || manifest.rules.mode !== 'deal') throw new Error('This checkpoint needs a newer game version. Please refresh.');
+  if (manifest.schemaVersion !== 2 || manifest.tokenWidth !== WIDTH || manifest.rules.mode !== 'rubicon') throw new Error('This checkpoint needs a newer game version. Please refresh.');
   const download = await fetch(new URL(`./model/${manifest.file}`, import.meta.url));
   if (!download.ok || !download.body) throw new Error('The checkpoint download failed. Please retry.');
   const reader = download.body.getReader(), chunks = [];
