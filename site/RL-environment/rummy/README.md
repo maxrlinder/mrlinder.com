@@ -74,7 +74,6 @@ python scripts/export-rummy-model.py
 # Or pin an exact checkpoint:
 python scripts/export-rummy-model.py --checkpoint ../card_playing_gym/runs/rummy/r7/checkpoints/iter_025900.pt
 npm run check
-npm run build
 ```
 
 Without `--checkpoint`, the exporter resolves the most recently written

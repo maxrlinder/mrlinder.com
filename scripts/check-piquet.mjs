@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { PiquetDeal, HEADS, WIDTH, rubicon } from '../RL-environment/piquet/engine.js';
+import { PiquetDeal, HEADS, WIDTH, rubicon } from '../site/RL-environment/piquet/engine.js';
 
 const parties = JSON.parse(await readFile(new URL('./fixtures/piquet-deals.json', import.meta.url)));
-const modelRoot = new URL('../RL-environment/piquet/model/', import.meta.url);
+const modelRoot = new URL('../site/RL-environment/piquet/model/', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('manifest.json', modelRoot)));
 assert.equal(manifest.schemaVersion, 2);
 assert.equal(manifest.tokenWidth, WIDTH);

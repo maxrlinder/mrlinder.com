@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PLUMP_BOT = ROOT.parent / "plump-bot"
-OUTPUT = ROOT / "RL-environment" / "plump" / "training-data.js"
+OUTPUT = ROOT / "site" / "RL-environment" / "plump" / "training-data.js"
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:

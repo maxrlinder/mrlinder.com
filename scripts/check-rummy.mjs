@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { RummyEngine, ObservationWriter, candidateFeatures, handMelds, canMeld, TAKE } from '../RL-environment/rummy/engine.js';
-import { RULES } from '../RL-environment/rummy/rules-data.js';
+import { RummyEngine, ObservationWriter, candidateFeatures, handMelds, canMeld, TAKE } from '../site/RL-environment/rummy/engine.js';
+import { RULES } from '../site/RL-environment/rummy/rules-data.js';
 
 const fixtures = JSON.parse(await readFile(new URL('./fixtures/rummy-games.json', import.meta.url)));
-const modelRoot = new URL('../RL-environment/rummy/model/', import.meta.url);
+const modelRoot = new URL('../site/RL-environment/rummy/model/', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('manifest.json', modelRoot)));
 assert.equal(manifest.schemaVersion, 3);
 assert.deepEqual(manifest.outputs, ['logits', 'value', 'following_values']);

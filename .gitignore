@@ -1,8 +1,6 @@
 .DS_Store
-dist/
 tmp/
-.wrangler/
 __pycache__/
-resources/about/*
-!resources/about/web/
-!resources/about/web/*
+site/resources/about/*
+!site/resources/about/web/
+!site/resources/about/web/*

@@ -3,7 +3,7 @@ import { stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
 import { createServer } from "node:http";
 
-const root = resolve(import.meta.dirname, "..");
+const root = resolve(import.meta.dirname, "..", "site");
 const port = Number(process.env.PORT || 4173);
 
 const mimeTypes = {

@@ -2,7 +2,7 @@
 """Export the cardgym Piquet actor and Python parity fixtures for the browser.
 
 Usage: python scripts/export-piquet-model.py [--checkpoint path/to/iter_N.pt]
-Requires torch, numpy, onnx and onnxruntime; see RL-environment/piquet/README.md.
+Requires torch, numpy, onnx and onnxruntime; see site/RL-environment/piquet/README.md.
 """
 import argparse
 import hashlib
@@ -116,7 +116,7 @@ def main():
     actor = PiquetActor(PiquetModelConfig(**payload['model'])).eval()
     actor.load_state_dict(payload['actor'])
     wrapper = BrowserActor(actor).eval()
-    out = ROOT / 'RL-environment/piquet/model'
+    out = ROOT / 'site/RL-environment/piquet/model'
     out.mkdir(parents=True, exist_ok=True)
 
     def cards(mask):

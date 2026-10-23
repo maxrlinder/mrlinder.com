@@ -2,7 +2,7 @@
 """Export the cardgym Rummy actor, rule tables, and Python parity fixtures.
 
 Usage: python scripts/export-rummy-model.py [--checkpoint path/to/iter_N.pt]
-Requires torch, numpy, onnx and onnxruntime; see RL-environment/rummy/README.md.
+Requires torch, numpy, onnx and onnxruntime; see site/RL-environment/rummy/README.md.
 """
 import argparse
 import copy
@@ -136,7 +136,7 @@ def main():
     actor = RummyActor(RummyModelConfig(**payload['model'])).eval()
     actor.load_state_dict(payload['actor'])
     wrapper = BrowserActor(actor).eval()
-    out = ROOT / 'RL-environment/rummy/model'
+    out = ROOT / 'site/RL-environment/rummy/model'
     out.mkdir(parents=True, exist_ok=True)
     rules = dict(melds=MELDS, cards=MELD_CARDS, kinds=MELD_KIND, points=MELD_POINTS, extensions=EXTENSIONS)
     (out.parent / 'rules-data.js').write_text('// Generated from cardgym; regenerate with scripts/export-rummy-model.py.\nexport const RULES = ' + json.dumps(rules, separators=(',', ':')) + ';\n')

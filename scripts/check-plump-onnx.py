@@ -95,9 +95,9 @@ def main() -> None:
     )
     from plump.seq.ppo import center_zero_sum_values
 
-    model_dir = root / "RL-environment" / "plump" / "model"
+    model_dir = root / "site" / "RL-environment" / "plump" / "model"
     manifests = live_manifests(
-        root / "RL-environment" / "plump" / "model-config.js", args.model
+        root / "site" / "RL-environment" / "plump" / "model-config.js", args.model
     )
 
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)

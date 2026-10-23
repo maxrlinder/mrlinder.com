@@ -6,9 +6,9 @@ dropped into the composition at 1:1 — the logo and resources/cards/ are the sa
 artwork, not lookalikes. Drawn on a 360 x 205 grid and emitted at 2x, i.e.
 720 x 410 — the same box as the existing menu tile.
 
-The score chips are specific to Plump's scoring (see RL-environment/plump/
-game.js): make your bid exactly and you score 10 + bid, a made nil scores 5, and
-missing scores nothing at all — you get plumped.
+The score chips are specific to Plump's scoring (see
+site/RL-environment/plump/game.js): make your bid exactly and you score 10 +
+bid, a made nil scores 5, and missing scores nothing at all — you get plumped.
 
     python3 scripts/generate-plump-logo.py [outfile]
 """
@@ -192,7 +192,7 @@ def build():
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else str(
         pathlib.Path(__file__).resolve().parent.parent
-        / "RL-environment" / "plump-logo.svg")
+        / "site" / "RL-environment" / "plump-logo.svg")
     pathlib.Path(out).write_text(build())
     print("wrote", out)
 

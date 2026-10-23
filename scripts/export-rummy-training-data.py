@@ -1,4 +1,4 @@
-"""Write RL-environment/rummy/training-data.js for the Rummy training charts.
+"""Write site/RL-environment/rummy/training-data.js for the Rummy training charts.
 
 Reads the sibling card_playing_gym checkout read-only: run r7's metrics, its
 checkpoint round robin (tools/tournament.py --output JSON) and an argmax
@@ -22,8 +22,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RUN = ROOT.parent / "card_playing_gym" / "runs" / "rummy" / "r7"
-OUTPUT = ROOT / "RL-environment" / "rummy" / "training-data.js"
-MANIFEST = ROOT / "RL-environment" / "rummy" / "model" / "manifest.json"
+OUTPUT = ROOT / "site" / "RL-environment" / "rummy" / "training-data.js"
+MANIFEST = ROOT / "site" / "RL-environment" / "rummy" / "model" / "manifest.json"
 Z95 = 1.959964
 
 

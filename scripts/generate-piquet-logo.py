@@ -103,7 +103,7 @@ def build():
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else str(
-        _here.parent / "RL-environment" / "piquet-logo.svg")
+        _here.parent / "site" / "RL-environment" / "piquet-logo.svg")
     pathlib.Path(out).write_text(build())
     print("wrote", out)
 

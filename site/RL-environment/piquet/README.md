@@ -99,7 +99,6 @@ checkout is imported read-only.
 ```sh
 python scripts/export-piquet-model.py --checkpoint ../card_playing_gym/runs/piquet/partie1/checkpoints/iter_012700.pt
 npm run check
-npm run build
 ```
 
 Without `--checkpoint`, the exporter resolves the most recently written

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write RL-environment/piquet/training-data.js for the "How the agent was trained" charts.
+"""Write site/RL-environment/piquet/training-data.js for the "How the agent was trained" charts.
 
 The live agent (model/manifest.json) trained in two stages: single deals,
 then whole Rubicon parties fine-tuned from a single-deal checkpoint (the
@@ -20,7 +20,7 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'RL-environment/piquet/training-data.js'
+OUT = ROOT / 'site/RL-environment/piquet/training-data.js'
 PREFIX = 'export const PIQUET_TRAINING_DATA = '
 
 
@@ -30,7 +30,7 @@ def main():
     parser.add_argument('--evals', type=Path, required=True, help='directory of evaluate --output reports')
     parser.add_argument('--bucket', type=int, default=100, help='updates per point of the self-play curves')
     args = parser.parse_args()
-    manifest = json.loads((ROOT / 'RL-environment/piquet/model/manifest.json').read_text())
+    manifest = json.loads((ROOT / 'site/RL-environment/piquet/model/manifest.json').read_text())
     runs = args.source / 'runs/piquet'
     reports = [json.loads(path.read_text()) for path in sorted(args.evals.glob('*.json'))]
     previous = json.loads(OUT.read_text().split(PREFIX, 1)[1].rstrip().rstrip(';')) if OUT.exists() else {}

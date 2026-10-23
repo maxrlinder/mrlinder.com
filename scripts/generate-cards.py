@@ -560,7 +560,7 @@ def build_back(accent=BLUE, name="back"):
 def main():
     outdir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "resources", "cards")
+        "site", "resources", "cards")
     os.makedirs(outdir, exist_ok=True)
     written = []
     for suit in SUITS:

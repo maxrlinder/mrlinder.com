@@ -16,7 +16,7 @@ import {
   WIDTH,
   buildOracleTokens,
   buildTokens,
-} from "../RL-environment/plump/tokens.js";
+} from "../site/RL-environment/plump/tokens.js";
 
 const root = resolve(import.meta.dirname, "..");
 const fixtures = JSON.parse(
