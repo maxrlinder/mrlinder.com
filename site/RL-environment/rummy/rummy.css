@@ -563,18 +563,20 @@
 }
 
 .rummy-card.is-selected img {
-  outline: 3px solid var(--yellow);
+  outline: 3px solid var(--blue);
   outline-offset: 0;
 }
 
 /* The card dug out of the pile, which must be melded or laid off this turn. */
 .rummy-card.is-obligated img { outline: 3px solid var(--red); outline-offset: 0; }
-.rummy-card.is-obligated.is-selected img { outline-color: var(--yellow); }
+.rummy-card.is-obligated.is-selected img { outline-color: var(--blue); }
 
 /* With the agent's move shown: the cards its next move plays from your hand
-   (a discard, a lay-off, or every card of a meld) get a yellow frame. The frame
-   is drawn inside the card, which stays in place, so it never covers a neighbour. */
+   (a discard, a lay-off, or every card of a meld) get a yellow frame; cards you
+   select get a blue one. The frame is drawn inside the card, which stays in
+   place, so it never covers a neighbour. */
 .rummy-card.is-advised img { outline: 3px solid var(--yellow); outline-offset: -3px; }
+.rummy-card.is-advised.is-selected img { outline-color: var(--blue); outline-offset: 0; }
 
 .must-badge {
   position: absolute;
