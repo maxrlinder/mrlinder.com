@@ -94,6 +94,15 @@ export function drawChart(container, spec) {
     svg("text", { x: margin.left + 6, y: sy(0) - 6, class: "chart-note" }, root).textContent = spec.zeroLabel;
   }
 
+  // Vertical rules mark where something changed (a new training setting).
+  for (const rule of spec.rules || []) {
+    const x = sx(rule.x);
+    svg("line", { x1: x, x2: x, y1: margin.top, y2: margin.top + plotH, class: "chart-rule" }, root);
+    if (rule.label && plotW >= 300) {
+      svg("text", { x: x + 5, y: margin.top + 9, class: "chart-note" }, root).textContent = rule.label;
+    }
+  }
+
   if (spec.band) {
     const upper = spec.band.points.map(([x, , hi]) => `${sx(x)},${sy(hi)}`);
     const lower = spec.band.points.map(([x, lo]) => `${sx(x)},${sy(lo)}`).reverse();

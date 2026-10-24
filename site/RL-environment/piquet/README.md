@@ -65,29 +65,43 @@ hand, your opponent's discards and the talon.
 
 ## Training charts
 
-`training-charts.js` draws the "How the agent was trained" charts with the
-shared `../line-chart.js` from `training-data.js`, which
-`python scripts/export-piquet-training-data.py --evals <dir>` generates
-(standard library only). The live agent trained in two stages: single deals
-(p2), then whole parties fine-tuned from p2's checkpoint 13,600 (partie1; its
-`metadata.json` names the parent). Each stage reads its run's `metrics.csv`
-up to the checkpoint the next stage, or the page, took. `--evals` holds
-`cardgym piquet evaluate --output` reports: duplicate deals against the
-rule-based heuristic for the deal stage, and duplicate parties against p2
-for the partie stage, pooled per checkpoint over seeds. A stage whose run is
-not on this machine keeps its section of the current `training-data.js` (the
-deal stage's data, generated on the Mac, runs to update 13,000). For example:
+`training-charts.js` draws the charts of the "How the agent was trained" and
+"How it was played" windows from `training-data.js`: line charts with the
+shared `../line-chart.js`, and the round robin's pair matrix of its own.
+`python scripts/export-piquet-training-data.py` generates the data (standard
+library only). The live agent trained in two stages: single deals (p2), then
+whole parties fine-tuned from p2's checkpoint 13,600 (partie1; its
+`metadata.json` names the parent), with 192 parties per update and from update
+12,700 576 (the charts mark the change, found in `metrics.csv`). Each stage
+reads its run's `metrics.csv` up to the checkpoint the next stage, or the page,
+took. `--evals` holds `cardgym piquet evaluate --output` reports: duplicate
+deals against the rule-based heuristic, for the deal stage. A stage whose run
+is not on this machine keeps its section of the current `training-data.js`
+(the deal stage's data, generated on the Mac, runs to update 13,000).
+
+"How it was played" is a round robin of the single-deal agent and 19 evenly
+spaced checkpoints of the partie training, written by the gym's
+`tools/piquet_tournament.py --output` and read with `--tournament` (without
+it, the current round robin stays):
 
 ```sh
 cd ../card_playing_gym
-for i in 000300 000400 000500 000600 000700 000800 000900 001000 002000 004000 008000 012700; do for s in 1 2 3 4; do
-  .venv/bin/python -m cardgym piquet evaluate runs/piquet/partie1/checkpoints/iter_$i.pt --mode rubicon \
-    --against checkpoints/piquet/p2 --deals 256 --seed $s --device cuda --output /tmp/piquet-eval/p2_${i}_s$s.json
-done; done
+its="1200 2400 3600 4800 5900 7100 8300 9500 10700 11900 13100 14300 15500 16700 17800 19000 20200 21400 22600"
+paths=$(for i in $its; do printf 'runs/piquet/partie1/checkpoints/iter_%06d.pt ' "$i"; done)
+.venv/bin/python tools/piquet_tournament.py checkpoints/piquet/p2 $paths --labels "0,${its// /,}" \
+  --deals 64 --max-rounds 4 --resolution 1.25 --chunk 768 --output /tmp/piquet-rr.json
+cd ../mrlinder.com
+python3 scripts/export-piquet-training-data.py --tournament /tmp/piquet-rr.json
 ```
 
-Each run is 256 duplicate pairs (512 parties): four seeds make 2,048 parties
-per checkpoint, small enough to sit beside a training run on an 8 GB GPU.
+Every pair plays duplicate parties (each dealt twice with the seats swapped,
+moves sampled as in training) in rounds of 64, until every rating's standard
+error is within 1.25 points or after four rounds: up to 512 parties per pair,
+97,280 in all, 35 minutes on the RTX 2070 Super with training paused. The ratings are
+least-squares Rubicon points per partie relative to the single-deal agent; the
+records against the field average each checkpoint's 19 pairs. A worker holds a
+finished partie's trajectory (~0.7 MB) until its chunk ends, so `--chunk 768`
+keeps each of the three workers near 1.4 GB of RAM.
 
 ## Updating the checkpoint
 
@@ -97,7 +111,7 @@ separate `--target` folder on `PYTHONPATH`). The sibling `card_playing_gym`
 checkout is imported read-only.
 
 ```sh
-python scripts/export-piquet-model.py --checkpoint ../card_playing_gym/runs/piquet/partie1/checkpoints/iter_012700.pt
+python scripts/export-piquet-model.py --checkpoint ../card_playing_gym/runs/piquet/partie1/checkpoints/iter_022600.pt
 npm run check
 ```
 

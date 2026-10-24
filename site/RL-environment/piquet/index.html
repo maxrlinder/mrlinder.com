@@ -15,11 +15,11 @@
   <link rel="icon" href="./piquet.svg" type="image/svg+xml" />
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
-  <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=rr-1" />
   <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=values-1" />
-  <link rel="stylesheet" href="./piquet.css?v=2" />
+  <link rel="stylesheet" href="./piquet.css?v=3" />
   <script type="module" src="./game.js?v=2"></script>
-  <script type="module" src="./training-charts.js?v=2"></script>
+  <script type="module" src="./training-charts.js?v=3"></script>
 </head>
 <body class="plump-page rummy-page piquet-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -53,6 +53,7 @@
               </ol>
               <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
               <a class="training-jump" href="#training">How the agent was trained ↓</a>
+              <a class="training-jump" href="#played" data-rr-only>How it was played ↓</a>
             </div>
 
             <form class="plump-controls" id="setup-form">
@@ -178,7 +179,12 @@
               <li>
                 <span class="section-label">Stage 2 · six-deal parties</span>
                 <strong>Fine-tuned for the Rubicon payoff</strong>
-                <small>The score in every token · 192 parties per update · checkpoint <span data-live-checkpoint>900</span> is live</small>
+                <small>The score in every token · 192 parties per update</small>
+              </li>
+              <li>
+                <span class="section-label">Stage 2 · from update 12,700</span>
+                <strong>Three times the parties</strong>
+                <small>576 parties per update, each seat’s advantage from its own view · checkpoint <span data-live-checkpoint>22,600</span> is live</small>
               </li>
             </ol>
 
@@ -220,24 +226,102 @@
                 <div class="chart-plot" data-chart="bonuses"></div>
               </figure>
             </div>
-            <figure class="training-chart training-partie" data-partie-only>
+            <p class="training-footnote">
+              x-axis: training updates of stage 1, 1,024 single deals each.
+              Self-play curves are means over each 100 updates. How the partie
+              training played out is <a href="#played">below</a>.
+            </p>
+          </div>
+        </section>
+
+        <section class="mac-window plump-training-window" id="played" aria-labelledby="played-title" data-rr-only>
+          <div class="window-titlebar">
+            <span class="window-control"></span>
+            <strong>How it was played</strong>
+            <span class="window-control window-control-double"></span>
+          </div>
+          <div class="plump-training">
+            <header class="training-intro">
+              <h2 id="played-title">How it was played</h2>
+              <p class="training-lead">
+                In a round robin of Rubicon parties,
+                <span data-rr-count>20</span> checkpoints played each other:
+                the single-deal agent that ended stage 1, and
+                <span data-rr-stage2>19</span> checkpoints of the partie
+                training, evenly spaced up to the live one at update
+                <span data-rr-last>22,600</span>. Each of the
+                <span data-rr-pairings>190</span> pairs played
+                <span data-rr-per-pair>512</span> parties, every partie dealt
+                twice with the seats swapped, so both sides hold both hands of
+                all six deals and the luck of the cards cancels:
+                <span data-rr-parties>97,280</span> parties in all, every move
+                sampled as in training.
+              </p>
+            </header>
+
+            <figure class="training-chart training-chart-hero">
               <figcaption>
-                <strong>Whole parties, against the single-deal agent</strong>
-                <span>Each checkpoint of the partie training plays
-                <span data-partie-games>2,048</span> seeded parties against the
-                agent it started from, every partie twice with the hands
-                swapped. Rubicon points per partie; the band is a 95%
-                interval. At checkpoint <span data-partie-checkpoint>900</span>
-                it scores <span data-partie-live>−5.0 ± 3.6</span>:
-                <span data-partie-verdict>about even with the agent it started
-                from</span>.</span>
+                <strong>Rubicon points per partie, against the single-deal agent</strong>
+                <span>A least-squares fit of all <span data-rr-pairings>190</span>
+                pairings, each checkpoint relative to the single-deal agent
+                (update 0, hollow); the band is a 95% interval. The live
+                checkpoint scores <span data-rr-live>+25.3 ± 2.5</span> Rubicon
+                points a partie more than the agent it started from. The gains
+                came slowly while the agent learned to use a score it had never
+                seen, and faster once each update played three times the
+                parties and valued each seat’s moves from its own view
+                (dashed).</span>
               </figcaption>
-              <div class="chart-plot" data-chart="partie"></div>
+              <div class="chart-plot" data-chart="round-robin"></div>
+              <details class="chart-table">
+                <summary>Show as table</summary>
+                <div data-chart-table="round-robin"></div>
+              </details>
+            </figure>
+
+            <div class="training-multiples is-pair">
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>Parties won</strong>
+                  <span>The share of its parties each checkpoint wins against
+                  the other <span data-rr-stage2>19</span>: from
+                  <span data-rr-base-wins>48.1%</span> for the single-deal agent
+                  to <span data-rr-live-wins>52.7%</span> for the live one.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="rr-wins"></div>
+              </figure>
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>The Rubicon line</strong>
+                  <span>How often a checkpoint’s opponent ends a partie under
+                  100 (rubiconed: the winner scores both totals), and how often
+                  the checkpoint does. The score-blind single-deal agent is
+                  rubiconed in <span data-rr-base-rubiconed>12.0%</span> of its
+                  parties, the live one in
+                  <span data-rr-live-rubiconed>9.9%</span>.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="rr-rubicon"></div>
+              </figure>
+            </div>
+
+            <figure class="training-chart">
+              <figcaption>
+                <strong>Who beats whom</strong>
+                <span>Each row’s Rubicon points per partie against each
+                column, over <span data-rr-per-pair>512</span> parties: blue
+                where the row wins, red where it loses. Labels are updates in
+                thousands. The later checkpoint wins
+                <span data-rr-later-wins>175</span> of the
+                <span data-rr-pairings>190</span> pairings.</span>
+              </figcaption>
+              <div class="chart-plot matrix-plot" data-chart="rr-matrix"></div>
             </figure>
             <p class="training-footnote">
-              x-axis: training updates, 1,024 single deals each, then 192
-              parties (1,152 deals) each. Self-play curves are means over each
-              100 updates.
+              x-axis: updates of the partie training (stage 2); update 0 is the
+              single-deal agent, checkpoint <span data-deal-checkpoint>13,600</span>
+              of stage 1. Dashed: from update 12,700, 576 parties per update
+              instead of 192. Ratings are a least-squares fit of every pair’s
+              mean; records against the field average a checkpoint’s 19 pairs.
             </p>
           </div>
         </section>

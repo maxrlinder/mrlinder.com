@@ -885,6 +885,7 @@
 .chart-note { fill: var(--muted); font: 10px var(--mono); }
 .chart-end { fill: var(--ink); font: bold 10px var(--mono); }
 .chart-band { opacity: 0.12; }
+.chart-rule { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 
 .chart-line {
   fill: none;

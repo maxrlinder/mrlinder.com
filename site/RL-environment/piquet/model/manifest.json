@@ -36,9 +36,9 @@
     4,
     149
   ],
-  "iteration": 12700,
+  "iteration": 22600,
   "run": "partie1",
-  "checkpoint": "iter_012700.pt",
+  "checkpoint": "iter_022600.pt",
   "modelConfig": {
     "d_model": 256,
     "n_layers": 16,
@@ -53,10 +53,10 @@
     "card_kernel": 3,
     "score_dim": 64
   },
-  "file": "piquet-partie1-12700-fp32.onnx",
+  "file": "piquet-partie1-22600-fp32.onnx",
   "bytes": 38540305,
-  "sha256": "454bbb40673319c9391699563e64da81b0c3838c4b86aa3e1951d30ee16f5bce",
-  "sourceSha256": "e027d3447a148607214afc45dc39d53b152d09599636129a8682b00f1aa2be5b",
+  "sha256": "2b628ec92d1440b3739318831b6808964ad89a4f92f44b92c6de5a03dec13c69",
+  "sourceSha256": "26e91c667901ea3bc30ceea3433a83b16147274734f98acd657f599434e52959",
   "precision": "fp32",
   "outputs": [
     "exchange_logits",
@@ -72,12 +72,12 @@
   "validation": {
     "samples": 163,
     "maxAbsoluteError": {
-      "exchange_logits": 0.00017547607421875,
-      "declare_logits": 4.76837158203125e-06,
-      "play_logits": 0.000274658203125,
-      "value": 0.00018310546875,
-      "following_values": 0.00028228759765625,
-      "belief_logits": 8.165836334228516e-06
+      "exchange_logits": 0.0001678466796875,
+      "declare_logits": 7.62939453125e-06,
+      "play_logits": 0.00030517578125,
+      "value": 0.000152587890625,
+      "following_values": 0.000244140625,
+      "belief_logits": 8.58306884765625e-06
     }
   },
   "rules": {
