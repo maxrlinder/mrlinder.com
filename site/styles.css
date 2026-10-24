@@ -651,15 +651,6 @@ site-sidebar {
   color: var(--muted);
 }
 
-.status-light {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-right: 7px;
-  border: 1px solid var(--ink);
-  background: var(--green);
-}
-
 .spectrum-rule {
   display: grid;
   height: 4px;

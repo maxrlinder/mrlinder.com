@@ -25,11 +25,6 @@
   font: 19px/1.5 var(--serif);
 }
 
-.rl-early-note {
-  margin: 18px 0 0;
-  font: 12px/1.4 var(--sans);
-}
-
 .game-directory {
   border-top: 1px solid var(--ink);
   background: var(--paper);
