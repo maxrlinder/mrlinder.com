@@ -28,27 +28,14 @@ the advantage) from that guest's own stream. If a guest leaves, the agent takes 
 ## Readouts
 
 **Agent's move** marks every move with the policy's probability at temperature
-1; the agent's pick is the yellow badge, and the hand cards it would play glow.
+1; the agent's pick is the yellow badge, and the hand cards it would play get a
+yellow frame (cards you select get a blue one).
 When its pick lays three and its next move adds to them, the readout looks one
 decision ahead and offers the whole meld.
 
 **Advantage** reads the actor's value head: a seat's expected points at the end
-of the round minus the other seats' average (the training target, zero-sum).
-It shows yours now, and on every move your advantage once that move is made,
-one decision ahead, all from one forward pass: the export takes a batch of
-one-token continuations of the stream, each attending to the stream's cached
-keys and values. A draw, meld or lay-off leaves you deciding again, so its
-value is read at that next decision token; a stock draw averages over every
-card you cannot see, weighted by unseen copies, so nothing hidden leaks. A
-discard ends the turn and what follows depends on hidden hands, so its token is
-written as if you decided again at once. That proxy ranks discards about as
-well as rollouts do but reads 4–6 points high, so the discards share an offset
-set to make the moves' values average, under the policy, to the value now (an
-advantage function's defining property), leaning on its typical size (5) when
-the policy puts little weight on discarding. In a draw the after-states share
-the head's fraction-of-a-point noise the same way. Going out scores exactly.
-Moves the policy plays under 1% of the time are greyed: the head learned from
-states the agent's own play reaches, so its value there is an extrapolation.
+of the round minus the other seats' average (the training target, zero-sum),
+for yours now.
 
 ## Training charts
 
@@ -79,7 +66,7 @@ npm run check
 Without `--checkpoint`, the exporter resolves the most recently written
 `runs/rummy/*/checkpoints/latest.json` once. It writes a versioned FP32 actor
 (schema 3: candidate logits, the value head now, and the value head after each
-`following` token), then verifies every output against native PyTorch on real
+`following` token; the page reads only the value now), then verifies every output against native PyTorch on real
 decision sequences, each continuation against the whole extended stream,
 before updating `model/manifest.json`. It also regenerates `rules-data.js` and the
 Python game fixtures. Check the generated manifest for provenance, source and

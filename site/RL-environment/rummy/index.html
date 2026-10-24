@@ -14,10 +14,10 @@
   <title>Rummy — RL Playground</title>
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
-  <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
-  <link rel="stylesheet" href="./rummy.css?v=values-1" />
-  <script type="module" src="./game.js?v=values-1"></script>
-  <script type="module" src="./training-charts.js?v=2"></script>
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
+  <link rel="stylesheet" href="./rummy.css?v=select-1" />
+  <script type="module" src="./game.js?v=now-1"></script>
+  <script type="module" src="./training-charts.js?v=3"></script>
 </head>
 <body class="plump-page rummy-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -86,7 +86,7 @@
                   </label>
                   <label>
                     <input type="checkbox" id="setup-values" />
-                    <span><strong>Advantage</strong><small>Show your expected lead over the table, now and after each move.</small></span>
+                    <span><strong>Advantage</strong><small>Show your expected lead over the table.</small></span>
                   </label>
                   <p>Each player controls their own view and can change it during the game.</p>
                 </fieldset>
@@ -168,87 +168,72 @@
 
             <div class="training-columns">
               <article class="training-block">
-                <p class="section-label">01 · Encoding</p>
-                <h3>One token per turn, and each one restates the table.</h3>
-                <div class="token-strip" role="img" aria-label="A seat's stream: three tokens for its own draw, meld and discard, one token for each opponent's turn, then the next decision the model makes.">
-                  <span class="token-group"><span class="token-row"><span class="token">STOCK</span><span class="token">5♣6♣7♣</span><span class="token is-red">DISC K♦</span></span><small>your decisions</small></span>
-                  <span class="token-group"><span class="token-row"><span class="token">TAKE 9♥ · DISC 2♠</span></span><small>opponent 1</small></span>
-                  <span class="token-group"><span class="token-row"><span class="token">STOCK · +8♣ · DISC Q♣</span></span><small>opponent 2</small></span>
-                  <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>next</small></span>
-                </div>
+                <p class="section-label">01 · Architecture</p>
+                <h3>One token per turn. A head scores every legal move.</h3>
+                <figure class="policy-flow">
+                  <div class="token-strip" role="img" aria-label="A seat's stream: three tokens for its own draw, meld and discard, one token for each opponent's turn, then the next decision the model makes.">
+                    <span class="token-group"><span class="token-row"><span class="token">STOCK</span><span class="token">5♣6♣7♣</span><span class="token is-red">DISC K♦</span></span><small>your decisions</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">TAKE 9♥ · DISC 2♠</span></span><small>opponent 1</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">STOCK · +8♣ · DISC Q♣</span></span><small>opponent 2</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>you</small></span>
+                  </div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b></span>
+                  <div class="flow-box"><b>Transformer</b>12 causal layers over the stream</div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b>its state at “?”</span>
+                  <div class="flow-box"><b>Move head</b>embeds each legal move from its cards and scores it against the state</div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b>one logit per legal move, softmax over them</span>
+                  <table class="flow-policy">
+                    <thead><tr><th scope="col">move</th><th scope="col">Stock</th><th scope="col">Take Q♣</th><th scope="col">Dig 2♠</th></tr></thead>
+                    <tbody>
+                      <tr><th scope="row">logit</th><td>0.6</td><td>1.9</td><td>−0.8</td></tr>
+                      <tr class="flow-bars"><th scope="row">policy</th><td><span class="flow-bar" style="--p: .20"></span>20%</td><td><span class="flow-bar is-pick" style="--p: .75"></span>75%</td><td><span class="flow-bar" style="--p: .05"></span>5%</td></tr>
+                    </tbody>
+                  </table>
+                </figure>
                 <p>
-                  In Plump a hand only shrinks. In Rummy cards keep arriving,
-                  so instead of making the model rebuild the hand from the
-                  history, every decision token states the present: for each of
-                  the 52 cards, where its copies are (unseen, your hand, an
-                  opponent who took it from the pile, the table and who laid
-                  it, or the discard pile by depth) and whether it can be laid
-                  off right now. Each opponent turn is one token with what it
-                  drew, dug out, melded and threw. Those are the tells.
+                  Cards keep arriving in Rummy, so each decision token states
+                  the present: for each of the 52 cards, where its copies are as
+                  far as you know, and whether it can be laid off right now.
+                  Each opponent turn is one token with what it drew, dug out,
+                  melded and threw. Those are the tells.
                 </p>
                 <p>
-                  A small card grid reads the 52 cards first. It convolves
-                  around the 13-rank cycle, since runs wrap from King to Ace,
-                  and pools each rank over suits for sets. Its output becomes
-                  part of the token, and a 12-layer causal transformer reads
-                  the stream, about 40 tokens a game, with a key-value cache
-                  in self-play.
+                  A small grid reads the 52 cards first (runs wrap from King to
+                  Ace), then a 12-layer causal transformer reads the stream. The
+                  rules engine lists every legal move: the stock, a card from
+                  the pile, each three-card meld, lay-off and discard. The
+                  softmax over their scores is the policy the agent samples
+                  from.
                 </p>
               </article>
 
               <article class="training-block">
-                <p class="section-label">02 · Actions &amp; objective</p>
-                <h3>Score every legal move. Beat the table average.</h3>
-                <p>
-                  The rules engine lists every legal move: the stock, the top
-                  discard, any deeper card you could use, every three-card
-                  meld, lay-off and discard. Each move is embedded from its
-                  cards (for a lay-off also the meld it joins, for a pickup
-                  every card it takes) and scored against the transformer’s
-                  state. Melds go down three cards at a time, so every further
-                  card is its own choice: table one more, or stop.
-                </p>
+                <p class="section-label">02 · Objective</p>
+                <h3>Beat the table average.</h3>
                 <p>
                   The reward is your round score minus the average opponent
                   score. Every seat is the same network, trained with PPO. An
-                  oracle critic that sees every hand and the next stock card
-                  sets the baseline during training only. Side heads predict
-                  which cards each opponent holds, who goes out, and what each
-                  seat is left holding.
+                  oracle critic that sees every hand sets the baseline during
+                  training only.
+                </p>
+                <p>
+                  The actor’s own value head estimates your points against the
+                  table: the <em>Advantage</em> switch shows it. Side heads
+                  predict which cards each opponent holds, who goes out, and
+                  what each seat is left holding.
                 </p>
               </article>
             </div>
 
-            <ol class="training-lineage" aria-label="Training lineage">
-              <li>
-                <span class="section-label">Updates 0 – 14,300</span>
-                <strong>PPO from scratch</strong>
-                <small>432 games per update across 2–4 players and one or two decks</small>
-              </li>
-              <li>
-                <span class="section-label">From 14,300</span>
-                <strong>Three times the games</strong>
-                <small>1,296 games per update, one optimizer step each epoch</small>
-              </li>
-              <li>
-                <span class="section-label">From 16,100</span>
-                <strong>Hold or play</strong>
-                <small>A learned gate decides when to keep melds back · checkpoint <span data-live-checkpoint>31,900</span> is live</small>
-              </li>
-            </ol>
-
             <figure class="training-chart training-chart-hero">
               <figcaption>
                 <strong>Checkpoint round robin</strong>
-                <span>Nine checkpoints from update <span data-rr-first>3,100</span>
-                to <span data-rr-last>28,200</span> play each other on duplicate
-                deals (every seating of the same cards, so luck cancels),
-                <span data-rr-games>32,768</span> games each across 2–4 players
+                <span>Checkpoints play each other on duplicate deals (every
+                seating of the same cards, so luck cancels) across 2–4 players
                 and one or two decks. Points per game above the field average;
-                the band is a 95% interval. The untrained network (update 0)
-                scores about <span data-rr-untrained>104</span> points per game
-                below update <span data-rr-first>3,100</span>, far off the
-                chart.</span>
+                the band is a 95% interval. The untrained network is about
+                <span data-rr-untrained>104</span> points per game further
+                down, far off the chart.</span>
               </figcaption>
               <div class="chart-plot" data-chart="round-robin"></div>
               <details class="chart-table">
@@ -262,8 +247,8 @@
                 <figcaption>
                   <strong>Late checkpoints at full strength</strong>
                   <span>The same comparison with every seat playing its top
-                  move (argmax). Played this way the late checkpoints keep
-                  improving, a gap the sampled round robin flattens.</span>
+                  move (argmax): played this way, the late checkpoints keep
+                  improving.</span>
                 </figcaption>
                 <div class="chart-plot" data-chart="argmax"></div>
               </figure>
@@ -277,10 +262,7 @@
                 <div class="chart-plot" data-chart="hold"></div>
               </figure>
             </div>
-            <p class="training-footnote">
-              x-axis: training updates. From update 28,200 each update takes
-              four optimizer steps instead of two.
-            </p>
+            <p class="training-footnote">x-axis: training updates.</p>
           </div>
         </section>
       </section>
@@ -308,7 +290,7 @@
               <span class="advice-switch" aria-hidden="true"></span>
               <span class="advice-long">Agent’s move</span><span class="advice-short">Move</span>
             </label>
-            <label class="advice-toggle" title="Your advantage (the agent’s estimate of your points at the end of the round, minus the other players’ average) now, and on every move after you make it">
+            <label class="advice-toggle" title="Your advantage: the agent’s estimate of your points at the end of the round, minus the other players’ average">
               <input type="checkbox" id="values" />
               <span class="advice-switch" aria-hidden="true"></span>
               <span>Advantage</span>

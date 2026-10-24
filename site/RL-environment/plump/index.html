@@ -29,7 +29,7 @@
       crossorigin
     />
     <link rel="stylesheet" href="/styles.css?v=icons-1" />
-    <link rel="stylesheet" href="/RL-environment/rl.css?v=values-1" />
+    <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
   </head>
   <body class="plump-page">
     <a class="skip-link" href="#main">Skip to game</a>
@@ -135,7 +135,7 @@
                       <input type="checkbox" data-setup-value-toggle />
                       <span>
                         <strong>Advantage</strong>
-                        <small>Show your expected lead over the table, now and after each action.</small>
+                        <small>Show your expected lead over the table.</small>
                       </span>
                     </label>
                     <p>Each player controls their own view and can change it during the game.</p>
@@ -261,26 +261,40 @@
                 <article class="training-block">
                   <p class="section-label">01 · Architecture</p>
                   <h3>Every card and every action is a token.</h3>
-                  <div class="token-strip" role="img" aria-label="A round as a token sequence: table, the three cards in hand, three bids, the first trick and its winner, then the next action the model predicts.">
-                    <span class="token-group"><span class="token-row"><span class="token">3P·3C</span></span><small>table</small></span>
-                    <span class="token-group"><span class="token-row"><span class="token">A♠</span><span class="token is-red">9♥</span><span class="token is-red">4♦</span></span><small>your hand</small></span>
-                    <span class="token-group"><span class="token-row"><span class="token">BID 1</span><span class="token">BID 0</span><span class="token">BID 1</span></span><small>bids</small></span>
-                    <span class="token-group"><span class="token-row"><span class="token">A♠</span><span class="token">7♠</span><span class="token">2♠</span><span class="token is-win">WIN</span></span><small>trick 1</small></span>
-                    <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>next</small></span>
-                  </div>
+                  <figure class="policy-flow">
+                    <div class="token-strip" role="img" aria-label="A round as a token sequence: the table, the three cards in hand, three bids, the card led to the first trick, then the next action the model predicts.">
+                      <span class="token-group"><span class="token-row"><span class="token">3P·3C</span></span><small>table</small></span>
+                      <span class="token-group"><span class="token-row"><span class="token">K♠</span><span class="token is-red">9♥</span><span class="token is-red">4♥</span></span><small>your hand</small></span>
+                      <span class="token-group"><span class="token-row"><span class="token">BID 1</span><span class="token">BID 0</span><span class="token">BID 1</span></span><small>bids</small></span>
+                      <span class="token-group"><span class="token-row"><span class="token is-red">Q♥</span></span><small>trick 1</small></span>
+                      <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>you</small></span>
+                    </div>
+                    <span class="flow-arrow"><b aria-hidden="true">↓</b></span>
+                    <div class="flow-box"><b>Transformer</b>16 causal layers over the round</div>
+                    <span class="flow-arrow"><b aria-hidden="true">↓</b>its state at “?”</span>
+                    <div class="flow-box"><b>Card head</b>a logit for each of the 52 cards</div>
+                    <span class="flow-arrow"><b aria-hidden="true">↓</b>mask the illegal cards, softmax over the rest</span>
+                    <table class="flow-policy">
+                      <thead><tr><th scope="col">card</th><th scope="col">9♥</th><th scope="col">4♥</th><th scope="col" class="is-masked">K♠</th></tr></thead>
+                      <tbody>
+                        <tr><th scope="row">legal</th><td>✓</td><td>✓</td><td class="is-masked">✕</td></tr>
+                        <tr><th scope="row">logit</th><td>1.6</td><td>−0.4</td><td class="is-masked">−∞</td></tr>
+                        <tr class="flow-bars"><th scope="row">policy</th><td><span class="flow-bar is-pick" style="--p: .88"></span>88%</td><td><span class="flow-bar" style="--p: .12"></span>12%</td><td class="is-masked">0%</td></tr>
+                      </tbody>
+                    </table>
+                  </figure>
                   <p>
                     A round is written down like a sentence: the table, the cards
                     in your hand, each bid, each card played and who won each
-                    trick. A 16-layer causal transformer reads that sequence and
-                    predicts the next token, which is either a bid or one of the
-                    legal cards.
+                    trick. A 16-layer causal transformer reads it, and a head
+                    gives each of the 52 cards a logit (bids have a head of their
+                    own). Cards you may not play are masked, and the softmax over
+                    the rest is the policy the agent samples from.
                   </p>
                   <p>
-                    Because the model is autoregressive, every move just appends
-                    one token. In self-play it keeps a key-value cache and
-                    decodes one token per move for hundreds of games at once.
-                    In training, a single forward and backward pass over a
-                    finished game updates every decision in it.
+                    Every move appends one token, so self-play decodes one token
+                    per move for hundreds of games at once, and one pass over a
+                    finished game trains every decision in it.
                   </p>
                 </article>
 
@@ -289,22 +303,17 @@
                   <h3>Beat the table average.</h3>
                   <p>
                     The reward is your round score minus the average opponent
-                    score. Every seat is played by the same network, and it is
-                    trained with PPO. Actions that ended better than expected
-                    become more likely and worse ones less likely. Each step is
-                    clipped so the policy changes gradually, and an entropy floor
-                    keeps it exploring.
+                    score. Every seat is played by the same network, trained with
+                    PPO: actions that ended better than expected become more
+                    likely, worse ones less likely, a small step at a time.
                   </p>
                   <p>
                     The “expected” score comes from an oracle critic, a second
-                    transformer that sees every hand. It only exists during
-                    training, to cut the noise in the reward signal. Side heads
-                    also learn to predict opponents’ suits, card ranges and trick
-                    counts. Those are the <em>Actor beliefs</em> you can switch
-                    on in the game. Its value head estimates each player’s
-                    points this round against the table’s average: switch on
-                    <em>Advantage</em> to see yours now, and after each action
-                    you could take.
+                    transformer that sees every hand, used only in training. The
+                    actor’s own value head estimates your points against the
+                    table: the <em>Advantage</em> switch shows it. Side heads
+                    predict opponents’ suits, card ranges and trick counts: the
+                    <em>Actor beliefs</em>.
                   </p>
                 </article>
               </div>
@@ -313,27 +322,26 @@
                 <li>
                   <span class="section-label">Wider model · 6 layers × 384</span>
                   <strong>PPO from scratch</strong>
-                  <small>100,500 updates · ~24 days</small>
+                  <small>Self-play from random moves</small>
                 </li>
                 <li>
                   <span class="section-label">Distillation</span>
                   <strong>Copied into a deeper net</strong>
-                  <small>16 layers × 240. The student plays and the wider model labels every move · 5,600 updates</small>
+                  <small>The student plays; the wider model labels every move</small>
                 </li>
                 <li>
                   <span class="section-label">Deeper model · 16 layers × 240</span>
                   <strong>PPO self-play continues</strong>
-                  <small>696 games per update · checkpoint <span data-live-checkpoint>44,300</span> is live</small>
+                  <small>Checkpoint <span data-live-checkpoint>44,300</span> is live</small>
                 </li>
               </ol>
 
               <figure class="training-chart training-chart-hero">
                 <figcaption>
                   <strong>Deeper model round robin</strong>
-                  <span>Every checkpoint plays mixed tables against the other
-                  <span data-rr-others>42</span>, about 100,000 rounds each across
-                  3–5 players and 3–10 cards. Points per round above the field average; the band is
-                  a 95% interval.</span>
+                  <span>Every checkpoint plays mixed tables against the others
+                  across 3–5 players and 3–10 cards. Points per round above the
+                  field average; the band is a 95% interval.</span>
                 </figcaption>
                 <div class="chart-plot" data-chart="round-robin"></div>
                 <details class="chart-table">
@@ -346,8 +354,7 @@
                 <figure class="training-chart">
                   <figcaption>
                     <strong>Distillation loss</strong>
-                    <span>KL from teacher to student, nats. Top-move agreement
-                    rose from 50% to 91%.</span>
+                    <span>KL from teacher to student, in nats.</span>
                   </figcaption>
                   <div class="chart-plot" data-chart="distill"></div>
                 </figure>
@@ -355,22 +362,22 @@
                   <figcaption>
                     <strong>Value error</strong>
                     <span>RMSE of the predicted round margin, in points. The gap
-                    between the two lines is the hidden cards.</span>
+                    between the lines is the hidden cards.</span>
                   </figcaption>
                   <div class="chart-plot" data-chart="value"></div>
                 </figure>
                 <figure class="training-chart">
                   <figcaption>
                     <strong>Belief losses</strong>
-                    <span>Cross-entropy of two actor belief heads about
-                    opponents’ hands.</span>
+                    <span>Cross-entropy of two belief heads about opponents’
+                    hands.</span>
                   </figcaption>
                   <div class="chart-plot" data-chart="beliefs"></div>
                 </figure>
               </div>
               <p class="training-footnote">
-                x-axis: training updates. The deeper model continues from update
-                5,600 of the distillation. The round robin covers checkpoints up to <span data-rr-last>47,300</span>.
+                x-axis: training updates. The deeper model counts on from the
+                distillation.
               </p>
             </div>
           </section>
@@ -429,7 +436,7 @@
                   <input type="checkbox" data-belief-toggle />
                   Actor beliefs
                 </label>
-                <label class="switch-label" title="Your expected points this round minus the other players’ average, now and after each action">
+                <label class="switch-label" title="Your expected points this round minus the other players’ average">
                   <input type="checkbox" data-value-toggle />
                   Advantage
                 </label>
@@ -552,7 +559,7 @@
       </div>
     </dialog>
 
-    <script type="module" src="/RL-environment/plump/game.js?v=values-1"></script>
-    <script type="module" src="/RL-environment/plump/training-charts.js?v=3"></script>
+    <script type="module" src="/RL-environment/plump/game.js?v=now-1"></script>
+    <script type="module" src="/RL-environment/plump/training-charts.js?v=4"></script>
   </body>
 </html>

@@ -15,11 +15,11 @@
   <link rel="icon" href="./piquet.svg" type="image/svg+xml" />
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
-  <link rel="stylesheet" href="/RL-environment/rl.css?v=rr-1" />
-  <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=values-1" />
-  <link rel="stylesheet" href="./piquet.css?v=3" />
-  <script type="module" src="./game.js?v=2"></script>
-  <script type="module" src="./training-charts.js?v=3"></script>
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
+  <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=select-1" />
+  <link rel="stylesheet" href="./piquet.css?v=4" />
+  <script type="module" src="./game.js?v=3"></script>
+  <script type="module" src="./training-charts.js?v=4"></script>
 </head>
 <body class="plump-page rummy-page piquet-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -53,7 +53,6 @@
               </ol>
               <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
               <a class="training-jump" href="#training">How the agent was trained ↓</a>
-              <a class="training-jump" href="#played" data-rr-only>How it was played ↓</a>
             </div>
 
             <form class="plump-controls" id="setup-form">
@@ -97,232 +96,122 @@
               <p class="training-lead">
                 The AI you play is a small transformer,
                 <span data-training-parameters>9.1M</span> parameters, that
-                learned Piquet from scratch by playing against itself: first
-                single deals, <span data-training-hours>about 12 hours</span>
-                on one Mac GPU and roughly
-                <span data-training-decisions>420 million</span> decisions over
-                <span data-training-deals>13 million</span> deals<span data-partie-only>,
-                then whole six-deal parties,
-                <span data-partie-hours>about an hour</span> more on the Mac and
-                a desktop NVIDIA GPU over
-                <span data-partie-parties>170 thousand</span> parties</span>.
-                It only sees what you see: its own hand, what it threw away and
-                saw in the talon, what was declared and shown, the cards
-                played and the score.
+                learned Piquet from scratch by playing against itself:
+                <span data-training-deals>13 million</span> single deals, then
+                <span data-partie-parties>8.1 million</span> six-deal parties,
+                <span data-training-hours>about 50 hours</span> on a Mac and a
+                desktop GPU. It only sees what you see: its own hand, what it
+                threw away and saw in the talon, what was declared and shown,
+                the cards played and the score.
               </p>
             </header>
 
             <div class="training-columns">
               <article class="training-block">
-                <p class="section-label">01 · Encoding</p>
-                <h3>Every event is a token, and each one restates the 32 cards.</h3>
-                <div class="token-strip" role="img" aria-label="A seat's stream: the deal, both exchanges, the declarations, then the cards played, and the next decision the model makes.">
-                  <span class="token-group"><span class="token-row"><span class="token">DEAL</span><span class="token">SWAP 5</span><span class="token">SWAP 3</span></span><small>exchange</small></span>
-                  <span class="token-group"><span class="token-row"><span class="token">POINT 5·47</span><span class="token is-red">GOOD</span></span><small>declarations</small></span>
-                  <span class="token-group"><span class="token-row"><span class="token">K♠</span><span class="token is-red">7♠</span></span><small>a trick</small></span>
-                  <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>next</small></span>
-                </div>
+                <p class="section-label">01 · Architecture</p>
+                <h3>Every event is a token. A head scores the moves.</h3>
+                <figure class="policy-flow">
+                  <div class="token-strip" role="img" aria-label="A seat's stream: the deal, both exchanges, the declarations, the opponent's lead, then the next decision the model makes.">
+                    <span class="token-group"><span class="token-row"><span class="token">DEAL</span><span class="token">SWAP 5</span><span class="token">SWAP 3</span></span><small>exchange</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">POINT 5·47</span><span class="token">GOOD</span></span><small>declarations</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">K♠</span></span><small>Fern leads</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>you</small></span>
+                  </div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b></span>
+                  <div class="flow-box"><b>Transformer</b>16 causal layers over the stream</div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b>its state at “?”</span>
+                  <div class="flow-box"><b>Play head</b>a logit for each of the 32 cards</div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b>mask the illegal cards, softmax over the rest</span>
+                  <table class="flow-policy">
+                    <thead><tr><th scope="col">card</th><th scope="col">A♠</th><th scope="col">7♠</th><th scope="col">Q♠</th><th scope="col" class="is-masked">10♥</th></tr></thead>
+                    <tbody>
+                      <tr><th scope="row">legal</th><td>✓</td><td>✓</td><td>✓</td><td class="is-masked">✕</td></tr>
+                      <tr><th scope="row">logit</th><td>2.0</td><td>0.8</td><td>−0.6</td><td class="is-masked">−∞</td></tr>
+                      <tr class="flow-bars"><th scope="row">policy</th><td><span class="flow-bar is-pick" style="--p: .73"></span>73%</td><td><span class="flow-bar" style="--p: .22"></span>22%</td><td><span class="flow-bar" style="--p: .05"></span>5%</td><td class="is-masked">0%</td></tr>
+                    </tbody>
+                  </table>
+                </figure>
                 <p>
-                  A Piquet hand changes twice (discard and draw) and then only
-                  shrinks, but what each player knows keeps shifting: Elder sees
-                  the talon cards it left, a winning declaration shows its
-                  cards, and each side’s discards stay secret. So every token
-                  states, for each of the 32 cards, where it is as far as the
-                  agent knows (its hand, its discards, seen in the talon, shown
-                  by the opponent, played) and restates the score, the tricks
-                  and the suits the opponent has failed to follow.
+                  Each token is one event and restates, for each of the 32
+                  cards, where it is as far as the agent knows (its hand, its
+                  discards, the talon, shown by the opponent, played) and the
+                  score. A small grid reads the cards as four suits of eight
+                  ranks, for sequences and sets, and a 16-layer causal
+                  transformer reads the stream.
                 </p>
                 <p>
-                  A small grid reads the cards as four suits of eight ranks:
-                  a convolution along each suit finds sequences and a pool over
-                  suits finds sets. A 16-layer causal transformer reads the
-                  stream, about 50 tokens a deal.
+                  Each kind of decision has its own head: the exchange (a card,
+                  or stop, one at a time), declarations (declare or not) and
+                  play. Illegal actions are masked, and the softmax over the
+                  legal ones is the policy the agent samples from.
                 </p>
               </article>
 
               <article class="training-block">
-                <p class="section-label">02 · Actions &amp; objective</p>
-                <h3>One card at a time. First the deal, then the partie.</h3>
+                <p class="section-label">02 · Objective</p>
+                <h3>First the deal, then the partie.</h3>
                 <p>
-                  Every action is a card, “stop”, or a yes/no declaration. The
-                  exchange (1,585 possible discards for Elder) is chosen one
-                  card at a time and closed with “stop”, each choice with the
-                  whole network behind it. Cards are scored by attention over
-                  their place on the grid, so the agent sees a card’s suit
-                  length, sequence and guards, not just its name.
+                  Both seats are the same network, trained with PPO. The reward
+                  was first a deal’s point difference, then the partie’s Rubicon
+                  payoff: 100 plus the margin for the win, or plus both totals
+                  when the loser stays under 100. Every token carries the score,
+                  so the agent can trade points for the win or for the rubicon
+                  line.
                 </p>
                 <p>
-                  The reward was first the point difference of a single deal.
-                  Then the agent played whole parties for the Rubicon payoff:
-                  100 for the win plus the margin, or plus both totals when the
-                  loser stays under 100. Each deal is still a fresh context,
-                  and every token states the score: both running totals, the
-                  lead and the deal number. So it can trade points for the win
-                  or for the rubicon line when the score makes that worth it.
-                </p>
-                <p>
-                  Both seats are the same network, trained with PPO. Its value
-                  head is the baseline (there is no separate critic) and
-                  predicts the partie’s payoff; side heads predict where every
-                  hidden card is, who wins each declaration, how many tricks
-                  each side takes and the fate of every card.
+                  A value head predicts that payoff: it is the baseline in
+                  training, and the <em>Advantage</em> switch shows yours. Side
+                  heads predict where every hidden card is: the agent’s card
+                  read.
                 </p>
               </article>
             </div>
 
-            <ol class="training-lineage" aria-label="Training lineage" data-partie-only>
+            <ol class="training-lineage is-pair" aria-label="Training lineage">
               <li>
                 <span class="section-label">Stage 1 · single deals</span>
                 <strong>PPO from scratch</strong>
-                <small>Reward: the deal’s point difference · 1,024 deals per update · to checkpoint <span data-deal-checkpoint>13,600</span></small>
+                <small>Reward: the deal’s point difference</small>
               </li>
               <li>
                 <span class="section-label">Stage 2 · six-deal parties</span>
                 <strong>Fine-tuned for the Rubicon payoff</strong>
-                <small>The score in every token · 192 parties per update</small>
-              </li>
-              <li>
-                <span class="section-label">Stage 2 · from update 12,700</span>
-                <strong>Three times the parties</strong>
-                <small>576 parties per update, each seat’s advantage from its own view · checkpoint <span data-live-checkpoint>22,600</span> is live</small>
+                <small>Checkpoint <span data-live-checkpoint>22,600</span> is live</small>
               </li>
             </ol>
 
-            <figure class="training-chart training-chart-hero">
-              <figcaption>
-                <strong>Against a rule-based player</strong>
-                <span>Each checkpoint plays <span data-eval-deals>1,024</span>
-                seeded deals against the gym’s heuristic (it keeps sequences,
-                sets and its long suit, always declares, and cashes sure
-                winners), every deal twice with the hands swapped so luck
-                cancels. Points per deal; the band is a 95% interval. The
-                untrained network loses by <span data-eval-untrained>30</span>
-                points a deal. The partie training starts from checkpoint
-                <span data-deal-checkpoint>13,600</span>.</span>
-              </figcaption>
-              <div class="chart-plot" data-chart="heuristic"></div>
-              <details class="chart-table">
-                <summary>Show as table</summary>
-                <div data-chart-table="heuristic"></div>
-              </details>
-            </figure>
-
             <div class="training-multiples is-pair">
               <figure class="training-chart">
                 <figcaption>
-                  <strong>Elder’s edge</strong>
-                  <span>In self-play, how many points a deal Elder wins by, and
-                  the points each player scores. Elder exchanges more cards and
-                  leads to the first trick; the agent learns to press that edge.</span>
+                  <strong>Stage 1 · against a rule-based player</strong>
+                  <span>Points per deal, every deal played twice with the hands
+                  swapped so luck cancels; the band is a 95% interval. Untrained,
+                  the network lost by <span data-eval-untrained>30</span> a
+                  deal.</span>
                 </figcaption>
-                <div class="chart-plot" data-chart="elder"></div>
+                <div class="chart-plot" data-chart="heuristic"></div>
+                <details class="chart-table">
+                  <summary>Show as table</summary>
+                  <div data-chart-table="heuristic"></div>
+                </details>
               </figure>
-              <figure class="training-chart">
+              <figure class="training-chart" data-rr-only>
                 <figcaption>
-                  <strong>The big swings</strong>
-                  <span>How often a self-play deal has a pique, a repique or a
-                  capot: the bonuses that swing a deal by 30 to 60 points.</span>
+                  <strong>Stage 2 · against the single-deal agent</strong>
+                  <span>Rubicon points per partie in a round robin of
+                  checkpoints, every partie played twice with the seats
+                  swapped; the band is a 95% interval. The live agent scores
+                  <span data-rr-live>+25.3 ± 2.5</span> more than the agent it
+                  started from.</span>
                 </figcaption>
-                <div class="chart-plot" data-chart="bonuses"></div>
+                <div class="chart-plot" data-chart="round-robin"></div>
+                <details class="chart-table">
+                  <summary>Show as table</summary>
+                  <div data-chart-table="round-robin"></div>
+                </details>
               </figure>
             </div>
-            <p class="training-footnote">
-              x-axis: training updates of stage 1, 1,024 single deals each.
-              Self-play curves are means over each 100 updates. How the partie
-              training played out is <a href="#played">below</a>.
-            </p>
-          </div>
-        </section>
-
-        <section class="mac-window plump-training-window" id="played" aria-labelledby="played-title" data-rr-only>
-          <div class="window-titlebar">
-            <span class="window-control"></span>
-            <strong>How it was played</strong>
-            <span class="window-control window-control-double"></span>
-          </div>
-          <div class="plump-training">
-            <header class="training-intro">
-              <h2 id="played-title">How it was played</h2>
-              <p class="training-lead">
-                In a round robin of Rubicon parties,
-                <span data-rr-count>20</span> checkpoints played each other:
-                the single-deal agent that ended stage 1, and
-                <span data-rr-stage2>19</span> checkpoints of the partie
-                training, evenly spaced up to the live one at update
-                <span data-rr-last>22,600</span>. Each of the
-                <span data-rr-pairings>190</span> pairs played
-                <span data-rr-per-pair>512</span> parties, every partie dealt
-                twice with the seats swapped, so both sides hold both hands of
-                all six deals and the luck of the cards cancels:
-                <span data-rr-parties>97,280</span> parties in all, every move
-                sampled as in training.
-              </p>
-            </header>
-
-            <figure class="training-chart training-chart-hero">
-              <figcaption>
-                <strong>Rubicon points per partie, against the single-deal agent</strong>
-                <span>A least-squares fit of all <span data-rr-pairings>190</span>
-                pairings, each checkpoint relative to the single-deal agent
-                (update 0, hollow); the band is a 95% interval. The live
-                checkpoint scores <span data-rr-live>+25.3 ± 2.5</span> Rubicon
-                points a partie more than the agent it started from. The gains
-                came slowly while the agent learned to use a score it had never
-                seen, and faster once each update played three times the
-                parties and valued each seat’s moves from its own view
-                (dashed).</span>
-              </figcaption>
-              <div class="chart-plot" data-chart="round-robin"></div>
-              <details class="chart-table">
-                <summary>Show as table</summary>
-                <div data-chart-table="round-robin"></div>
-              </details>
-            </figure>
-
-            <div class="training-multiples is-pair">
-              <figure class="training-chart">
-                <figcaption>
-                  <strong>Parties won</strong>
-                  <span>The share of its parties each checkpoint wins against
-                  the other <span data-rr-stage2>19</span>: from
-                  <span data-rr-base-wins>48.1%</span> for the single-deal agent
-                  to <span data-rr-live-wins>52.7%</span> for the live one.</span>
-                </figcaption>
-                <div class="chart-plot" data-chart="rr-wins"></div>
-              </figure>
-              <figure class="training-chart">
-                <figcaption>
-                  <strong>The Rubicon line</strong>
-                  <span>How often a checkpoint’s opponent ends a partie under
-                  100 (rubiconed: the winner scores both totals), and how often
-                  the checkpoint does. The score-blind single-deal agent is
-                  rubiconed in <span data-rr-base-rubiconed>12.0%</span> of its
-                  parties, the live one in
-                  <span data-rr-live-rubiconed>9.9%</span>.</span>
-                </figcaption>
-                <div class="chart-plot" data-chart="rr-rubicon"></div>
-              </figure>
-            </div>
-
-            <figure class="training-chart">
-              <figcaption>
-                <strong>Who beats whom</strong>
-                <span>Each row’s Rubicon points per partie against each
-                column, over <span data-rr-per-pair>512</span> parties: blue
-                where the row wins, red where it loses. Labels are updates in
-                thousands. The later checkpoint wins
-                <span data-rr-later-wins>175</span> of the
-                <span data-rr-pairings>190</span> pairings.</span>
-              </figcaption>
-              <div class="chart-plot matrix-plot" data-chart="rr-matrix"></div>
-            </figure>
-            <p class="training-footnote">
-              x-axis: updates of the partie training (stage 2); update 0 is the
-              single-deal agent, checkpoint <span data-deal-checkpoint>13,600</span>
-              of stage 1. Dashed: from update 12,700, 576 parties per update
-              instead of 192. Ratings are a least-squares fit of every pair’s
-              mean; records against the field average a checkpoint’s 19 pairs.
-            </p>
+            <p class="training-footnote">x-axis: training updates of each stage.</p>
           </div>
         </section>
       </section>
@@ -349,7 +238,7 @@
               <span class="advice-switch" aria-hidden="true"></span>
               <span class="advice-long">Agent’s move</span><span class="advice-short">Move</span>
             </label>
-            <label class="advice-toggle" title="Your advantage (the agent’s estimate of what the partie will score for you: the Rubicon payoff, positive if you win it) now, and on every move after you make it">
+            <label class="advice-toggle" title="Your advantage: the agent’s estimate of what the partie will score for you, the Rubicon payoff, positive if you win it">
               <input type="checkbox" id="values" />
               <span class="advice-switch" aria-hidden="true"></span>
               <span>Advantage</span>

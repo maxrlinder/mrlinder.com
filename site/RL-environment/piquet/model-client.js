@@ -11,7 +11,7 @@ export class PiquetAgent {
   constructor() { this.next = 0; this.pending = new Map(); }
   request(type, payload = {}, progress) {
     if (!this.worker) {
-      this.worker = new Worker(new URL('./model-worker.js?v=2', import.meta.url), { type: 'module' });
+      this.worker = new Worker(new URL('./model-worker.js?v=3', import.meta.url), { type: 'module' });
       this.worker.onmessage = ({ data }) => {
         const request = this.pending.get(data.id);
         if (!request) return;
@@ -36,16 +36,15 @@ export class PiquetAgent {
   async load(progress) { const { manifest } = await this.request('load', {}, progress); this.manifest = manifest; return manifest; }
 
   // The policy (temperature 1) over `legal` actions of `head`, with the value
-  // head now and after each `following` token (one move ahead), and the belief
-  // head: for every card, where the seat thinks it is (opponent's hand, its
-  // discards, the talon).
-  async policy(tokens, head, legal, following = []) {
-    const out = await this.request('choose', { tokens, following });
+  // head and the belief head: for every card, where the seat thinks it is
+  // (opponent's hand, its discards, the talon).
+  async policy(tokens, head, legal) {
+    const out = await this.request('choose', { tokens });
     const logits = out[HEAD_OUTPUT[head]];
     const probabilities = softmax(legal.map(action => logits[action]));
     const argmax = probabilities.indexOf(Math.max(...probabilities));
     const belief = Array.from({ length: NUM_CARDS }, (_, c) => softmax(out.belief.slice(3 * c, 3 * c + 3)));
-    return { probabilities, argmax, value: out.value, after: out.after, belief };
+    return { probabilities, argmax, value: out.value, belief };
   }
 
   // An action from `legal` at `temperature` (0: argmax, Infinity: uniform).

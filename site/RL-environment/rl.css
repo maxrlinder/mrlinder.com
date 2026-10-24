@@ -783,7 +783,6 @@
 }
 
 .token.is-red { color: var(--red); }
-.token.is-win { background: var(--yellow); }
 
 .token.is-next {
   border-style: dashed;
@@ -795,6 +794,92 @@
   to { color: transparent; }
 }
 
+/* The policy end to end: the token stream, the transformer, the head, then the
+   logits of the legal actions and the softmax over them. */
+.policy-flow {
+  margin: 0 0 16px;
+  padding: 12px 10px 10px;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+
+.policy-flow .token-strip {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.flow-arrow {
+  display: block;
+  padding: 4px 0 4px 10px;
+  color: var(--muted);
+  font: 10px/1.3 var(--mono);
+}
+
+.flow-arrow b {
+  margin-right: 6px;
+  color: var(--ink);
+  font: bold 13px/1 var(--mono);
+}
+
+.flow-box {
+  padding: 6px 8px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+  box-shadow: inset 1px 1px 0 #fff;
+  font: 11px/1.35 var(--sans);
+}
+
+.flow-box b {
+  margin-right: 6px;
+  font: bold 10px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.flow-policy {
+  width: 100%;
+  border-collapse: collapse;
+  font: 10px/1.3 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-policy th,
+.flow-policy td {
+  padding: 4px 3px;
+  border-top: 1px solid var(--hairline);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.flow-policy thead th {
+  border-top: 0;
+  font: bold 11px/1.2 var(--mono);
+}
+
+.flow-policy tbody th {
+  width: 1%;
+  padding-right: 8px;
+  color: var(--muted);
+  font-weight: normal;
+  text-align: left;
+}
+
+.flow-policy .is-masked { color: #9a9a9a; }
+.flow-policy thead .is-masked { text-decoration: line-through; }
+.flow-policy .flow-bars td { height: 46px; vertical-align: bottom; }
+
+.flow-bar {
+  display: block;
+  width: 22px;
+  height: calc(var(--p) * 34px);
+  margin: 0 auto 3px;
+  border: 1px solid var(--ink);
+  background: var(--chrome);
+}
+
+.flow-bar.is-pick { background: var(--yellow); }
+
 .training-lineage {
   display: grid;
   margin: 18px 0 30px;
@@ -804,6 +889,8 @@
   gap: 22px;
   list-style: none;
 }
+
+.training-lineage.is-pair { grid-template-columns: repeat(2, 1fr); }
 
 .training-lineage li {
   position: relative;
@@ -885,7 +972,6 @@
 .chart-note { fill: var(--muted); font: 10px var(--mono); }
 .chart-end { fill: var(--ink); font: bold 10px var(--mono); }
 .chart-band { opacity: 0.12; }
-.chart-rule { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 
 .chart-line {
   fill: none;
@@ -990,7 +1076,8 @@
   .training-block,
   .training-block + .training-block { padding: 22px 0 6px; border-left: 0; }
   .training-block + .training-block { border-top: 1px solid var(--hairline); }
-  .training-lineage { grid-template-columns: 1fr; gap: 20px; }
+  .training-lineage,
+  .training-lineage.is-pair { grid-template-columns: 1fr; gap: 20px; }
   .training-lineage li + li::before { top: -17px; left: 50%; content: "↓"; transform: translateX(-50%); }
 }
 
@@ -1300,9 +1387,6 @@
 
 /* A move's advantage once made, on its badge; the best move's in green. Moves
    the agent all but never makes are greyed: the value head extrapolates there. */
-.badge-value { font: inherit; font-style: normal; }
-.badge-value.is-best { color: #006e2d; }
-.badge-value.is-rare { color: #8c8c8c; font-weight: normal; }
 
 .human-hand {
   display: flex;

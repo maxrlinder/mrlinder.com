@@ -76,8 +76,4 @@ const { totals, source } = DATA;
 fill("[data-training-hours]", `about ${Math.round(totals.hours)} hours`);
 fill("[data-training-decisions]", `${(totals.decisions / 1e9).toFixed(1)} billion`);
 fill("[data-training-games]", `${Math.round(totals.games / 1e6)} million`);
-fill("[data-live-checkpoint]", totals.liveCheckpoint.toLocaleString("en-US"));
-fill("[data-rr-games]", source.tournament.games.toLocaleString("en-US"));
-fill("[data-rr-first]", DATA.roundRobin[0].iteration.toLocaleString("en-US"));
-fill("[data-rr-last]", DATA.roundRobin.at(-1).iteration.toLocaleString("en-US"));
 fill("[data-rr-untrained]", String(Math.round(source.untrainedGap.points)));

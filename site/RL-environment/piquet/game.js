@@ -5,7 +5,7 @@ import {
   SAID_NOTHING, DECLARED, CONCEDED, BONUS_REPIQUE, BONUS_PIQUE, BONUS_CARDS, BONUS_CAPOT,
   V_UNKNOWN, V_MINE, V_MINE_LEGAL, V_SELECTED, V_DISCARDED, V_SEEN_TALON, V_OPP, V_OPP_MAYBE, V_PLAYED_ME, V_PLAYED_OPP, V_TRICK_ME, V_TRICK_OPP,
 } from './engine.js?v=2';
-import { PiquetAgent } from './model-client.js?v=2';
+import { PiquetAgent } from './model-client.js?v=3';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 
 const $ = id => document.getElementById(id);
@@ -192,11 +192,6 @@ const worthDigits = () => (partieValue() ? 0 : 1);
 const worthMeaning = () => (partieValue()
   ? 'the agent’s estimate of what this partie will score for you: the Rubicon payoff, positive if you win it'
   : 'the agent’s estimate of your points minus Fern’s at the end of this deal');
-// The value head learned from the states the agent's own play reaches: after a
-// move it all but never makes, its reading is an extrapolation, shown greyed.
-const RARE = 0.01;
-const EXCHANGE_SAMPLES = 16, CONCEDE_SAMPLES = 12, TRIES = 6000;
-
 // The decision the readouts are about. While you choose discards, it is the
 // one after the cards you picked so far (applied on a copy of the table).
 function adviceState() {
@@ -205,102 +200,6 @@ function adviceState() {
   const sim = deal.clone();
   for (const card of full ? selected.slice(0, -1) : selected) sim.apply(card);
   return { sim, full };
-}
-
-// Each move's after-state is your stream plus one token: your own event (a card
-// played, a declaration, an exchange), or your next decision while you choose
-// discards. The value head is trained at every token, so this is the state the
-// agent itself values. When that token would show cards you cannot see (what
-// an exchange draws from the talon, the cards your opponent shows when you
-// concede), it is averaged over re-deals of the cards hidden from you instead.
-function needsSamples(sim, seat, action) {
-  const e = sim.engine;
-  if (e.phase === EXCHANGE) return action === STOP || popcount(e.selected) + 1 >= e.maxDiscards;
-  return e.phase === DECLARE && seat !== e.elder && e.announced !== null && action === QUIET;
-}
-
-const firstToken = (sim, seat, action) => {
-  const before = sim.streams[seat].length;
-  sim.apply(action);
-  return sim.streams[seat][before];
-};
-
-// The combinations each announcement claimed, which a re-deal must reproduce.
-// Point: length and total; sequence: length and top; sets: size and rank (a point's suit is never said).
-const keyFields = key => [key[0], key[1]];
-function claims(sim) {
-  return sim.engine.events.filter(ev => ev.kind === EV_ANNOUNCE && ev.status === DECLARED).map(ev => [ev.category, keyFields(ev.key)]);
-}
-
-// Reassign the cards `seat` cannot place among the places they could be, as
-// the seat sees it: its view (every token) is unchanged, the hidden truth is not.
-function determinize(sim, seat, claimed) {
-  const e = sim.engine, codes = viewCodes(e, seat), opponent = 1 - seat;
-  const loose = [], fixedToOpponent = [];
-  codes.forEach((code, card) => {
-    if (code === V_UNKNOWN) loose.push(card);
-    // Shown by carte blanche, now in the opponent's hand or discards.
-    else if (code === V_OPP_MAYBE && e.info[seat][card] !== 1) fixedToOpponent.push(card);
-  });
-  const slots = [...loose, ...fixedToOpponent].map(card => e.where[card]);
-  const opponentSlots = slots.map((w, i) => (w < 10 ? i : -1)).filter(i => i >= 0);
-  for (let attempt = 0; attempt < TRIES; attempt++) {
-    const order = [...slots.keys()];
-    const free = new Set(order);
-    const placed = new Map();
-    // Carte blanche cards first, into the opponent's hand or discards only.
-    const pool = [...opponentSlots];
-    for (const card of fixedToOpponent) {
-      const pick = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-      placed.set(card, slots[pick]); free.delete(pick);
-    }
-    const rest = [...free];
-    for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
-    loose.forEach((card, i) => placed.set(card, slots[rest[i]]));
-    const hand = [...placed].reduce((mask, [card, w]) => (w === opponent ? (mask | (1 << card)) >>> 0 : mask), e.hands[opponent] & ~maskOfCards([...placed.keys()]));
-    if (claimed.every(([category, fields]) => { const key = best(category, hand); return key && keyFields(key).every((v, i) => v === fields[i]); })) {
-      for (const [card, w] of placed) e.where[card] = w;
-      e.rebuild();
-      return true;
-    }
-  }
-  return false;
-}
-const maskOfCards = cards => cards.reduce((m, c) => (m | (1 << c)) >>> 0, 0);
-
-// Every move's after-state tokens; a plan entry lists its tokens.
-function lookAhead(sim, seat, actions) {
-  const rows = [], plan = [];
-  for (const action of actions) {
-    if (!needsSamples(sim, seat, action)) {
-      rows.push(firstToken(sim.clone(), seat, action));
-      plan.push([rows.length - 1]);
-      continue;
-    }
-    const exchange = sim.engine.phase === EXCHANGE, claimed = exchange ? [] : claims(sim), parts = [];
-    for (let k = 0; k < (exchange ? EXCHANGE_SAMPLES : CONCEDE_SAMPLES); k++) {
-      const copy = sim.clone();
-      if (!determinize(copy, seat, claimed)) break;
-      rows.push(firstToken(copy, seat, action));
-      parts.push(rows.length - 1);
-    }
-    plan.push(parts);
-  }
-  return { rows, plan };
-}
-
-// Your advantage now and after each move. The moves' values are shifted
-// together so that they average to the value now under the policy, as an
-// advantage function's must; the shift is the value head's noise.
-function advantages(policy, plan) {
-  const now = ownValue(policy.value);
-  const raw = plan.map(parts => parts.length ? parts.reduce((sum, row) => sum + ownValue(policy.after[row]), 0) / parts.length : null);
-  let mass = 0, expected = 0;
-  raw.forEach((v, i) => { if (v !== null) { mass += policy.probabilities[i]; expected += policy.probabilities[i] * v; } });
-  const gap = mass ? expected / mass - now : 0;
-  const after = raw.map(v => (v === null ? null : v - gap));
-  const usable = after.filter((v, i) => v !== null && policy.probabilities[i] >= RARE);
-  return { now, after, best: usable.length ? Math.max(...usable) : null };
 }
 
 // The cards the agent would exchange from here: its top choice, one card at a time, until it stops.
@@ -320,8 +219,7 @@ async function exchangePlan(sim, first) {
 async function assess() {
   const asked = stateId, { sim, full } = adviceState();
   const actions = sim.engine.legalActions(), head = sim.engine.head;
-  const ahead = lookAhead(sim, ME, actions);
-  const policy = await agent.policy(sim.streams[ME], head, actions, ahead.rows);
+  const policy = await agent.policy(sim.streams[ME], head, actions);
   if (asked !== stateId) return null;
   let plan = null;
   if (head === 'exchange') {
@@ -329,7 +227,7 @@ async function assess() {
     if (asked !== stateId) return null;
     plan = { cards: full ? [...selected] : [...selected, ...extra] };
   }
-  return { id: asked, head, actions, full, plan, probabilities: policy.probabilities, argmax: policy.argmax, belief: policy.belief, ...advantages(policy, ahead.plan) };
+  return { id: asked, head, actions, full, plan, probabilities: policy.probabilities, argmax: policy.argmax, belief: policy.belief, now: ownValue(policy.value) };
 }
 
 async function requestHint() {
@@ -370,22 +268,15 @@ const points = (v, digits = 0) => {
   return Number(text) === 0 ? text : `${v < 0 ? '−' : '+'}${text}`;
 };
 
-// A badge naming the move, on the thing the move uses: with the agent's move
-// on, its odds (the agent's own pick is the highlighted one); with the
-// advantage on, your advantage once the move is made.
+// A badge naming the move and its odds, on the thing the move uses; the agent's
+// own pick is the highlighted one.
 function marks(index, word) {
-  const advice = currentAdvice();
+  const advice = currentHint();
   if (!advice || index < 0) return '';
-  const odds = Boolean(currentHint()), worth = Boolean(currentWorth()), pick = odds && advice.argmax === index;
-  if (!worth && (!odds || (!pick && advice.probabilities[index] < 0.005))) return '';
-  const value = advice.after[index];
-  const known = worth && value !== null;
-  const rare = advice.probabilities[index] < RARE;
-  const digits = worthDigits();
-  const title = [pick ? 'The agent’s next move' : '', known ? `Your advantage after this move: ${points(value, digits)} (now ${points(advice.now, digits)})` : '', known && rare ? 'The agent almost never plays this, so this value is a rough extrapolation' : ''].filter(Boolean).join('. ');
-  // The best move, and any that shows the same number.
-  const cls = rare ? 'is-rare' : advice.best !== null && value >= advice.best - 0.5 * 10 ** -digits ? 'is-best' : '';
-  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" title="${title}"><span class="badge-verb">${word}</span>${odds ? `<b>${percent(advice.probabilities[index])}</b>` : ''}${known ? `<i class="badge-value ${cls}">${points(value, digits)}</i>` : ''}</span>`;
+  const pick = advice.argmax === index;
+  // Moves the agent all but rules out stay unmarked, to keep the table readable.
+  if (!pick && advice.probabilities[index] < 0.005) return '';
+  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" ${pick ? 'title="The agent’s next move"' : ''}><span class="badge-verb">${word}</span><b>${percent(advice.probabilities[index])}</b></span>`;
 }
 
 // ---- Rendering --------------------------------------------------------------------

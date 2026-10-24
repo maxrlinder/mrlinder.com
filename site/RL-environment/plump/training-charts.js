@@ -105,8 +105,6 @@ const fill = (selector, text) => {
 const weeks = Math.round(DATA.totals.days / 7);
 fill("[data-training-days]", DATA.totals.days < 45 ? `about ${["", "one", "two", "three", "four", "five", "six"][weeks] || weeks} weeks` : `about ${Math.round(DATA.totals.days / 30)} months`);
 fill("[data-training-decisions]", `${(DATA.totals.decisions / 1e9).toFixed(1)} billion`);
-fill("[data-rr-others]", String(roundRobin.length - 1));
-fill("[data-rr-last]", roundRobin.at(-1).iteration.toLocaleString("en-US"));
 const liveManifest = PLUMP_MODEL_CONFIG.models.deeper.actorManifests.fp32;
 const liveCheckpoint = Number(liveManifest.match(/-(\d+)-ev-/)?.[1]);
 if (liveCheckpoint) fill("[data-live-checkpoint]", liveCheckpoint.toLocaleString("en-US"));

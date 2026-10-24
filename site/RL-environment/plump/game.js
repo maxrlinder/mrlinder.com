@@ -2,7 +2,7 @@ import {
   BrowserPpoAgent,
   modelCardId,
   modelSuits,
-} from "./model-client.js?v=values-1";
+} from "./model-client.js?v=now-1";
 import { PLUMP_MODEL_CONFIG } from "./model-config.js?v=rl6-66400-1";
 import {
   generateRoomCode,
@@ -292,62 +292,6 @@ function legalDistribution(logits, legalIndices, temperature) {
   };
 }
 
-// Your advantage (the actor's value head: your expected points this round minus
-// the other seats' average) once each legal action is made, one action ahead
-// on copies of the game. A bid or a card reveals nothing hidden, and an action
-// that ends the round scores exactly. The readings after the moves miss the
-// value now by the head's noise, a fraction of a point; they share it, so that
-// under the policy they average to the value now, as an advantage function's
-// must. The head learned from the states the agent's own play reaches, so
-// after a move it all but never makes its reading is an extrapolation: those
-// are greyed and never marked best.
-const RARE = 0.01;
-async function adviseValues(player, prediction) {
-  const bidding = game.round.phase === "bidding";
-  const actions = bidding ? game.legalBids() : game.legalCards(player);
-  const policy = bidding
-    ? legalDistribution(prediction.bidLogits, actions, INSIGHT_TEMPERATURE)
-    : legalDistribution(prediction.cardLogits, actions.map(modelCardId), INSIGHT_TEMPERATURE);
-  const after = new Map();
-  const ahead = [];
-  for (const action of actions) {
-    const copy = hydrateGame(structuredClone(game));
-    if (bidding) copy.bid(action);
-    else copy.play(action);
-    const index = bidding ? action : modelCardId(action);
-    if (["bidding", "playing"].includes(copy.round.phase)) ahead.push([index, copy]);
-    else after.set(index, relativeScoreValue(copy.round.roundScores, player));
-  }
-  const values = await agent.predictValues(ahead.map(([, copy]) => copy), player);
-  const now = prediction.playerValues[0];
-  let gap = -now;
-  for (const [index, value] of after) gap += policy.probabilities.get(index) * value;
-  ahead.forEach(([index], position) => { gap += policy.probabilities.get(index) * values[position]; });
-  const shift = ahead.reduce((mass, [index]) => mass + policy.probabilities.get(index), 0);
-  ahead.forEach(([index], position) => after.set(index, values[position] - (shift ? gap / shift : 0)));
-  const rare = [...after.keys()].filter((index) => policy.probabilities.get(index) < RARE);
-  return withBest({ now, after, rare: new Set(rare) });
-}
-
-function withBest(advantage) {
-  const common = [...advantage.after].filter(([index]) => !advantage.rare.has(index));
-  return { ...advantage, best: Math.max(...(common.length ? common : [...advantage.after]).map(([, value]) => value)) };
-}
-
-function serializeAdvantage(advantage) {
-  return advantage && {
-    now: advantage.now,
-    after: advantage.after ? [...advantage.after.entries()] : null,
-    rare: advantage.rare ? [...advantage.rare] : [],
-  };
-}
-
-function deserializeAdvantage(advantage) {
-  if (!advantage || !Number.isFinite(advantage.now)) return null;
-  if (!Array.isArray(advantage.after)) return { now: advantage.now, after: null };
-  return withBest({ now: advantage.now, after: new Map(advantage.after), rare: new Set(advantage.rare || []) });
-}
-
 function sampleDistribution(distribution) {
   let cursor = Math.random();
   let last = null;
@@ -458,7 +402,7 @@ let humanPrediction = null;
 let humanPredictionRound = null;
 let autoPlayRound = null;
 let humanPolicy = null;
-// Your advantage after each legal action on your turn: { now, after: Map, best }.
+// A guest's advantage now, as the host reads it; otherwise it comes from the belief readout.
 let humanAdvantage = null;
 let beliefLoading = false;
 let beliefError = "";
@@ -717,19 +661,13 @@ async function sendHostInsights(peerId) {
           INSIGHT_TEMPERATURE,
         );
     }
-    let advantage = null;
-    if (preferences.values) {
-      advantage = game.round.currentPlayer === seat
-        ? await adviseValues(seat, prediction)
-        : { now: prediction.playerValues[0], after: null };
-    }
     if (revision !== networkRevision) return;
     await multiplayer.send({
       type: "insights",
       revision,
       policy: serializePolicy(policy),
       prediction: preferences.beliefs ? serializeActorBeliefs(prediction) : null,
-      advantage: serializeAdvantage(advantage),
+      advantage: preferences.values ? prediction.playerValues[0] : null,
     }, peerId);
   } catch (error) {
     if (revision !== networkRevision) return;
@@ -806,7 +744,7 @@ function applyNetworkState(message) {
 function applyRemoteInsights(message) {
   if (message.revision !== appliedNetworkRevision) return;
   humanPolicy = deserializePolicy(message.policy);
-  humanAdvantage = deserializeAdvantage(message.advantage);
+  humanAdvantage = Number.isFinite(message.advantage) ? message.advantage : null;
   setHumanPrediction(message.prediction);
   beliefLoading = false;
   beliefError = "";
@@ -1163,30 +1101,23 @@ function renderTrick() {
   });
 }
 
-// An action's badge: its probability, your advantage once it is made, or both.
 function policyBadge(index) {
-  const probability = dom.probabilityToggle.checked ? humanPolicy?.probabilities.get(index) : undefined;
-  const value = dom.valueToggle.checked ? humanAdvantage?.after?.get(index) : undefined;
-  if (probability === undefined && value === undefined) return "";
-  const best = probability !== undefined && humanPolicy.argmax === index ? '<span class="argmax-mark" title="Model argmax">★</span>' : "";
-  const odds = probability === undefined ? "" : `${Math.round(probability * 100)}%`;
-  const rare = value !== undefined && humanAdvantage.rare.has(index);
-  const worth = value === undefined
-    ? ""
-    : `<i class="badge-value${rare ? " is-rare" : value >= humanAdvantage.best - 0.05 ? " is-best" : ""}">${formatRelativeScoreValue(value)}</i>`;
-  const title = value === undefined
-    ? ""
-    : ` title="Your advantage after this action: ${formatRelativeScoreValue(value)} (now ${formatRelativeScoreValue(humanAdvantage.now)})${rare ? ". The agent almost never plays this, so this value is a rough extrapolation" : ""}"`;
-  return `${best}<span class="prob-badge"${title}>${[odds, worth].filter(Boolean).join(" ")}</span>`;
+  if (!dom.probabilityToggle.checked || !humanPolicy) return "";
+  const probability = humanPolicy.probabilities.get(index);
+  if (probability === undefined) return "";
+  const best = humanPolicy.argmax === index ? '<span class="argmax-mark" title="Model argmax">★</span>' : "";
+  return `${best}<span class="prob-badge">${Math.round(probability * 100)}%</span>`;
 }
 
 const wantsInsights = () =>
   dom.probabilityToggle.checked || dom.beliefToggle.checked || dom.valueToggle.checked;
 
-// Your advantage now: from this turn's readout, else the latest belief readout.
+// Your advantage now (the actor's value head: your expected points this round
+// minus the other players' average): the host's reading for a guest, else the
+// latest belief readout.
 function currentAdvantage() {
   if (!dom.valueToggle.checked) return null;
-  return humanAdvantage?.now ?? currentBeliefs()?.playerValues[0] ?? null;
+  return humanAdvantage ?? currentBeliefs()?.playerValues[0] ?? null;
 }
 
 function renderHumanHand() {
@@ -1593,11 +1524,6 @@ async function refreshHumanPrediction() {
           game.legalCards(localPlayer).map(modelCardId),
           INSIGHT_TEMPERATURE,
         );
-      }
-      if (dom.valueToggle.checked) {
-        const advantage = await adviseValues(localPlayer, prediction);
-        if (request !== predictionRequest) return;
-        humanAdvantage = advantage;
       }
     } else {
       humanPolicy = null;

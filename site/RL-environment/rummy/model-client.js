@@ -2,7 +2,7 @@ export class RummyAgent {
   constructor() { this.next = 0; this.pending = new Map(); }
   request(type, payload = {}, progress) {
     if (!this.worker) {
-      this.worker = new Worker(new URL('./model-worker.js?v=values-1', import.meta.url), { type: 'module' });
+      this.worker = new Worker(new URL('./model-worker.js?v=now-1', import.meta.url), { type: 'module' });
       this.worker.onmessage = ({ data }) => {
         const request = this.pending.get(data.id);
         if (!request) return;
@@ -26,12 +26,12 @@ export class RummyAgent {
   }
   async load(progress) { const { manifest } = await this.request('load', {}, progress); this.manifest = manifest; return manifest; }
   // The policy itself (temperature 1) over the candidates, for the action-probability readout,
-  // with the raw value head now and after each `following` token (one decision ahead).
-  async policy(tokens, features, following = []) {
-    const { logits, value, after } = await this.request('choose', { tokens, features, following });
+  // with the raw value head.
+  async policy(tokens, features) {
+    const { logits, value } = await this.request('choose', { tokens, features });
     if (logits.length !== features.kind.length) throw new Error('The agent returned the wrong number of moves.');
     const max = Math.max(...logits), weights = logits.map(v => Math.exp(v - max)), total = weights.reduce((a, b) => a + b, 0);
-    return { probabilities: weights.map(w => w / total), argmax: logits.indexOf(max), value, after };
+    return { probabilities: weights.map(w => w / total), argmax: logits.indexOf(max), value };
   }
   async choose(tokens, features, temperature = 0) {
     const { logits } = await this.request('choose', { tokens, features });

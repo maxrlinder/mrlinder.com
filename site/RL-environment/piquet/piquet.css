@@ -153,9 +153,6 @@
 
 .result-reveal { margin: -6px 0 14px; font: 11px/1.5 var(--sans); }
 
-/* How it was played: the pair matrix below the pair of charts. */
-.piquet-page .training-multiples + .training-chart { margin-top: 18px; }
-
 /* Short windows: a flatter felt. */
 @media (max-height: 820px) and (min-width: 761px) {
   .piquet-felt.table-felt { padding-top: 96px; padding-bottom: 18px; }
@@ -208,10 +205,3 @@
   .piquet-hand { --hand-card: 42px; }
   .played-card { width: 40px; }
 }
-
-/* How it was played: the round robin's pair matrix. */
-.piquet-page .matrix-plot { min-height: 0; }
-.matrix-svg rect.matrix-self { stroke: var(--rule); stroke-width: 1; }
-.matrix-focus { fill: none; stroke: var(--ink); stroke-width: 2; pointer-events: none; }
-.matrix-legend { display: flex; margin-top: 8px; align-items: center; gap: 8px; color: var(--muted); font: 10px var(--mono); }
-.matrix-ramp { width: 120px; height: 10px; border: 1px solid var(--rule); }

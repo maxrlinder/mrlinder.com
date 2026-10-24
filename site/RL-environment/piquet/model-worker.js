@@ -40,25 +40,22 @@ async function load(id) {
 let queue = Promise.resolve();
 onmessage = ({ data }) => {
   queue = queue.then(async () => {
-    const { id, type, tokens, following } = data;
+    const { id, type, tokens } = data;
     try {
       if (type === 'load') { postMessage({ id, result: await load(id) }); return; }
       if (!session) throw new Error('The agent is not loaded.');
-      // One-token continuations of the stream, valued one move ahead; a plain
-      // move still sends one (its own last token) and ignores the result.
-      const rows = following?.length ? following : [tokens.at(-1)];
-      const feeds = { tokens: tensor(tokens, [1, tokens.length, WIDTH]), following: tensor(rows, [rows.length, WIDTH]) };
+      // The export also values one-token continuations of the stream; the page
+      // reads only the value now, so it sends one (the last token) and ignores it.
+      const feeds = { tokens: tensor(tokens, [1, tokens.length, WIDTH]), following: tensor([tokens.at(-1)], [1, WIDTH]) };
       let outputs;
       try {
         outputs = await session.run(feeds);
         const read = name => Array.from(outputs[name].data);
-        const flat = read('following_values');
         const result = {
           exchange: read('exchange_logits'), declare: read('declare_logits'), play: read('play_logits'),
           value: read('value'), belief: read('belief_logits'),
-          after: following?.length ? following.map((_, i) => flat.slice(2 * i, 2 * i + 2)) : [],
         };
-        if (![...result.exchange, ...result.declare, ...result.play, ...result.value, ...flat].every(Number.isFinite)) throw new Error('The agent returned an invalid move.');
+        if (![...result.exchange, ...result.declare, ...result.play, ...result.value].every(Number.isFinite)) throw new Error('The agent returned an invalid move.');
         postMessage({ id, result });
       } finally {
         Object.values(feeds).forEach(t => t.dispose());
