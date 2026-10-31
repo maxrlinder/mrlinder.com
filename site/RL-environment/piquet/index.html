@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Piquet, the two-player classic: exchange with the talon, declare your point, sequence and sets, play twelve tricks, and win a six-deal Rubicon partie against Max Linder's self-play AI in your browser." />
+  <meta name="description" content="Piquet, the two-player classic: exchange with the talon, declare your point, sequence and sets, play twelve tricks, and win a six-deal Rubicon partie against Max Linder's self-play AI or a friend in your browser." />
   <meta name="theme-color" content="#ffffff" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Piquet — RL Playground" />
@@ -16,9 +16,9 @@
   <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css?v=icons-1" />
   <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
-  <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=select-1" />
+  <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=three-1" />
   <link rel="stylesheet" href="./piquet.css?v=4" />
-  <script type="module" src="./game.js?v=3"></script>
+  <script type="module" src="./game.js?v=4"></script>
   <script type="module" src="./training-charts.js?v=4"></script>
 </head>
 <body class="plump-page rummy-page piquet-page">
@@ -57,29 +57,78 @@
 
             <form class="plump-controls" id="setup-form">
               <h2>Set the table</h2>
-              <p class="setup-caption">You against the agent · a partie of six deals, Rubicon scoring · the deal alternates</p>
+              <p class="setup-caption">Against the agent or a friend · a partie of six deals, Rubicon scoring · the deal alternates</p>
 
-              <div class="difficulty-control">
-                <div class="difficulty-header">
-                  <label for="difficulty">Agent difficulty</label>
-                  <output for="difficulty" id="difficulty-output">Temperature 1 · as trained</output>
+              <fieldset class="play-mode-picker">
+                <legend>Play mode</legend>
+                <label><input type="radio" name="playMode" value="solo" checked /><span>Solo vs AI</span></label>
+                <label><input type="radio" name="playMode" value="multiplayer" /><span>Multiplayer</span></label>
+              </fieldset>
+
+              <div class="multiplayer-setup" id="multiplayer-setup" hidden>
+                <div class="control-row multiplayer-name-row">
+                  <label for="player-name">Your name</label>
+                  <input id="player-name" maxlength="18" value="Player" />
                 </div>
-                <input id="difficulty" type="range" min="0" max="100" value="50" aria-describedby="difficulty-labels" />
-                <div class="slider-labels" id="difficulty-labels">
-                  <span>Random plays<br />T = ∞</span>
-                  <span>As trained<br />T = 1</span>
-                  <span>Argmax<br />Hardest</span>
+                <fieldset class="multiplayer-role-picker">
+                  <legend>Play a friend</legend>
+                  <label><input type="radio" name="multiplayerRole" value="host" checked /><span>Create table</span></label>
+                  <label><input type="radio" name="multiplayerRole" value="guest" /><span>Enter code</span></label>
+                </fieldset>
+                <div class="control-row join-code-row" id="join-code-row" hidden>
+                  <label for="join-code">Invitation code</label>
+                  <input id="join-code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD2345" />
+                </div>
+                <p class="multiplayer-note">Your friend connects directly to the host. The host deals, checks every move, and runs the agent for both players’ readouts. If your friend leaves, the agent takes their seat.</p>
+                <fieldset class="multiplayer-insights">
+                  <legend>Your game view</legend>
+                  <label>
+                    <input type="checkbox" id="setup-hints" />
+                    <span><strong>Agent’s move</strong><small>Show how the agent weighs each move on your turns.</small></span>
+                  </label>
+                  <label>
+                    <input type="checkbox" id="setup-values" />
+                    <span><strong>Advantage</strong><small>Show what the agent expects the partie to score for you.</small></span>
+                  </label>
+                  <p>Each player controls their own view and can change it during the game.</p>
+                </fieldset>
+              </div>
+
+              <div id="host-settings">
+                <div class="difficulty-control">
+                  <div class="difficulty-header">
+                    <label for="difficulty" id="difficulty-label">Agent difficulty</label>
+                    <output for="difficulty" id="difficulty-output">Temperature 1 · as trained</output>
+                  </div>
+                  <input id="difficulty" type="range" min="0" max="100" value="50" aria-describedby="difficulty-labels" />
+                  <div class="slider-labels" id="difficulty-labels">
+                    <span>Random plays<br />T = ∞</span>
+                    <span>As trained<br />T = 1</span>
+                    <span>Argmax<br />Hardest</span>
+                  </div>
                 </div>
               </div>
 
               <button class="start-game-button" id="start" type="submit">Load agent &amp; deal</button>
+
+              <section class="multiplayer-lobby" id="lobby" hidden>
+                <div class="lobby-code">
+                  <span>Table code</span>
+                  <strong id="lobby-code">—</strong>
+                  <button class="game-button" type="button" id="copy-code">Copy code</button>
+                </div>
+                <div class="lobby-status" id="lobby-status" aria-live="polite">Opening the table…</div>
+                <ol class="lobby-roster" id="lobby-roster"></ol>
+                <button class="start-game-button" type="button" id="start-multiplayer" hidden>Load agent &amp; deal</button>
+                <button class="game-button lobby-cancel" type="button" id="leave-lobby">Leave table</button>
+              </section>
 
               <div class="model-download" id="loading" hidden>
                 <p><span id="load-message" role="status">Preparing…</span><span id="load-percent">0%</span></p>
                 <div class="model-download-track"><span id="load-bar"></span></div>
               </div>
               <p class="setup-error" id="setup-error" role="alert" hidden></p>
-              <p class="model-note">A self-play agent trained from scratch. Inference runs in your browser. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
+              <p class="model-note">A self-play agent trained from scratch. Inference runs in your browser; in multiplayer, only the host loads the agent. <span id="checkpoint-note">The current checkpoint loads when you sit down.</span></p>
             </form>
           </div>
         </div>
@@ -224,6 +273,7 @@
             <button class="game-button" type="button" id="new-table">New game…</button>
             <button class="game-button" type="button" data-rules>Rules</button>
             <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
+            <span class="live-table-badge" id="live-badge" hidden></span>
             <label class="speed-control" id="speed-control">
               <span class="speed-title">Speed</span>
               <span class="speed-end" aria-hidden="true">Slower</span>
@@ -348,7 +398,7 @@
     <div class="window-titlebar"><span class="window-control"></span><strong>New game</strong><span class="window-control window-control-double"></span></div>
     <div class="mac-dialog-body">
       <h2 id="leave-title">Leave this table?</h2>
-      <p>The current partie and the score sheet will be cleared.</p>
+      <p id="leave-copy">The current partie and the score sheet will be cleared.</p>
       <div class="mac-dialog-actions"><button class="game-button" type="button" data-close>Keep playing</button><button class="game-button is-default" type="button" id="leave">New game</button></div>
     </div>
   </dialog>

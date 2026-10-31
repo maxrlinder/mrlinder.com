@@ -25,6 +25,24 @@ You choose your whole exchange at once; it reaches the engine one card at a
 time and then "stop", the way the agent chooses, so your token stream matches
 training exactly. Single-option moves are taken automatically, as in training.
 
+## Multiplayer
+
+You can also play a friend: a peer-to-peer table through the shared
+`../multiplayer.js` (Trystero, namespaced per game), the host against one
+guest. The host owns the deal, both token streams and the agent. The guest
+receives only its seat's view, built from a whitelist of the engine's public
+fields: its own hand, both hand sizes, its own card codes (what it knows of
+every card), the talon's size, and the log with the host's exchange reduced
+to a count. The host's hand, the talon's order, the host's discards and draws
+and what the host saw in the talon stay on the host until the deal ends, when
+the discards and the talon show in the result. The guest sends moves (an
+exchange as its cards and then "stop") with the decision they answer; the
+host checks each against the legal actions before playing it. The guest's
+readouts (agent's move, advantage, card read) are requests to the host, which
+runs the agent on the guest's own stream, with the guest's exchange selection
+so far. If the guest leaves, the agent takes its seat at the host's
+difficulty and the partie plays on.
+
 ## Readouts
 
 **Agent's move** marks every legal move with the policy's probability at
