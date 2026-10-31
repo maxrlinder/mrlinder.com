@@ -41,6 +41,13 @@ const required = [
   "RL-environment/piquet/model/manifest.json",
   "RL-environment/piquet/training-charts.js",
   "RL-environment/piquet/training-data.js",
+  "RL-environment/hjarter/index.html",
+  "RL-environment/hjarter/hjarter.css",
+  "RL-environment/hjarter/hjarter.svg",
+  "RL-environment/hjarter-logo.svg",
+  "RL-environment/hjarter/game.js",
+  "RL-environment/hjarter/engine.js",
+  "RL-environment/hjarter/heuristic.js",
   "RL-environment/line-chart.js",
   "RL-environment/multiplayer.js",
   "RL-environment/difficulty.js",
@@ -93,6 +100,7 @@ const pages = await Promise.all(
     "RL-environment/plump/index.html",
     "RL-environment/rummy/index.html",
     "RL-environment/piquet/index.html",
+    "RL-environment/hjarter/index.html",
   ].map((file) =>
     readFile(resolve(root, file), "utf8"),
   ),
@@ -117,3 +125,4 @@ console.log("Checked routes, assets, metadata, and accessibility hooks.");
 await import("./check-plump-tokens.mjs");
 await import("./check-rummy.mjs");
 await import("./check-piquet.mjs");
+await import("./check-hjarter.mjs");

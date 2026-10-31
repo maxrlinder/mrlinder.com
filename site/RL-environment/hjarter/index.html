@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Hjärter, Swedish Hearts for three to five players: pass two cards, dodge the hearts and the queen of spades, or take them all for the moon. Play the computer or friends in your browser." />
+  <meta name="theme-color" content="#ffffff" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Hjärter — RL Playground" />
+  <meta property="og:description" content="Swedish Hearts for three to five players. Dodge the hearts and the queen of spades, or take them all." />
+  <meta property="og:url" content="https://mrlinder.com/RL-environment/hjarter/" />
+  <meta property="og:image" content="https://mrlinder.com/resources/og-name-only.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>Hjärter — RL Playground</title>
+  <link rel="icon" href="./hjarter.svg" type="image/svg+xml" />
+  <link rel="preload" href="/resources/fonts/ChicagoFLF.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/styles.css?v=icons-1" />
+  <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
+  <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=three-1" />
+  <link rel="stylesheet" href="./hjarter.css?v=1" />
+  <script type="module" src="./game.js?v=1"></script>
+</head>
+<body class="plump-page rummy-page hjarter-page">
+  <a class="skip-link" href="#main">Skip to game</a>
+
+  <div class="plump-shell">
+    <header class="plump-menubar">
+      <a class="plump-home-link" href="/RL-environment/">← Games directory</a>
+      <strong>Hjärter</strong>
+      <span class="model-state" id="model-state">Agent not trained yet</span>
+    </header>
+
+    <main id="main">
+      <section class="plump-setup" id="setup" aria-labelledby="setup-title">
+        <div class="mac-window plump-setup-window">
+          <div class="window-titlebar">
+            <span class="window-control"></span>
+            <strong>New game of Hjärter</strong>
+            <span class="window-control window-control-double"></span>
+          </div>
+          <div class="plump-setup-grid">
+            <div class="plump-rules">
+              <h1 id="setup-title">Hjärter</h1>
+              <p class="plump-subtitle">Swedish Hearts. Three to five players.</p>
+              <p class="plump-rules-lead">Every heart you take costs a point and the queen of spades thirteen. Dodge them all deal after deal, or take every one and send the points to everyone else.</p>
+              <ol class="rule-list">
+                <li><span>Pass two cards before each deal: to the right, to the left, across (four players), then keep them. The cycle repeats.</span></li>
+                <li><span>The 2♣ leads the first trick (the 3♣ with five players). No hearts and no Q♠ in the first trick.</span></li>
+                <li><span>Follow suit if you can; otherwise play anything. The highest card of the suit led takes the trick. No trumps.</span></li>
+                <li><span>Hearts may lead a trick only once a heart has been discarded.</span></li>
+                <li><span>Take <b>the moon</b>, all thirteen hearts and Q♠, and everyone else scores 26. The game ends when someone reaches 100; the lowest score wins.</span></li>
+              </ol>
+              <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
+            </div>
+
+            <form class="plump-controls" id="setup-form">
+              <h2>Set the table</h2>
+              <p class="setup-caption">Against the computer or friends · house rules, with the variants below</p>
+              <p class="agent-notice"><strong>The AI agent is not trained yet.</strong> Until it is, the computer seats play by rules: the textbook game, or random legal cards.</p>
+
+              <fieldset class="play-mode-picker">
+                <legend>Play mode</legend>
+                <label><input type="radio" name="playMode" value="solo" checked /><span>Solo vs computer</span></label>
+                <label><input type="radio" name="playMode" value="multiplayer" /><span>Multiplayer</span></label>
+              </fieldset>
+
+              <div class="multiplayer-setup" id="multiplayer-setup" hidden>
+                <div class="control-row multiplayer-name-row">
+                  <label for="player-name">Your name</label>
+                  <input id="player-name" maxlength="18" value="Player" />
+                </div>
+                <fieldset class="multiplayer-role-picker">
+                  <legend>Join friends</legend>
+                  <label><input type="radio" name="multiplayerRole" value="host" checked /><span>Create table</span></label>
+                  <label><input type="radio" name="multiplayerRole" value="guest" /><span>Enter code</span></label>
+                </fieldset>
+                <div class="control-row join-code-row" id="join-code-row" hidden>
+                  <label for="join-code">Invitation code</label>
+                  <input id="join-code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD2345" />
+                </div>
+                <p class="multiplayer-note">Friends connect directly to the host. The host deals, sets the rules, checks every move and plays the computer seats. Seats nobody takes are played by the computer, and so is the seat of a friend who leaves.</p>
+              </div>
+
+              <div id="host-settings">
+                <div class="control-row">
+                  <label for="players">Players</label>
+                  <select id="players">
+                    <option value="3">3 players · 17 cards each</option>
+                    <option value="4" selected>4 players · 13 cards each</option>
+                    <option value="5">5 players · 10 cards each</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="pass-cards">Passing</label>
+                  <select id="pass-cards">
+                    <option value="0">No passing</option>
+                    <option value="1">Pass 1 card</option>
+                    <option value="2" selected>Pass 2 cards · house rule</option>
+                    <option value="3">Pass 3 cards</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="jack">Jack of diamonds</label>
+                  <select id="jack">
+                    <option value="off" selected>No points · house rule</option>
+                    <option value="on">−10 for whoever takes it</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="end-score">Game ends at</label>
+                  <select id="end-score">
+                    <option value="50">50 points</option>
+                    <option value="100" selected>100 points</option>
+                    <option value="150">150 points</option>
+                  </select>
+                </div>
+                <div class="control-row">
+                  <label for="bots">Computer players</label>
+                  <select id="bots">
+                    <option value="heuristic" selected>Rule-based · textbook play</option>
+                    <option value="random">Random · any legal card</option>
+                  </select>
+                </div>
+              </div>
+
+              <button class="start-game-button" id="start" type="submit">Deal</button>
+
+              <section class="multiplayer-lobby" id="lobby" hidden>
+                <div class="lobby-code">
+                  <span>Table code</span>
+                  <strong id="lobby-code">—</strong>
+                  <button class="game-button" type="button" id="copy-code">Copy code</button>
+                </div>
+                <div class="lobby-status" id="lobby-status" aria-live="polite">Opening the table…</div>
+                <p class="lobby-rules" id="lobby-rules"></p>
+                <ol class="lobby-roster" id="lobby-roster"></ol>
+                <button class="start-game-button" type="button" id="start-multiplayer" hidden>Deal</button>
+                <button class="game-button lobby-cancel" type="button" id="leave-lobby">Leave table</button>
+              </section>
+
+              <p class="setup-error" id="setup-error" role="alert" hidden></p>
+              <p class="model-note">A self-play agent, like the other games’ opponents, will take the computer seats once it is trained.</p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="rummy-game hjarter-game" id="game" hidden aria-label="Hjärter table">
+        <div class="game-toolbar rummy-toolbar">
+          <!-- On phones the table controls fold into this menu; on wider screens they sit in the bar. -->
+          <button class="game-button menu-toggle" type="button" id="menu-toggle" aria-controls="table-menu" aria-expanded="false">Menu</button>
+          <div class="table-menu" id="table-menu">
+            <button class="game-button" type="button" id="new-table">New game…</button>
+            <button class="game-button" type="button" data-rules>Rules</button>
+            <button class="game-button autoplay-button" type="button" id="autoplay" aria-pressed="false">Auto-play my hand</button>
+            <span class="live-table-badge" id="live-badge" hidden></span>
+            <label class="speed-control" id="speed-control">
+              <span class="speed-title">Speed</span>
+              <span class="speed-end" aria-hidden="true">Slower</span>
+              <input type="range" id="speed" min="0" max="100" step="1" value="55" aria-label="Game speed" />
+              <span class="speed-end" aria-hidden="true">Faster</span>
+              <output id="speed-output">1.0×</output>
+            </label>
+          </div>
+          <p class="table-rules" id="table-rules"></p>
+          <button class="game-button scores-toggle" type="button" id="scores-toggle" aria-controls="score-panel" aria-expanded="false">Scores</button>
+        </div>
+
+        <div class="game-layout">
+          <div class="table-panel rummy-table-panel">
+            <div class="game-status-line" aria-live="polite"><span id="status">Dealing…</span></div>
+
+            <div class="table-felt hjarter-felt" id="felt">
+              <div class="round-plaque" id="plaque"></div>
+              <div class="hjarter-seats" id="seats"></div>
+              <div class="hjarter-trick" id="trick" aria-live="polite"></div>
+              <p class="trick-info" id="trick-info"></p>
+            </div>
+
+            <section class="rummy-hand-area" aria-label="Your hand">
+              <div class="human-label" id="human-label">You</div>
+              <div class="rummy-hand hjarter-hand" id="hand"></div>
+              <div class="rummy-actions">
+                <p id="selection-help"></p>
+                <div class="rummy-action-buttons" id="action-buttons"></div>
+              </div>
+            </section>
+
+            <div class="round-dialog rummy-result hjarter-result" id="result-dialog" role="dialog" aria-labelledby="result-title" hidden>
+              <div class="window-titlebar">
+                <span class="window-control"></span>
+                <strong id="result-kicker">Deal complete</strong>
+                <span class="window-control window-control-double"></span>
+              </div>
+              <div class="round-dialog-body">
+                <h2 id="result-title"></h2>
+                <p id="result-description"></p>
+                <div class="result-scores" id="scores"></div>
+                <p class="result-reveal" id="result-reveal"></p>
+                <div class="result-actions">
+                  <button class="game-button review-button" type="button" id="review">Review table</button>
+                  <button class="game-button" type="button" id="next-round">Deal next</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="score-panel rummy-score-panel" id="score-panel" aria-label="Score sheet">
+            <div class="score-titlebar"><span>Score sheet</span><span id="score-caption">Deal 1</span><button type="button" id="scores-close" aria-label="Close score sheet">×</button></div>
+            <div class="score-scroll"><table class="score-table" id="score-table"></table></div>
+            <p class="score-legend" id="score-legend"></p>
+            <div class="score-titlebar log-titlebar"><span>Table log</span><span id="turn-count"></span></div>
+            <ol class="table-log" id="activity"></ol>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="mac-dialog" id="rules-dialog" aria-labelledby="rules-title">
+    <div class="window-titlebar"><span class="window-control"></span><strong>Rules</strong><span class="window-control window-control-double"></span></div>
+    <div class="mac-dialog-body">
+      <h2 id="rules-title">How to play Hjärter</h2>
+      <p>Hjärter is the Swedish name for Hearts. These are a regular table’s house rules; the setup screen lets you change the passing, the jack of diamonds and the length of the game.</p>
+      <h3>The deal</h3>
+      <p>Three to five players, 52 cards, ace high, no trumps. Cards are removed so everyone gets the same number: with three players the 2♦ (17 cards each), with five the 2♦ and 2♣ (10 each); four players get 13 each. The deal moves to the left every hand.</p>
+      <h3>Passing</h3>
+      <p>Before play, everyone passes two cards to the same neighbour, face down: to the right in the first deal, to the left in the second, across in the third (four players only), and nobody passes in the next. Then the cycle starts over. You see the cards you get only once everyone has passed.</p>
+      <h3>Play</h3>
+      <ul class="rule-list">
+        <li><span>Whoever holds the 2♣ (the 3♣ with five players) leads it to the first trick.</span></li>
+        <li><span>Follow the suit led if you can. If you cannot, play any card. The highest card of the suit led takes the trick, and its winner leads the next.</span></li>
+        <li><span><b>First trick:</b> no hearts and no Q♠, unless your hand holds nothing else.</span></li>
+        <li><span><b>Hearts:</b> you may lead a heart only once hearts are <b>broken</b>, when a heart has been played to a trick, or when you hold nothing but hearts.</span></li>
+      </ul>
+      <h3>Scoring</h3>
+      <p>Each heart you take scores 1 and the queen of spades 13: 26 points a deal, and points are bad. Take all thirteen hearts and the Q♠, <b>the moon</b>, and you score 0 while everyone else scores 26. With the jack of diamonds option, whoever takes the J♦ scores −10; it is not a penalty card and does not count towards the moon.</p>
+      <p>After the deal in which someone reaches the end score (100 unless you chose otherwise), the game is over and the lowest score wins.</p>
+      <p>A move with only one legal card, like leading the 2♣, is played for you.</p>
+      <div class="mac-dialog-actions"><button class="game-button is-default" type="button" data-close>Got it</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="mac-dialog" id="leave-dialog" aria-labelledby="leave-title">
+    <div class="window-titlebar"><span class="window-control"></span><strong>New game</strong><span class="window-control window-control-double"></span></div>
+    <div class="mac-dialog-body">
+      <h2 id="leave-title">Leave this table?</h2>
+      <p id="leave-copy">The current game and the score sheet will be cleared.</p>
+      <div class="mac-dialog-actions"><button class="game-button" type="button" data-close>Keep playing</button><button class="game-button is-default" type="button" id="leave">New game</button></div>
+    </div>
+  </dialog>
+
+  <noscript><p class="noscript">JavaScript is needed to play Hjärter.</p></noscript>
+</body>
+</html>

@@ -1,0 +1,244 @@
+/*
+ * Hjärter sits on Rummy's shell (rl.css, then rummy/rummy.css): the same
+ * menubar, setup window, toolbar, hand, score drawer and dialogs. This file
+ * adds the Hjärter felt: two to four opponents round the far side of the oval,
+ * the trick in the middle with each card towards its player, and the passing.
+ */
+
+/* Toolbar: the rules in play sit in the middle of the bar. */
+.table-rules {
+  order: 1;
+  min-width: 0;
+  margin: 0 auto;
+  overflow: hidden;
+  font: 11px/1.3 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Until the agent is trained, the setup says so up front. */
+.agent-notice {
+  margin: 0 0 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--ink);
+  background: var(--yellow);
+  box-shadow: 2px 2px 0 var(--ink);
+  font: 13px/1.45 var(--sans);
+}
+
+.lobby-rules { margin: 10px 0 0; font: 12px/1.4 var(--mono); }
+.lobby-rules:empty { display: none; }
+
+/* Table: an oval with the opponents on its rim, clockwise from your left. */
+
+.hjarter-felt.table-felt {
+  width: min(940px, calc(100% - 24px));
+  height: auto;
+  min-height: 340px;
+  max-height: 640px;
+  margin: 46px auto 0;
+  border-radius: 999px;
+  flex: 1 1 auto;
+}
+
+/* Each seat is placed by game.js (--sx, --sy) and kept clear of the panel's edges. */
+.hjarter-seat.seat {
+  top: clamp(36px, var(--sy), calc(100% - 50px));
+  left: clamp(80px, var(--sx), calc(100% - 80px));
+  z-index: 6;
+  width: 150px;
+  transform: translate(-50%, -50%);
+}
+
+/* With five players a seat takes the top-left corner: the plaque moves to the bottom-left. */
+.hjarter-felt.players-5 .round-plaque { top: auto; bottom: 30px; }
+
+.hjarter-seat.seat.is-current { transform: translate(-50%, calc(-50% - 3px)); }
+.hjarter-seat .opponent-card { width: 28px; height: 40px; margin-left: -20px; }
+.hjarter-seat .opponent-card:first-child { margin-left: 0; }
+.players-3 .hjarter-seat .opponent-card { margin-left: -22px; }
+.hjarter-seat .opponent-hand { height: 44px; }
+.hjarter-seat .seat-known b { font-weight: normal; }
+
+/* The trick: each card lies towards whoever played it (--tx, --ty from game.js)
+   and flies in from their side. */
+.hjarter-trick {
+  --trick-card: clamp(60px, 8vh, 74px);
+  --reach-x: calc(var(--trick-card) * 1.3);
+  --reach-y: calc(var(--trick-card) * .95);
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.players-5 .hjarter-trick { --reach-x: calc(var(--trick-card) * 1.5); --reach-y: calc(var(--trick-card) * 1.02); }
+
+.hjarter-trick .trick-card {
+  --from-x: calc(var(--tx) * 300px);
+  --from-y: calc(var(--ty) * 200px);
+  top: calc(50% + var(--ty) * var(--reach-y) - var(--trick-card) * .7);
+  left: calc(50% + var(--tx) * var(--reach-x) - var(--trick-card) / 2);
+  width: var(--trick-card);
+}
+
+.hjarter-trick .trick-card img { border-radius: 3px; }
+
+/* What the trick and the deal stand at, along the near edge of the felt. */
+.trick-info {
+  position: absolute;
+  z-index: 4;
+  bottom: 18px;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: calc(100% - 120px);
+  margin: 0;
+  transform: translateX(-50%);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.trick-info > span {
+  padding: 1px 7px;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font: 11px/1.4 var(--sans);
+}
+
+.trick-info .info-chip { font: 10px/1.6 var(--mono); }
+.trick-info .info-chip.is-broken { color: var(--red); }
+
+.card-chip { font-weight: normal; white-space: nowrap; }
+.card-chip.is-red { color: var(--red); }
+.penalty-chip, .bonus-chip { white-space: nowrap; }
+
+/* Your hand: cards passed to you carry a tag through the first trick. */
+.hjarter-hand { --peek-max: .7; }
+.rummy-card.is-illegal img { filter: grayscale(.8) brightness(.86); }
+
+.new-badge {
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  left: calc(var(--hand-card) * var(--peek) / 2);
+  padding: 2px 4px;
+  border: 1px solid var(--ink);
+  background: var(--yellow);
+  color: var(--ink);
+  font: bold 8px/1 var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.rummy-card:last-child .new-badge { left: 50%; }
+.hjarter-page .rummy-action-buttons .game-button.is-default { margin: 4px; }
+
+/* Score sheet: five columns of names fit by shortening them. */
+.hjarter-page .score-table th {
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-table td.is-leader { color: #006e2d; font-weight: bold; }
+.hjarter-result .score-table td:not(:first-child),
+.hjarter-result .score-table th:not(:first-child) { text-align: center; }
+
+/* Narrow screens: the seats sit in a row along the far edge, the trick below them. */
+@media (max-width: 760px) {
+  .table-rules { flex: 1 1 auto; font-size: 10px; text-align: center; }
+
+  .hjarter-felt.table-felt {
+    --opponents: 3;
+    display: grid;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    margin: 0 6px;
+    padding: 10px 8px 10px;
+    border-radius: 26px;
+    grid-template-rows: auto minmax(210px, 1fr) auto;
+    gap: 6px;
+  }
+
+  .hjarter-felt.players-3 { --opponents: 2; }
+  .hjarter-felt.players-5 { --opponents: 4; }
+  .hjarter-felt .round-plaque { display: none; }
+
+  .hjarter-seats {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(var(--opponents), minmax(0, 1fr));
+    align-items: start;
+    gap: 5px;
+  }
+
+  .hjarter-seat.seat,
+  .hjarter-seat.seat.is-current {
+    position: static;
+    display: flex;
+    width: auto;
+    min-width: 0;
+    transform: none;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .hjarter-seat .opponent-hand { display: none; }
+  .hjarter-seat .seat-name { min-height: 0; margin: 0; padding: 3px 4px; flex: 1 1 100%; font-size: 11px; }
+  .hjarter-seat .seat-name span:first-child { max-width: none; }
+  .hjarter-seat .seat-stats { margin: 0; padding: 2px 4px; flex-wrap: wrap; justify-content: center; gap: 2px 6px; font-size: 9px; }
+  .hjarter-seat .seat-notes { margin: 0; }
+  .hjarter-seat .seat-action,
+  .hjarter-seat .seat-known { white-space: normal; }
+
+  .hjarter-trick {
+    --trick-card: clamp(48px, min(15vw, 8.5vh), 66px);
+    --reach-x: calc(var(--trick-card) * 1.45);
+    --reach-y: calc(var(--trick-card) * 1.15);
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    height: auto;
+  }
+
+
+  .players-5 .hjarter-trick { --reach-x: calc(var(--trick-card) * 1.7); --reach-y: calc(var(--trick-card) * 1.2); }
+
+  .trick-info {
+    position: static;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+
+  .trick-info > span { font-size: 10px; }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  .hjarter-felt.table-felt { border-radius: 22px; }
+  .hjarter-seats { gap: 4px; }
+  .hjarter-seat .seat-name { font-size: 10px; }
+  .hjarter-seat .seat-name span:last-child { display: none; }
+  .hjarter-felt.players-5 .hjarter-seat .seat-stats span:first-child { display: none; }
+}
+
+/* Short windows (a phone on its side): the seats lose their card backs, and the
+   table scrolls so the hand stays in reach. */
+@media (max-height: 560px) and (min-width: 761px) {
+  .hjarter-game .rummy-table-panel.table-panel { overflow-y: auto; justify-content: flex-start; }
+  .hjarter-felt.table-felt { min-height: 300px; flex: none; margin-top: 30px; }
+  .hjarter-seat .opponent-hand { display: none; }
+  .hjarter-trick { --trick-card: 54px; }
+}

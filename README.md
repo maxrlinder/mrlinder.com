@@ -7,7 +7,7 @@ Personal website, served at https://mrlinder.com by GitHub Pages.
 ```
 site/                 Everything that is published, as is. A file's path under
                       site/ is its URL: site/cv/index.html is mrlinder.com/cv/.
-  RL-environment/     The card games (Plump, Rummy, Piquet) and their agents
+  RL-environment/     The card games (Plump, Rummy, Piquet, Hjärter) and their agents
   resources/          Images, fonts, card art and the CV PDF
 scripts/              Local tooling, never published: dev server, checks, model
                       and training-chart exporters, SVG generators
