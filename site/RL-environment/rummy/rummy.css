@@ -144,9 +144,7 @@
 }
 
 .rummy-felt.players-3 .seat-player-1,
-.rummy-felt.players-3 .seat-player-2,
-.rummy-felt.players-4 .seat-player-1,
-.rummy-felt.players-4 .seat-player-3 { top: calc(50% - 62px); }
+.rummy-felt.players-3 .seat-player-2 { top: calc(50% - 62px); }
 
 .rummy-felt .seat { z-index: 6; }
 
@@ -161,8 +159,7 @@
 .seat-notes:empty { display: none; }
 
 /* A seat across the table spreads its notes sideways, clear of the piles. */
-.players-2 .seat-player-1,
-.players-4 .seat-player-2 { width: 300px; }
+.players-2 .seat-player-1 { width: 300px; }
 
 .seat-action {
   display: inline-block;
@@ -231,16 +228,6 @@
   grid-template-areas: "." "z1" "piles" "z0";
 }
 
-.players-4 .rummy-center {
-  inset: 22px 118px 18px;
-  grid-template-rows: 80px minmax(0, 1fr) auto minmax(0, 1.2fr);
-  grid-template-areas:
-    "z1 .     z3"
-    "z1 z2    z3"
-    "z1 piles z3"
-    "z1 z0    z3";
-}
-
 .meld-zone[data-density="compact"] { --meld-card: 35px; --meld-gap: 8px; }
 .meld-zone[data-density="tight"] { --meld-card: 29px; --meld-gap: 6px; }
 .meld-zone[data-density="chips"] { --meld-gap: 5px; }
@@ -248,8 +235,7 @@
 /* On short windows the seat across the table becomes one strip along the rim
    (no card backs; its count stays), leaving its zone the height. */
 @media (max-height: 820px) and (min-width: 761px) {
-  .players-2 .seat-player-1,
-  .players-4 .seat-player-2 {
+  .players-2 .seat-player-1 {
     display: flex;
     width: min(460px, 60%);
     align-items: center;
@@ -257,14 +243,10 @@
     flex-wrap: wrap;
     gap: 3px 4px;
   }
-  .players-2 .seat-player-1 .seat-name,
-  .players-4 .seat-player-2 .seat-name { width: 130px; margin: 0; }
-  .players-2 .seat-player-1 :is(.seat-stats, .seat-notes),
-  .players-4 .seat-player-2 :is(.seat-stats, .seat-notes) { margin: 0; }
-  .players-2 .seat-player-1 :is(.opponent-hand, .seat-reveal),
-  .players-4 .seat-player-2 :is(.opponent-hand, .seat-reveal) { display: none; }
-  .players-2 .rummy-center,
-  .players-4 .rummy-center { grid-template-rows: 24px minmax(0, 1fr) auto minmax(0, 1.1fr); }
+  .players-2 .seat-player-1 .seat-name { width: 130px; margin: 0; }
+  .players-2 .seat-player-1 :is(.seat-stats, .seat-notes) { margin: 0; }
+  .players-2 .seat-player-1 :is(.opponent-hand, .seat-reveal) { display: none; }
+  .players-2 .rummy-center { grid-template-rows: 24px minmax(0, 1fr) auto minmax(0, 1.1fr); }
 }
 .rummy-piles { grid-area: piles; }
 
@@ -413,7 +395,6 @@
 .zone-0 { grid-area: z0; }
 .zone-1 { grid-area: z1; }
 .zone-2 { grid-area: z2; }
-.zone-3 { grid-area: z3; }
 .meld-zone.is-current { background: rgba(255,255,255,.1); }
 .meld-zone.is-overflowing .zone-melds { overflow-y: auto; scrollbar-width: thin; }
 .meld-zone.is-empty { background: none; }
@@ -445,8 +426,7 @@
 
 /* Your melds gather towards your hand; the far opponent's towards their seat. */
 .zone-0 { flex-direction: column-reverse; justify-content: flex-start; }
-.players-2 .zone-1,
-.players-4 .zone-2 { justify-content: flex-start; }
+.players-2 .zone-1 { justify-content: flex-start; }
 
 .rummy-meld {
   display: block;
@@ -829,7 +809,6 @@
   .discard-spread { padding-top: 4px; }
   .discard-spread:has(.prob-badge) { padding-top: 24px; }
   .rummy-felt.players-2 { --opponents: 1; }
-  .rummy-felt.players-4 { --opponents: 3; }
   .rummy-felt #seats,
   .rummy-felt .rummy-center,
   .rummy-felt .rummy-melds { display: contents; }
@@ -838,7 +817,6 @@
   .rummy-felt .seat.is-current { position: static; width: auto; min-width: 0; grid-row: 1; transform: none; }
   .rummy-felt .seat-player-1, .rummy-felt .zone-1 { grid-column: 1; }
   .rummy-felt .seat-player-2, .rummy-felt .zone-2 { grid-column: 2; }
-  .rummy-felt .seat-player-3, .rummy-felt .zone-3 { grid-column: 3; }
   .rummy-felt .meld-zone:not(.zone-0) { grid-row: 2; }
   .rummy-felt .rummy-piles { grid-row: 3; grid-column: 1 / -1; }
   .rummy-felt .zone-0 { grid-row: 4; grid-column: 1 / -1; }

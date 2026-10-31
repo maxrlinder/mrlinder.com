@@ -7,7 +7,7 @@ single thread, so cross-origin isolation is not required). The runtime downloads
 from jsDelivr; checkpoint weights are served by this site and checked by SHA-256.
 
 The rules are cardgym's from run r7 on: Scandinavian rummy with 500 Rum's
-discard pile and scoring. The UI supports 2–4 players, one or two decks,
+discard pile and scoring. The UI supports 2–3 players (four empty the stock too fast to play to 500), one or two decks,
 7-card hands, three-card melds (further cards are lay-offs, one at a time; selecting a longer meld lays it as three plus lay-offs in one go), deep discard pickups (with the obligation to use the dug-out card
 that turn, directly or at the end of a lay-off chain along a table run; a taken top card cannot be discarded again the same turn), sets, cyclic runs, lay-offs, points for every card laid, an agent-difficulty
 slider (the shared `../difficulty.js`: random play, T = 1 at the centre, argmax),

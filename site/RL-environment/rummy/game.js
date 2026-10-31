@@ -705,7 +705,7 @@ const setSetupError = (message = '') => { $('setup-error').hidden = !message; $(
 
 function setOpponentOptions(mode) {
   const previous = Number($('opponents').value);
-  const max = mode === 'multiplayer' ? Math.max(0, 3 - guests.size) : 3, min = mode === 'multiplayer' ? 0 : 1;
+  const max = mode === 'multiplayer' ? Math.max(0, 2 - guests.size) : 2, min = mode === 'multiplayer' ? 0 : 1;
   const chosen = Math.max(min, Math.min(max, Number.isFinite(previous) ? previous : 1));
   const noun = mode === 'multiplayer' ? 'AI opponent' : 'opponent';
   $('opponents').innerHTML = Array.from({ length: max - min + 1 }, (_, i) => min + i)
@@ -737,10 +737,10 @@ function updateHostLobby() {
   setOpponentOptions('multiplayer');
   const ai = Number($('opponents').value), seated = 1 + guests.size + ai;
   $('start-multiplayer').hidden = false;
-  $('start-multiplayer').disabled = !guests.size || seated > 4;
+  $('start-multiplayer').disabled = !guests.size || seated > 3;
   renderLobby({
     hostName: cleanName($('player-name').value, 'Host'), names: [...guests.values()], ai,
-    status: guests.size ? `${1 + guests.size} players connected · ${seated}/4 seats filled.` : 'Share the code with at least one friend. You can deal once they appear here.',
+    status: guests.size ? `${1 + guests.size} players connected · ${seated}/3 seats filled.` : 'Share the code with at least one friend. You can deal once they appear here.',
   });
   room.send({ type: 'lobby', code: room.code, hostName: cleanName($('player-name').value, 'Host'), names: [...guests.values()], ai, decks: Number($('decks').value) }).catch(() => {});
 }
@@ -837,7 +837,7 @@ function onMessage(message, peer) {
   if (role === 'host') {
     if (message.type === 'join') {
       if (lobbyPhase !== 'lobby') { room.send({ type: 'rejected', message: 'That table has already started.' }, peer).catch(() => {}); return; }
-      if (!guests.has(peer) && guests.size >= 3) { room.send({ type: 'rejected', message: 'That table is full.' }, peer).catch(() => {}); return; }
+      if (!guests.has(peer) && guests.size >= 2) { room.send({ type: 'rejected', message: 'That table is full.' }, peer).catch(() => {}); return; }
       guests.set(peer, cleanName(message.name));
       updateHostLobby();
     } else if (message.type === 'move') remoteMove(message, peer);
@@ -969,7 +969,7 @@ async function openLobby() {
 async function startHosted() {
   if (role !== 'host' || lobbyPhase !== 'lobby' || !guests.size) return;
   const ai = Number($('opponents').value);
-  if (1 + guests.size + ai > 4) { setSetupError('Rummy seats four at most.'); updateHostLobby(); return; }
+  if (1 + guests.size + ai > 3) { setSetupError('Rummy seats three at most.'); updateHostLobby(); return; }
   lobbyPhase = 'starting';
   $('start-multiplayer').disabled = true;
   room.send({ type: 'starting' }).catch(() => {});
