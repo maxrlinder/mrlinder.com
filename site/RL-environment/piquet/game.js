@@ -8,13 +8,14 @@ import {
 import { PiquetAgent } from './model-client.js?v=3';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
+import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
 
 const $ = id => document.getElementById(id);
 const agent = new PiquetAgent();
 // Seats: `me` is the local player, `them` the other; the deal decides who is
 // Elder. Solo: you are seat 0 and the agent, Fern, seat 1. `names` is how this
 // screen calls each seat ("You" for your own).
-let me = 0, them = 1, playerNames = ['You', 'Fern'], names = ['You', 'Fern'], aiSeats = new Set([1]);
+let me = 0, them = 1, playerNames = ['You', AI_NAMES[0]], names = ['You', AI_NAMES[0]], aiSeats = new Set([1]);
 // A partie: six deals, Rubicon scoring.
 const PARTIE_DEALS = 6;
 let deal = null, engine = null, busy = false, failure = false, generation = 0, stateId = 0, decisionId = 0;
@@ -712,7 +713,7 @@ async function startSolo() {
   difficulty = Number($('difficulty').value);
   if (!(await loadAgent())) return;
   role = null; me = 0; them = 1;
-  playerNames = ['You', 'Fern']; names = ['You', 'Fern']; aiSeats = new Set([1]);
+  playerNames = ['You', AI_NAMES[0]]; names = ['You', AI_NAMES[0]]; aiSeats = new Set([1]);
   newPartie();
 }
 
@@ -935,7 +936,7 @@ async function openLobby() {
   const hosting = lobbyRole() === 'host';
   const playerName = cleanName($('player-name').value, hosting ? 'Host' : 'Player');
   $('player-name').value = playerName;
-  try { localStorage.setItem('piquet-player-name', playerName); } catch {}
+  savePlayerName(playerName);
   const code = hosting ? generateRoomCode() : normalizeRoomCode($('join-code').value);
   if (!validRoomCode(code)) { $('join-code').focus(); setSetupError('Enter the complete 8-character table code.'); return; }
   $('start').disabled = true;
@@ -1070,5 +1071,5 @@ $('retry').addEventListener('click', async () => {
   finally { $('retry').disabled = false; }
 });
 updateSpeed();
-try { $('player-name').value = cleanName(localStorage.getItem('piquet-player-name') || localStorage.getItem('rummy-player-name') || localStorage.getItem('plump-player-name')); } catch {}
+$('player-name').value = cleanName(savedPlayerName());
 configureSetup();

@@ -3,10 +3,10 @@ import { RULES } from './rules-data.js';
 import { RummyAgent } from './model-client.js?v=now-1';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
+import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
 
 const $ = id => document.getElementById(id);
 const agent = new RummyAgent();
-const AI_NAMES = ['Fern', 'Clover', 'Sage'];
 let engine, writer, streams, decision, selected = [], sortBy = 'suit', busy = false, generation = 0, decisionId = 0;
 let totals = [], history = [], round = 0, scored = false, failure = false;
 // The round's events, oldest first; a guest holds only the latest, numbered from logStart.
@@ -937,7 +937,7 @@ async function openLobby() {
   const hosting = lobbyRole() === 'host';
   const playerName = cleanName($('player-name').value, hosting ? 'Host' : 'Player');
   $('player-name').value = playerName;
-  try { localStorage.setItem('rummy-player-name', playerName); } catch {}
+  savePlayerName(playerName);
   const code = hosting ? generateRoomCode() : normalizeRoomCode($('join-code').value);
   if (!validRoomCode(code)) { $('join-code').focus(); setSetupError('Enter the complete 8-character table code.'); return; }
   $('start').disabled = true;
@@ -1088,5 +1088,5 @@ $('retry').addEventListener('click', async () => {
   finally { $('retry').disabled = false; }
 });
 updateSpeed();
-try { $('player-name').value = cleanName(localStorage.getItem('rummy-player-name') || localStorage.getItem('plump-player-name')); } catch {}
+$('player-name').value = cleanName(savedPlayerName());
 configureSetup();

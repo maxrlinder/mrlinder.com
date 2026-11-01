@@ -11,6 +11,7 @@ import {
   validRoomCode,
 } from "../multiplayer.js";
 import { difficultyLabel, snapDifficulty, temperatureFor } from "../difficulty.js";
+import { AI_NAMES, savePlayerName, savedPlayerName } from "../players.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -529,7 +530,7 @@ function renderLobby({ hostName, guests = [], aiCount = 0, status = "" } = {}) {
       kind: index === 0 ? "Host" : "Friend",
     })),
     ...Array.from({ length: aiCount }, (_, index) => ({
-      name: `Agent ${humans.length + index + 1}`,
+      name: AI_NAMES[index],
       kind: "AI",
     })),
   ];
@@ -898,8 +899,8 @@ function handlePeerLeave(peerId) {
       peerToSeat.delete(peerId);
       seatToPeer.delete(seat);
       insightPreferences.delete(peerId);
+      // The seat keeps its name, as in the other games; the AI tag says who plays it.
       aiPlayers.add(seat);
-      playerNames[seat] = `Agent ${seat + 1}`;
       setStatus(`${disconnectedName} disconnected; AI has taken over that seat.`);
       render();
       broadcastGameState().then(() => continueBots());
@@ -983,7 +984,7 @@ function viewOffset(player) {
 
 function publicPlayerName(player) {
   if (playerNames[player]) return playerNames[player];
-  return isAiPlayer(player) ? `Agent ${player + 1}` : `Player ${player + 1}`;
+  return `Player ${player + 1}`;
 }
 
 function playerName(player) {
@@ -994,7 +995,7 @@ function statusPlayerName(player) {
   return isHost() ? publicPlayerName(player) : playerName(player);
 }
 
-/** "Agent 3 plays" but "You play": status lines conjugate for the local seat. */
+/** "Fern plays" but "You play": status lines conjugate for the local seat. */
 function statusAction(player, verb) {
   const name = statusPlayerName(player);
   return name === "You" ? `You ${verb}` : `${name} ${verb}s`;
@@ -1997,7 +1998,7 @@ async function startSoloGame(form) {
   multiplayerRole = null;
   multiplayerPhase = "idle";
   const opponents = Number(data.get("opponents"));
-  playerNames = ["You", ...Array.from({ length: opponents }, (_, index) => `Agent ${index + 2}`)];
+  playerNames = ["You", ...AI_NAMES.slice(0, opponents)];
   aiPlayers = new Set(Array.from({ length: opponents }, (_, index) => index + 1));
   dom.liveTableBadge.hidden = true;
   const fallback = await loadHostAgent(String(data.get("agentModel")));
@@ -2021,9 +2022,7 @@ async function openMultiplayerLobby(form) {
   const role = selectedMultiplayerRole();
   const playerName = cleanPlayerName(dom.playerName.value, role === "host" ? "Host" : "Player");
   dom.playerName.value = playerName;
-  try {
-    localStorage.setItem("plump-player-name", playerName);
-  } catch {}
+  savePlayerName(playerName);
   const code = role === "host" ? generateRoomCode() : normalizeRoomCode(dom.joinCode.value);
   if (!validRoomCode(code)) {
     dom.joinCode.focus();
@@ -2111,7 +2110,7 @@ async function startHostedGame() {
   const totalPlayers = humanNames.length + aiCount;
   playerNames = [
     ...humanNames,
-    ...Array.from({ length: aiCount }, (_, index) => `Agent ${humanNames.length + index + 1}`),
+    ...AI_NAMES.slice(0, aiCount),
   ];
   aiPlayers = new Set(Array.from({ length: aiCount }, (_, index) => humanNames.length + index));
   peerToSeat.clear();
@@ -2401,9 +2400,7 @@ $$('[data-close-rules]').forEach((button) =>
 
 dom.difficultyOutput.textContent = difficultyLabel(Number(dom.difficulty.value));
 
-try {
-  dom.playerName.value = cleanPlayerName(localStorage.getItem("plump-player-name"), "Player");
-} catch {}
+dom.playerName.value = cleanPlayerName(savedPlayerName(), "Player");
 
 configureSetupMode();
 
