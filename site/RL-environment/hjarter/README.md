@@ -2,7 +2,10 @@
 
 Static browser game at `/RL-environment/hjarter/`, deployed with the rest of
 `mrlinder.com` through GitHub Pages. Hjärter is Swedish Hearts for three to
-five players.
+five players. No inference server or API key is needed: the ONNX actor runs
+in a module worker with ONNX Runtime Web 1.27.0 (WASM, single thread); the
+runtime downloads from jsDelivr, and the checkpoint weights are served by
+this site and checked by SHA-256.
 
 The rules are cardgym's `hjarter` game: the gym's `docs/hjarter-rules.md`
 records them and their sources (the common Swedish rules and a regular
@@ -13,10 +16,14 @@ Q♠ 13, and the moon gives everyone else 26. The setup screen sets every rule
 the gym varies: the player count, the cards passed (0-3), the jack of
 diamonds (−10) and the end score (50, 100 or 150).
 
-The self-play agent is still in training. Until it is exported, the computer
-seats play the gym's rule-based players (`heuristic.js`, a port of
+The computer seats play the self-play agent, a checkpoint of a run still
+in training, at an adjustable difficulty (the shared `../difficulty.js`), or
+the gym's rule-based players (`heuristic.js`, a port of
 `cardgym/games/hjarter/heuristic.py`): the textbook game, or random legal
-cards. There are no agent readouts and no training section yet.
+cards. Auto-play plays your hand with the agent's best card once it is
+loaded, else the rule-based player's. The setup's notice says what the agent
+has trained on, from its manifest. There are no agent readouts and no
+training section yet.
 
 The page reuses Rummy's shell (`../rummy/rummy.css` on top of `../rl.css`):
 toolbar, hand, score drawer and dialogs. `hjarter.css` adds the felt: the
@@ -37,9 +44,11 @@ scoring. The page plays each deal as a one-deal engine started from the
 totals so far, with the deal number giving the passing direction.
 
 `node scripts/check-hjarter.mjs` (part of `npm run check`) replays games
-played by the gym's engine through `engine.js` and `heuristic.js`: every
-decision's seat, phase and legal cards, the rule-based player's choice,
-every event, and each deal's points, moon, Q♠ and J♦. The fixtures cover
+played by the gym's engine through `engine.js`, `heuristic.js` and
+`tokens.js`: every decision's seat, phase and legal cards, the rule-based
+player's choice, every event, each deal's points, moon, Q♠ and J♦, and for
+the first twelve games every seat's token stream of every deal (whole games
+with the score in their tokens, and single deals). The fixtures cover
 three to five players, every passing count and direction, both jack
 variants, moons, a hearts-only lead and a first-trick hand of only penalty
 cards. To regenerate them with the gym's interpreter:
@@ -64,10 +73,59 @@ own cards, the right number, once) and its moves (checked against the
 legal cards and the decision they answer). If a friend leaves, the computer
 takes their seat and the game plays on.
 
-## When the agent is ready
+## Agent
 
-The gym's tokens (`cardgym/games/hjarter/tokens.py`) are built from the
-engine's events, which `engine.js` already emits in the same order with the
-same fields. Port the token builder, add an exporter and a model worker as
-Piquet's (`../piquet/README.md`), extend the check to compare tokens, and
-replace `heuristicCard` for the computer seats with the agent.
+`tokens.js` is a port of the gym's token builder
+(`cardgym/games/hjarter/tokens.py`): every seat's stream of the deal, one
+token per card event, rules and score on every token, built from the
+engine's events as they happen. The policy reads the acting seat's stream;
+its last token says who acts next. Each deal is a fresh context. The
+critic's oracle stream stays in the gym.
+
+The page builds the agent's tokens the way it trained (the manifest's
+`training.mode`). Run h1 trains single deals (`mode = "deal"`), whose tokens
+carry no score: the page gives each deal the context of a fresh deal (all
+scores zero, the training's end score), so the agent plays every deal for
+its own points. A whole-game agent (`mode = "game"`) would get the real
+totals and end score. The rules fields carry the table's real rules; h1
+trains passing two cards only, and at 4 players its checkpoint 10,500 beat
+the rule-based players by +3.8 points per deal passing two, and by +2.9 to
++3.3 passing none, one or three (`cardgym hjarter evaluate --pass-cards`,
+512 deals each).
+
+The agent plays the computer seats at the difficulty slider's temperature
+(0 to 100: uniform, as trained, argmax) and your hand on auto-play at
+argmax. Single-option moves never reach it, as in training. If the agent
+fails mid-game, the rule-based player takes over and the menubar says so.
+In multiplayer, only the host loads the agent; it plays the computer seats
+and the seat of a friend who leaves.
+
+## Updating the checkpoint
+
+Use a Python environment with `torch`, `numpy`, `onnx` and `onnxruntime` (for
+example the gym's own interpreter with `onnx` and `onnxruntime` installed to a
+separate `--target` folder on `PYTHONPATH`). The sibling `card_playing_gym`
+checkout is imported read-only.
+
+```sh
+python scripts/export-hjarter-model.py
+npm run check
+```
+
+Without `--checkpoint`, the exporter takes the most recently written
+`runs/hjarter/*/checkpoints/latest.json`, checks the checkpoint against the
+pointer's hash (a live run writes the next one beside it), and writes a
+versioned FP32 actor: the pass and play heads (52 card logits each, masked
+by the page to the legal cards) and the per-seat value probe, read at the
+stream's last token. It verifies every output against native PyTorch on
+real decision streams (every player count, both heads, both jack rules,
+every passing count, single-deal and whole-game contexts) and then through
+ONNX Runtime, and only then writes `model/manifest.json`, with the training
+config read from the checkpoint. Remove the previous ONNX file after
+verifying its replacement; commit the new file and manifest together.
+
+`npm run check` also checks the manifest against `tokens.js` (the token
+width and every field's vocabulary) and the ONNX file against the
+manifest's size and hash. If the gym's token layout changes, update
+`tokens.js`, regenerate the fixtures and re-export, rather than just
+swapping the weights.

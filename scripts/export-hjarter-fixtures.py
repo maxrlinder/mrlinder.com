@@ -3,11 +3,13 @@
 Plays games with cardgym's own engine (the sibling card_playing_gym checkout,
 imported read-only) and writes scripts/fixtures/hjarter-games.json: every
 deal's hands, every decision's seat, phase, legal cards, the move made and
-the rule-based player's choice, every engine event, and the deal results.
-`node scripts/check-hjarter.mjs` replays them through engine.js and
-heuristic.js. Standard library only, besides the gym.
+the rule-based player's choice, every engine event, and the deal results;
+for the first games, every seat's token stream of every deal (the gym's
+ObservationWriter), and the token layout and score codes.
+`node scripts/check-hjarter.mjs` replays them through engine.js,
+heuristic.js and tokens.js. Run it with the gym's interpreter (numpy):
 
-    python3 scripts/export-hjarter-fixtures.py
+    ../card_playing_gym/.venv/bin/python scripts/export-hjarter-fixtures.py
 """
 
 from __future__ import annotations
@@ -25,11 +27,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--source', type=Path, default=ROOT.parent / 'card_playing_gym')
     parser.add_argument('--games', type=int, default=36, help='games at least; more until every case has come up')
+    parser.add_argument('--token-games', type=int, default=12, help='games that also record every seat\'s token streams')
     args = parser.parse_args()
     sys.path.insert(0, str(args.source.resolve()))
     from cardgym.games.hjarter.cards import HEARTS, PENALTY_MASK, SUIT_MASKS, cards_of, suit_of
     from cardgym.games.hjarter.engine import HjarterEngine, Phase, Rules
     from cardgym.games.hjarter.heuristic import HeuristicPolicy
+    from cardgym.games.hjarter.tokens import (
+        DISTANCE_LIMIT, FIELD_VOCAB, LEAD_LIMIT, MODE_DEAL, MODE_GAME, WIDTH, ObservationWriter, distance_code, lead_code,
+    )
 
     heuristic = HeuristicPolicy()
     rng = random.Random(20261031)
@@ -63,13 +69,20 @@ def main() -> None:
             seats = ['lowest'] * players
             seats[rng.randrange(players)] = 'highest'
         events = []
+        # A whole game's tokens carry the score; the others are single deals, as h1 trains.
+        writer = ObservationWriter(players, rules, MODE_GAME if whole else MODE_DEAL) if index < args.token_games else None
+
+        def listen(engine, event):
+            events.append([
+                int(event.kind), event.seat, event.card, event.giver, event.trick, event.position, event.led,
+                event.winning, event.points, int(event.complete), event.next_seat, int(event.next_phase),
+            ])
+            if writer is not None:
+                writer.on_event(engine, event)
+
         engine = HjarterEngine(
             rng.randrange(1 << 30), players=players, rules=rules, deals=None if whole else rng.choice((1, 2, 3)),
-            deal_index=rng.randrange(4), dealer=rng.randrange(players), hands=hands,
-            listener=lambda e, ev: events.append([
-                int(ev.kind), ev.seat, ev.card, ev.giver, ev.trick, ev.position, ev.led, ev.winning, ev.points,
-                int(ev.complete), ev.next_seat, int(ev.next_phase),
-            ]),
+            deal_index=rng.randrange(4), dealer=rng.randrange(players), hands=hands, listener=listen,
         )
         game = {
             'players': players, 'rules': {'passCards': pass_cards, 'jackOfDiamonds': jack, 'endScore': rules.end_score},
@@ -105,6 +118,15 @@ def main() -> None:
             seen['jack'] += result.jack >= 0
         game['events'] = events
         game['scores'] = engine.scores
+        if writer is not None:
+            # Every seat's stream, split where each deal starts a fresh context: streams[deal][seat].
+            game['mode'] = writer.mode
+            split = []
+            for seat in range(players):
+                rows = [list(map(int, row)) for row in writer.pending[seat]]
+                starts = writer.deal_starts[seat] + [len(rows)]
+                split.append([rows[a:b] for a, b in zip(starts, starts[1:])])
+            game['streams'] = [list(deal) for deal in zip(*split)]
         seen['players'].add(players)
         seen['pass'].add(pass_cards)
         seen['gameOver'] += whole
@@ -127,11 +149,17 @@ def main() -> None:
         games.append(record(len(games)))
         if len(games) > 400:
             raise SystemExit(f'Coverage not reached: {seen}')
+    tokens = {
+        'width': WIDTH, 'fieldVocab': list(FIELD_VOCAB),
+        'leadCodes': [lead_code(d) for d in range(-LEAD_LIMIT - 20, LEAD_LIMIT + 21)], 'leadFrom': -LEAD_LIMIT - 20,
+        'distanceCodes': [distance_code(d) for d in range(-20, DISTANCE_LIMIT + 21)], 'distanceFrom': -20,
+    }
     path = ROOT / 'scripts/fixtures/hjarter-games.json'
-    path.write_text(json.dumps(games, separators=(',', ':')) + '\n')
+    path.write_text(json.dumps({'tokens': tokens, 'games': games}, separators=(',', ':')) + '\n')
     deals = sum(len(game['results']) for game in games)
     decisions = sum(len(game['decisions']) for game in games)
-    print(f'{len(games)} games, {deals} deals, {decisions} decisions, {seen["moon"]} moons, {seen["jack"]} J♦ taken, '
+    streams = sum(len(deal) for game in games for deal in game.get('streams', []))
+    print(f'{len(games)} games, {deals} deals, {decisions} decisions, {streams} token streams, {seen["moon"]} moons, {seen["jack"]} J♦ taken, '
           f'{seen["heartsOnlyLead"]} hearts-only leads, {seen["forcedPenalty"]} forced penalty discards in the first trick '
           f'-> {path.relative_to(ROOT)}')
 

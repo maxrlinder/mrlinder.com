@@ -3,18 +3,26 @@ import {
   QUEEN_OF_SPADES, MAX_DEALS, REMOVED, HAND_SIZES, name, isRed, suitOf, rankOf, SUIT_WORDS, RANKS,
 } from './engine.js?v=1';
 import { heuristicCard, randomCard } from './heuristic.js?v=1';
+import { ObservationWriter, MODE_DEAL, MODE_GAME } from './tokens.js?v=1';
+import { HjarterAgent } from './model-client.js?v=1';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
+import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
+import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
 
 const $ = id => document.getElementById(id);
-// The computer seats, clockwise from your left.
-const AI_NAMES = ['Astrid', 'Bertil', 'Cilla', 'Dag'];
-// The table: player count, the rule variants, and how the computer seats play.
-let settings = { players: 4, rules: { passCards: 2, jackOfDiamonds: false, endScore: 100 }, bots: 'heuristic' };
+// The table: player count, the rule variants, and how the computer seats play
+// (the agent, the rule-based player, or random cards).
+const BOTS = ['agent', 'heuristic', 'random'];
+let settings = { players: 4, rules: { passCards: 2, jackOfDiamonds: false, endScore: 100 }, bots: 'agent' };
 // Seats: `me` is the local player. `names` is how this screen calls each seat ("You" for your own).
 let me = 0, playerNames = [], names = [], aiSeats = new Set();
 // A game: deals until someone reaches the end score. Each deal is its own engine,
 // started from the totals so far; `log` is the deal's events as this screen may see them.
 let engine = null, log = [], generation = 0, busy = false, decisionId = 0;
+// The agent (loaded once, in a worker) and every seat's token stream of the deal.
+// It plays the computer seats at `difficulty`, and your hand on auto-play at its best.
+const agent = new HjarterAgent();
+let writer = null, difficulty = 50, agentFailed = false;
 let dealNumber = 0, firstDealer = 0, totals = [], history = [], scored = false, resultShown = -1;
 // Your pass while you choose it, and the passes chosen but not yet reached by the
 // engine (the seats pass in turn, but everyone may choose at once).
@@ -85,12 +93,23 @@ function showGame() {
   $('live-badge').textContent = role === 'host' ? `Hosting · ${room.code}` : `Live table · ${room?.code}`;
 }
 
+const agentReady = () => Boolean(agent.manifest) && !agentFailed;
+
+// The seats' streams as the agent trained: a single-deal agent saw every deal
+// fresh (no score, its training's end score); a whole-game agent sees the score.
+function agentWriter() {
+  const { training } = agent.manifest;
+  if (training.mode === 'game') return new ObservationWriter(P(), settings.rules, MODE_GAME);
+  return new ObservationWriter(P(), settings.rules, MODE_DEAL, { scores: Array(P()).fill(0), endScore: training.endScore });
+}
+
 function startDeal() {
   generation++; dealNumber++; scored = false; selected = []; passChoice = new Map(); busy = false; log = [];
+  writer = agentReady() ? agentWriter() : null;
   // The deal moves left each hand; the passing cycle starts to the right.
   engine = new HjarterEngine({
     players: P(), rules: settings.rules, deals: 1, dealIndex: dealNumber - 1, dealer: (firstDealer + dealNumber - 1) % P(), scores: totals,
-    listener: (_, event) => log.push(event),
+    listener: (table, event) => { log.push(event); writer?.onEvent(table, event); },
   });
   decisionId++;
   $('result-dialog').hidden = true;
@@ -106,10 +125,23 @@ const gameOver = () => totals.length > 0 && (Math.max(...totals) >= settings.rul
 const computerSeat = seat => aiSeats.has(seat) || (seat === me && autoplay());
 const forcedNow = () => engine.phase === PLAY && engine.legalCards().length === 1;
 
-function chooseFor(seat) {
-  if (forcedNow()) return engine.legalCards()[0];
-  if (aiSeats.has(seat) && settings.bots === 'random') return randomCard(engine);
-  return heuristicCard(engine);
+// The computer's card for `seat`: the agent's (at the difficulty for its own
+// seats, its best for yours), random, or the rule-based player's.
+async function chooseFor(seat) {
+  const table = engine, legal = table.legalCards();
+  if (legal.length === 1) return legal[0];
+  const computer = aiSeats.has(seat);
+  if (computer && settings.bots === 'random') return randomCard(table);
+  if (writer && agentReady() && (!computer || settings.bots === 'agent')) {
+    try {
+      return await agent.choose(writer.streams[seat], table.head, legal, computer ? temperatureFor(difficulty) : 0);
+    } catch {
+      // The rule-based player takes over for the rest of the session.
+      agentFailed = true;
+      showModelState();
+    }
+  }
+  return heuristicCard(table);
 }
 
 function apply(c) {
@@ -129,7 +161,13 @@ async function advance() {
       const seat = engine.current;
       if (engine.phase === PASS) {
         // A pass is private and quick: nobody waits for the computer's.
-        if (computerSeat(seat)) { apply(chooseFor(seat)); continue; }
+        if (computerSeat(seat)) {
+          const c = await chooseFor(seat);
+          if (version !== generation) return;
+          // Turning off auto-play while the agent chose gives the pass back.
+          if (engine.current === seat && engine.phase === PASS && computerSeat(seat)) { apply(c); render(); }
+          continue;
+        }
         const choice = passChoice.get(seat);
         if (!choice) break;
         for (const c of choice) apply(c);
@@ -140,11 +178,11 @@ async function advance() {
       render();
       // A new lead waits a little longer, so the finished trick can be seen.
       const delay = engine.trick.length ? moveDelay() : Math.round(moveDelay() * 1.5);
-      await pause(computerSeat(seat) ? delay : Math.max(350, delay));
+      const [c] = await Promise.all([chooseFor(seat), pause(computerSeat(seat) ? delay : Math.max(350, delay))]);
       if (version !== generation) return;
       // Turning off auto-play during the pause gives the move back.
       if (engine.current !== seat || (!computerSeat(seat) && !forcedNow())) continue;
-      apply(chooseFor(seat));
+      apply(c);
       render();
     }
   } finally {
@@ -547,17 +585,73 @@ function readSettings() {
   return {
     players: Number($('players').value),
     rules: { passCards: Number($('pass-cards').value), jackOfDiamonds: $('jack').value === 'on', endScore: Number($('end-score').value) },
-    bots: $('bots').value === 'random' ? 'random' : 'heuristic',
+    bots: BOTS.includes($('bots').value) ? $('bots').value : 'agent',
   };
 }
 
-function startSolo() {
-  settings = readSettings();
+const botsLabel = bots => ({ agent: 'the agent', heuristic: 'rule-based', random: 'random' })[bots];
+
+function showModelState() {
+  const ready = agentReady();
+  $('model-state').textContent = agentFailed ? 'Agent stopped · rule-based play'
+    : ready ? `Agent ${agent.manifest.run} · ${agent.manifest.iteration.toLocaleString()}` : 'Agent not loaded';
+  $('model-state').classList.toggle('is-ready', ready);
+}
+
+// Load the agent once; the progress shows under the setup.
+async function loadAgent() {
+  if (agentReady()) return true;
+  setSetupError();
+  agentFailed = false;
+  $('start').disabled = true; $('start-multiplayer').disabled = true; $('loading').hidden = false;
+  try {
+    await agent.load(({ percent, message }) => {
+      $('load-message').textContent = message; $('load-percent').textContent = `${percent}%`; $('load-bar').style.width = `${percent}%`;
+    });
+    showModelState();
+    return true;
+  } catch (error) {
+    setSetupError(`${error.message} Or choose rule-based computer players.`);
+    return false;
+  } finally {
+    $('loading').hidden = true;
+    $('start').disabled = false; $('start-multiplayer').disabled = false;
+  }
+}
+
+async function startSolo() {
+  const table = readSettings();
+  difficulty = Number($('difficulty').value);
+  if (table.bots === 'agent' && !(await loadAgent())) return;
+  settings = table;
   role = null; me = 0;
   playerNames = ['You', ...AI_NAMES.slice(0, P() - 1)]; names = [...playerNames];
   aiSeats = new Set(Array.from({ length: P() - 1 }, (_, i) => i + 1));
   setAutoplay(false);
   newGame();
+}
+
+// What the agent has trained on so far, from its manifest (a small file; the
+// weights load when you sit down).
+async function describeAgent() {
+  let manifest;
+  try {
+    const response = await fetch(new URL('./model/manifest.json', import.meta.url), { cache: 'no-cache' });
+    if (!response.ok) return;
+    manifest = await response.json();
+  } catch { return; }
+  const { training } = manifest;
+  const list = items => (items.length < 2 ? `${items[0]}` : `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`);
+  const players = training.players.length > 2 && training.players.every((n, i) => !i || n === training.players[i - 1] + 1)
+    ? `${training.players[0]}–${training.players.at(-1)}` : list(training.players);
+  const passing = training.passCards.filter(Boolean);
+  const pass = passing.length ? `passing ${list(passing)} ${passing.length === 1 && passing[0] === 1 ? 'card' : 'cards'}${training.passCards.includes(0) ? ' or none' : ''}` : 'without passing';
+  const jack = training.jackOfDiamonds.length > 1 ? 'with and without' : training.jackOfDiamonds[0] ? 'with' : 'without';
+  const untrained = [0, 1, 2, 3].filter(k => !training.passCards.includes(k));
+  $('agent-notice').innerHTML = `<strong>The agent is still in training</strong> (run ${escapeHtml(manifest.run)}, update ${Number(manifest.iteration).toLocaleString()}). `
+    + `So far it has played ${training.mode === 'game' ? `whole games to ${training.endScore}` : 'single deals'} with ${players} players, ${pass}, ${jack} the jack of diamonds. `
+    + (training.mode === 'game' ? 'It sees the score.' : 'It plays each deal for its own points and does not look at the game score.')
+    + (untrained.length ? ` ${untrained.length === 1 && untrained[0] === 0 ? 'No passing is' : 'Other passing counts are'} new to it.` : '');
 }
 
 // ---- Multiplayer ------------------------------------------------------------------------
@@ -581,9 +675,12 @@ function cleanSettings(value) {
       jackOfDiamonds: rules.jackOfDiamonds === true,
       endScore: [50, 100, 150].includes(rules.endScore) ? rules.endScore : 100,
     },
-    bots: value?.bots === 'random' ? 'random' : 'heuristic',
+    bots: BOTS.includes(value?.bots) ? value.bots : 'agent',
   };
 }
+
+// The deal button says when it loads the agent first.
+const dealLabel = () => ($('bots').value === 'agent' && !agentReady() ? 'Load agent & deal' : 'Deal');
 
 function configureSetup() {
   const multi = playMode() === 'multiplayer', joining = multi && lobbyRole() === 'guest';
@@ -591,15 +688,17 @@ function configureSetup() {
   $('join-code-row').hidden = !joining;
   $('join-code').required = joining;
   $('host-settings').hidden = joining;
-  if (lobbyPhase === 'idle') $('start').textContent = !multi ? 'Deal' : joining ? 'Join multiplayer table' : 'Create multiplayer table';
+  $('difficulty-control').hidden = $('bots').value !== 'agent';
+  if (lobbyPhase === 'idle') $('start').textContent = !multi ? dealLabel() : joining ? 'Join multiplayer table' : 'Create multiplayer table';
+  $('start-multiplayer').textContent = dealLabel();
   setSetupError();
 }
 
 function renderLobby({ hostName, names: friends = [], settings: table, status = '' }) {
   const rows = [[hostName, 'Host'], ...friends.map(n => [n, 'Friend'])];
-  if (table) for (let seat = rows.length; seat < table.players; seat++) rows.push([AI_NAMES[seat - 1], 'Computer']);
+  if (table) for (let seat = rows.length; seat < table.players; seat++) rows.push([AI_NAMES[seat - (friends.length + 1)], 'AI']);
   $('lobby-roster').innerHTML = rows.map(([n, kind]) => `<li><span>${escapeHtml(n)}</span><span>${kind}</span></li>`).join('');
-  $('lobby-rules').textContent = table ? `${rulesSummary(table)} · computer players: ${table.bots === 'random' ? 'random' : 'rule-based'}` : '';
+  $('lobby-rules').textContent = table ? `${rulesSummary(table)} · computer players: ${botsLabel(table.bots)}` : '';
   $('lobby-status').textContent = status;
 }
 
@@ -759,7 +858,7 @@ async function openLobby() {
   const hosting = lobbyRole() === 'host';
   const playerName = cleanName($('player-name').value, hosting ? 'Host' : 'Player');
   $('player-name').value = playerName;
-  try { localStorage.setItem('hjarter-player-name', playerName); } catch {}
+  savePlayerName(playerName);
   const code = hosting ? generateRoomCode() : normalizeRoomCode($('join-code').value);
   if (!validRoomCode(code)) { $('join-code').focus(); setSetupError('Enter the complete 8-character table code.'); return; }
   $('start').disabled = true;
@@ -788,10 +887,24 @@ async function openLobby() {
   }
 }
 
-function startHosted() {
+async function startHosted() {
   if (role !== 'host' || lobbyPhase !== 'lobby' || !guests.size) return;
+  const table = readSettings();
+  if (guests.size > table.players - 1) { updateHostLobby(); return; }
+  difficulty = Number($('difficulty').value);
+  if (table.bots === 'agent' && !agentReady()) {
+    lobbyPhase = 'starting';
+    room.send({ type: 'starting' }).catch(() => {});
+    const loaded = await loadAgent();
+    if (role !== 'host' || lobbyPhase !== 'starting') return;
+    lobbyPhase = 'lobby';
+    if (!loaded) { updateHostLobby(); return; }
+    configureSetup();
+    if (!guests.size) { updateHostLobby(); return; }
+  }
+  // Friends may have come or gone while the agent loaded.
   settings = readSettings();
-  if (guests.size > P() - 1) { updateHostLobby(); return; }
+  if (!guests.size || guests.size > P() - 1) { updateHostLobby(); return; }
   lobbyPhase = 'playing';
   room.send({ type: 'starting' }).catch(() => {});
   // You sit at seat 0, your friends to your left in the order they joined, then the computer.
@@ -800,7 +913,8 @@ function startHosted() {
   playerNames = [cleanName($('player-name').value, 'Host'), ...friends.map(([, friend]) => friend)];
   friends.forEach(([peer], index) => { peerSeat.set(peer, index + 1); seatPeer.set(index + 1, peer); });
   aiSeats = new Set();
-  for (let seat = playerNames.length; seat < P(); seat++) { playerNames.push(AI_NAMES[seat - 1]); aiSeats.add(seat); }
+  // The computer seats, after your friends', take the shared names in order.
+  for (let seat = playerNames.length, index = 0; seat < P(); seat++, index++) { playerNames.push(AI_NAMES[index]); aiSeats.add(seat); }
   names = playerNames.map((n, s) => (s === me ? 'You' : n));
   newGame();
 }
@@ -814,7 +928,7 @@ async function leaveTable(error = '') {
   guests = new Map(); peerSeat = new Map(); seatPeer = new Map(); sent = new Map();
   $('result-dialog').hidden = true; $('game').hidden = true; $('setup').hidden = false;
   $('lobby').hidden = true; $('start').hidden = false; $('start').disabled = false; $('start-multiplayer').hidden = true; $('live-badge').hidden = true;
-  $('model-state').textContent = 'Agent not trained yet';
+  showModelState();
   lockModes(false); configureSetup();
   if (error) setSetupError(error);
   await active?.leave().catch(() => {});
@@ -826,6 +940,12 @@ $('setup-form').addEventListener('submit', event => {
 });
 document.querySelectorAll('input[name="playMode"], input[name="multiplayerRole"]').forEach(input => input.addEventListener('change', configureSetup));
 for (const id of ['players', 'pass-cards', 'jack', 'end-score', 'bots']) $(id).addEventListener('change', updateHostLobby);
+$('bots').addEventListener('change', () => { if (lobbyPhase === 'idle' || lobbyPhase === 'lobby') configureSetup(); });
+$('difficulty').addEventListener('input', () => {
+  snapDifficulty($('difficulty'));
+  difficulty = Number($('difficulty').value);
+  $('difficulty-output').textContent = difficultyLabel(difficulty);
+});
 $('player-name').addEventListener('change', updateHostLobby);
 $('join-code').addEventListener('input', () => { $('join-code').value = normalizeRoomCode($('join-code').value); });
 $('start-multiplayer').addEventListener('click', startHosted);
@@ -879,5 +999,6 @@ $('new-table').addEventListener('click', () => {
 });
 $('leave').addEventListener('click', () => { $('leave-dialog').close(); void leaveTable(); });
 updateSpeed();
-try { $('player-name').value = cleanName(localStorage.getItem('hjarter-player-name') || localStorage.getItem('piquet-player-name') || localStorage.getItem('rummy-player-name') || localStorage.getItem('plump-player-name')); } catch {}
+void describeAgent();
+$('player-name').value = cleanName(savedPlayerName());
 configureSetup();

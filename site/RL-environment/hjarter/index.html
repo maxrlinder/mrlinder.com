@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
   <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=three-1" />
   <link rel="stylesheet" href="./hjarter.css?v=1" />
-  <script type="module" src="./game.js?v=1"></script>
+  <script type="module" src="./game.js?v=2"></script>
 </head>
 <body class="plump-page rummy-page hjarter-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -27,7 +27,7 @@
     <header class="plump-menubar">
       <a class="plump-home-link" href="/RL-environment/">← Games directory</a>
       <strong>Hjärter</strong>
-      <span class="model-state" id="model-state">Agent not trained yet</span>
+      <span class="model-state" id="model-state">Agent not loaded</span>
     </header>
 
     <main id="main">
@@ -56,7 +56,7 @@
             <form class="plump-controls" id="setup-form">
               <h2>Set the table</h2>
               <p class="setup-caption">Against the computer or friends · house rules, with the variants below</p>
-              <p class="agent-notice"><strong>The AI agent is not trained yet.</strong> Until it is, the computer seats play by rules: the textbook game, or random legal cards.</p>
+              <p class="agent-notice" id="agent-notice"><strong>The agent is still in training.</strong> The computer seats play its latest checkpoint.</p>
 
               <fieldset class="play-mode-picker">
                 <legend>Play mode</legend>
@@ -117,13 +117,26 @@
                 <div class="control-row">
                   <label for="bots">Computer players</label>
                   <select id="bots">
-                    <option value="heuristic" selected>Rule-based · textbook play</option>
+                    <option value="agent" selected>The agent · self-play</option>
+                    <option value="heuristic">Rule-based · textbook play</option>
                     <option value="random">Random · any legal card</option>
                   </select>
                 </div>
+                <div class="difficulty-control" id="difficulty-control">
+                  <div class="difficulty-header">
+                    <label for="difficulty">Agent difficulty</label>
+                    <output for="difficulty" id="difficulty-output">Temperature 1 · as trained</output>
+                  </div>
+                  <input id="difficulty" type="range" min="0" max="100" value="50" aria-describedby="difficulty-labels" />
+                  <div class="slider-labels" id="difficulty-labels">
+                    <span>Random plays<br />T = ∞</span>
+                    <span>As trained<br />T = 1</span>
+                    <span>Argmax<br />Hardest</span>
+                  </div>
+                </div>
               </div>
 
-              <button class="start-game-button" id="start" type="submit">Deal</button>
+              <button class="start-game-button" id="start" type="submit">Load agent &amp; deal</button>
 
               <section class="multiplayer-lobby" id="lobby" hidden>
                 <div class="lobby-code">
@@ -134,12 +147,16 @@
                 <div class="lobby-status" id="lobby-status" aria-live="polite">Opening the table…</div>
                 <p class="lobby-rules" id="lobby-rules"></p>
                 <ol class="lobby-roster" id="lobby-roster"></ol>
-                <button class="start-game-button" type="button" id="start-multiplayer" hidden>Deal</button>
+                <button class="start-game-button" type="button" id="start-multiplayer" hidden>Load agent &amp; deal</button>
                 <button class="game-button lobby-cancel" type="button" id="leave-lobby">Leave table</button>
               </section>
 
+              <div class="model-download" id="loading" hidden>
+                <p><span id="load-message" role="status">Preparing…</span><span id="load-percent">0%</span></p>
+                <div class="model-download-track"><span id="load-bar"></span></div>
+              </div>
               <p class="setup-error" id="setup-error" role="alert" hidden></p>
-              <p class="model-note">A self-play agent, like the other games’ opponents, will take the computer seats once it is trained.</p>
+              <p class="model-note">A self-play agent trained from scratch. Inference runs in your browser; in multiplayer, only the host loads the agent. On auto-play it plays your hand at its best.</p>
             </form>
           </div>
         </div>

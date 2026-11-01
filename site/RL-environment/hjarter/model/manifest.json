@@ -1,0 +1,89 @@
+{
+  "format": "onnx",
+  "schemaVersion": 1,
+  "tokenWidth": 33,
+  "fieldVocab": [
+    7,
+    6,
+    14,
+    5,
+    18,
+    6,
+    6,
+    6,
+    3,
+    5,
+    6,
+    29,
+    2,
+    6,
+    6,
+    28,
+    28,
+    28,
+    28,
+    28,
+    5,
+    4,
+    2,
+    2,
+    106,
+    106,
+    106,
+    106,
+    5,
+    106,
+    106,
+    63,
+    63
+  ],
+  "maxStream": 76,
+  "iteration": 10750,
+  "run": "h1",
+  "checkpoint": "iter_010750.pt",
+  "modelConfig": {
+    "d_model": 256,
+    "n_layers": 12,
+    "n_heads": 8,
+    "n_kv_heads": 2,
+    "d_ff": 768,
+    "per_layer_dim": 64,
+    "value_embeddings": "alternating",
+    "card_residual": true
+  },
+  "file": "hjarter-h1-10750-fp32.onnx",
+  "bytes": 34169364,
+  "sha256": "b8ebd18dfdc838d9c6cd1b3fab88c19128bb023fee42d24046f136f1c3353643",
+  "sourceSha256": "1c84872a2f4a26c5a68e3ecb5f577516006a43338bbe36ac9a3a7732c6bcf8f5",
+  "precision": "fp32",
+  "outputs": [
+    "pass_logits",
+    "play_logits",
+    "value"
+  ],
+  "valueSeats": 5,
+  "training": {
+    "mode": "deal",
+    "players": [
+      3,
+      4,
+      5
+    ],
+    "passCards": [
+      2
+    ],
+    "jackOfDiamonds": [
+      false,
+      true
+    ],
+    "endScore": 100
+  },
+  "validation": {
+    "samples": 239,
+    "maxAbsoluteError": {
+      "pass_logits": 1.33514404296875e-05,
+      "play_logits": 2.86102294921875e-05,
+      "value": 1.71661376953125e-05
+    }
+  }
+}
