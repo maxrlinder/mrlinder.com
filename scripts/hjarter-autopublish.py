@@ -125,8 +125,8 @@ def publish(args):
     run('git', 'commit', '--quiet', '-m', message, cwd=worktree)
     commit = run('git', 'rev-parse', 'HEAD', cwd=worktree)
     # The lease: push only if main is still the tip this update was built on.
-    run('git', 'push', '--quiet', f'--force-with-lease=refs/heads/main:{tip}', 'origin', f'{commit}:refs/heads/main',
-        cwd=worktree, timeout=1800)
+    run('git', 'push', '--quiet', f'--force-with-lease=refs/heads/main:{tip}', args.push_url,
+        f'{commit}:refs/heads/main', cwd=worktree, timeout=1800)
     run('git', 'fetch', '--quiet', 'origin', 'main')
     log(f'pushed {commit[:7]}: {args.run} {manifest["iteration"]} live, '
         f'{"replacing" if replace else "on top of"} {tip[:7]}')
@@ -142,7 +142,14 @@ def main():
     parser.add_argument('--node', default=shutil.which('node') or 'node')
     parser.add_argument('--once', action='store_true', help='one cycle, then exit')
     parser.add_argument('--dry-run', action='store_true', help='export and check, no commit or push')
+    parser.add_argument('--push-url', help="where to push (default: origin's GitHub repository over SSH)")
     args = parser.parse_args()
+    if args.push_url is None:
+        # origin is HTTPS, which a detached process has no credentials for; SSH uses the machine's key.
+        origin = run('git', 'remote', 'get-url', 'origin')
+        prefix = 'https://github.com/'
+        args.push_url = f'git@github.com:{origin.removeprefix(prefix).removesuffix(".git")}.git' \
+            if origin.startswith(prefix) else origin
     args.gym = args.gym.resolve()
     args.python = args.python or args.gym / '.venv/bin/python'
     log(f'publishing {args.run} every {args.every:g} h (pid {os.getpid()})')

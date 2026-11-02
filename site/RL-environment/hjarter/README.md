@@ -155,7 +155,8 @@ uv pip install --python ../card_playing_gym/.venv/bin/python --target tmp/export
   --no-deps onnx onnxruntime protobuf ml_dtypes flatbuffers coloredlogs humanfriendly
 ```
 
-The push uses the machine's git credentials (SSH).
+It pushes over SSH with the machine's key (`--push-url`; `origin` is HTTPS,
+which a detached process has no credentials for).
 
 `npm run check` also checks the manifest against `tokens.js` (the token
 width and every field's vocabulary) and the ONNX file against the
