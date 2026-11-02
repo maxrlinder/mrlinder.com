@@ -122,7 +122,40 @@ real decision streams (every player count, both heads, both jack rules,
 every passing count, single-deal and whole-game contexts) and then through
 ONNX Runtime, and only then writes `model/manifest.json`, with the training
 config read from the checkpoint. Remove the previous ONNX file after
-verifying its replacement; commit the new file and manifest together.
+verifying its replacement; commit the new file and manifest together, and
+replace rather than add (`README.md`, "Large files").
+
+### Automatic updates
+
+While a run trains, `scripts/hjarter-autopublish.py` keeps the site on its
+latest checkpoint. Start it detached beside the gym's `tools/train_cuda.sh`:
+
+```sh
+setsid nohup python3 scripts/hjarter-autopublish.py >> tmp/hjarter-autopublish.log 2>&1 &
+```
+
+Every 2 hours (`--every`) it reads the run's (`--run`, default h1)
+`checkpoints/latest.json`. If that checkpoint is newer than the model on
+`origin/main`, it exports it in a detached worktree (`tmp/autopublish`, so
+the main checkout is never touched), removes the previous ONNX file, runs
+`scripts/check.mjs`, and pushes `main`. When `main`'s tip is its own previous
+update, the new commit replaces it (same parent, `--force-with-lease`), so
+history keeps one auto-published model. Anything else at the tip gets a
+normal commit on top. It stops after the cycle that finds the training
+supervisor gone, publishing that last checkpoint first. A failed cycle is
+logged and retried at the next one. `--once --dry-run` runs one cycle
+without committing or pushing.
+
+It needs `onnx` and `onnxruntime` for the gym's interpreter in
+`tmp/export-deps` (git-ignored). Install them without dependencies, so they
+cannot shadow the gym's numpy:
+
+```sh
+uv pip install --python ../card_playing_gym/.venv/bin/python --target tmp/export-deps \
+  --no-deps onnx onnxruntime protobuf ml_dtypes flatbuffers coloredlogs humanfriendly
+```
+
+The push uses the machine's git credentials (SSH).
 
 `npm run check` also checks the manifest against `tokens.js` (the token
 width and every field's vocabulary) and the ONNX file against the
