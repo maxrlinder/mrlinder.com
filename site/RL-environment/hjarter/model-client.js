@@ -28,6 +28,15 @@ export class HjarterAgent {
   }
   async load(progress) { const { manifest } = await this.request('load', {}, progress); this.manifest = manifest; return manifest; }
 
+  // The policy (temperature 1) over `legal` for `head`, for the readouts, with
+  // the value probe: every seat's outlook this deal, from the viewer's seat.
+  async policy(tokens, head, legal) {
+    const out = await this.request('choose', { tokens });
+    const logits = legal.map(c => out[head][c]);
+    const max = Math.max(...logits), weights = logits.map(v => Math.exp(v - max)), total = weights.reduce((a, b) => a + b, 0);
+    return { probabilities: weights.map(w => w / total), argmax: logits.indexOf(max), value: out.value };
+  }
+
   // A card from `legal` for `head` ('pass' or 'play') at `temperature`
   // (0: argmax, Infinity: uniform).
   async choose(tokens, head, legal, temperature = 0) {

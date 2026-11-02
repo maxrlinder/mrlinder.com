@@ -22,8 +22,7 @@ the gym's rule-based players (`heuristic.js`, a port of
 `cardgym/games/hjarter/heuristic.py`): the textbook game, or random legal
 cards. Auto-play plays your hand with the agent's best card once it is
 loaded, else the rule-based player's. The setup's notice says what the agent
-has trained on, from its manifest. There are no agent readouts and no
-training section yet.
+has trained on, from its manifest. There is no training section yet.
 
 The page reuses Rummy's shell (`../rummy/rummy.css` on top of `../rl.css`):
 toolbar, hand, score drawer and dialogs. `hjarter.css` adds the felt: the
@@ -99,6 +98,26 @@ argmax. Single-option moves never reach it, as in training. If the agent
 fails mid-game, the rule-based player takes over and the menubar says so.
 In multiplayer, only the host loads the agent; it plays the computer seats
 and the seat of a friend who leaves.
+
+### Readouts
+
+Two switches over the table, as in the other games, read the agent on your
+turns. *Agent's move* puts the policy's odds (temperature 1) on your cards,
+yellow on its pick, frames the cards its move uses, says it in the status
+line, and notes in the log whether it agreed with your move. While you pass,
+the frames and the status are the agent's own pass (its best card, then its
+best given that one), and the odds are for your next card after the ones
+you have chosen. Your pass is your turn even while seats ahead of you are
+still passing: the page writes the turn token, and a pass token for each
+card you have chosen, on a copy of your stream, exactly as the engine will.
+*Advantage* reads the value probe at your stream's last token: it reads
+every seat from yours, as the other seats' average points this deal minus
+its own, so your advantage is your seat's value minus the seats' mean,
+positive when you are expected to take fewer points than the table.
+
+The switches load the agent if the computer seats did not need it. In
+multiplayer a guest's readouts are requests the host answers from the
+guest's own stream; the host loads its agent on the first.
 
 ## Updating the checkpoint
 

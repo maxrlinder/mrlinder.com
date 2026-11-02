@@ -5,11 +5,12 @@
  * the trick in the middle with each card towards its player, and the passing.
  */
 
-/* Toolbar: the rules in play sit in the middle of the bar. */
+/* Toolbar: the rules in play and the switches for the agent's move and your
+   advantage sit together in the middle of the bar. */
 .table-rules {
   order: 1;
   min-width: 0;
-  margin: 0 auto;
+  margin: 0 0 0 auto;
   overflow: hidden;
   font: 11px/1.3 var(--mono);
   text-overflow: ellipsis;
@@ -25,6 +26,8 @@
   box-shadow: 2px 2px 0 var(--ink);
   font: 13px/1.45 var(--sans);
 }
+
+.hjarter-page .rummy-toolbar .advice-toggles { margin: 0 auto 0 0; }
 
 .lobby-rules { margin: 10px 0 0; font: 12px/1.4 var(--mono); }
 .lobby-rules:empty { display: none; }
@@ -137,6 +140,8 @@
 }
 
 .rummy-card:last-child .new-badge { left: 50%; }
+/* The agent's pick sits above the tag of a card passed to you. */
+.rummy-card:has(.new-badge) .prob-badge.is-pick { bottom: calc(100% + 12px); }
 .hjarter-page .rummy-action-buttons .game-button.is-default { margin: 4px; }
 
 /* Score sheet: five columns of names fit by shortening them. */
@@ -227,6 +232,9 @@
 }
 
 @media (max-width: 600px) and (orientation: portrait) {
+  /* The switches take the bar; the score sheet's legend keeps the rules. */
+  .table-rules { display: none; }
+  .hjarter-page .rummy-toolbar .advice-toggles { margin: 0 auto; }
   .hjarter-felt.table-felt { border-radius: 22px; }
   .hjarter-seats { gap: 4px; }
   .hjarter-seat .seat-name { font-size: 10px; }

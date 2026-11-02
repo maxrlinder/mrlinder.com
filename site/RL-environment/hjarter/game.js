@@ -1,10 +1,10 @@
 import {
-  HjarterEngine, PASS, PLAY, K_DEAL, K_PASS, K_RECEIVE, K_PLAY, HEARTS, SPADES, CLUBS, DIAMONDS,
+  HjarterEngine, PASS, PLAY, K_DEAL, K_TURN, K_PASS, K_RECEIVE, K_PLAY, HEARTS, SPADES, CLUBS, DIAMONDS,
   QUEEN_OF_SPADES, MAX_DEALS, REMOVED, HAND_SIZES, name, isRed, suitOf, rankOf, SUIT_WORDS, RANKS,
 } from './engine.js?v=1';
 import { heuristicCard, randomCard } from './heuristic.js?v=1';
-import { ObservationWriter, MODE_DEAL, MODE_GAME } from './tokens.js?v=1';
-import { HjarterAgent } from './model-client.js?v=1';
+import { ObservationWriter, MODE_DEAL, MODE_GAME, F_TYPE, TYPE_TURN } from './tokens.js?v=1';
+import { HjarterAgent } from './model-client.js?v=2';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
@@ -22,7 +22,10 @@ let engine = null, log = [], generation = 0, busy = false, decisionId = 0;
 // The agent (loaded once, in a worker) and every seat's token stream of the deal.
 // It plays the computer seats at `difficulty`, and your hand on auto-play at its best.
 const agent = new HjarterAgent();
-let writer = null, difficulty = 50, agentFailed = false;
+let writer = null, difficulty = 50, agentFailed = false, agentLoading = null, published = null;
+// The agent's readout of your decision (`key` says which), the agent's own pass
+// for each seat this deal, and remarks on your moves in the log.
+let hint = null, hintRequest = 0, askedKey = '', passPlans = new Map(), notes = new Map();
 let dealNumber = 0, firstDealer = 0, totals = [], history = [], scored = false, resultShown = -1;
 // Your pass while you choose it, and the passes chosen but not yet reached by the
 // engine (the seats pass in turn, but everyone may choose at once).
@@ -33,6 +36,8 @@ let guests = new Map(), peerSeat = new Map(), seatPeer = new Map(), sent = new M
 let revision = 0, applied = -1, syncQueued = false, hostDeal = -1;
 // A guest's copy of what the host says about the passes: who has passed, and its own pass.
 let passedSeats = [], myPass = [];
+// Whether the host can answer a guest's readouts: '' (no), 'loading' (its agent loads on the first ask) or 'ready'.
+let hostReadouts = '';
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const autoplay = () => $('autoplay').getAttribute('aria-pressed') === 'true';
@@ -97,15 +102,19 @@ const agentReady = () => Boolean(agent.manifest) && !agentFailed;
 
 // The seats' streams as the agent trained: a single-deal agent saw every deal
 // fresh (no score, its training's end score); a whole-game agent sees the score.
+// Written from the published manifest even before the agent loads, so the
+// readouts can start mid-deal when a switch loads it.
 function agentWriter() {
-  const { training } = agent.manifest;
+  const training = (agent.manifest ?? published)?.training;
+  if (!training) return null;
   if (training.mode === 'game') return new ObservationWriter(P(), settings.rules, MODE_GAME);
   return new ObservationWriter(P(), settings.rules, MODE_DEAL, { scores: Array(P()).fill(0), endScore: training.endScore });
 }
 
 function startDeal() {
   generation++; dealNumber++; scored = false; selected = []; passChoice = new Map(); busy = false; log = [];
-  writer = agentReady() ? agentWriter() : null;
+  hint = null; askedKey = ''; passPlans = new Map(); notes = new Map();
+  writer = agentWriter();
   // The deal moves left each hand; the passing cycle starts to the right.
   engine = new HjarterEngine({
     players: P(), rules: settings.rules, deals: 1, dealIndex: dealNumber - 1, dealer: (firstDealer + dealNumber - 1) % P(), scores: totals,
@@ -207,11 +216,12 @@ const passSource = (seat = me) => (seat - engine.direction + P()) % P();
 
 function userPass() {
   if (!canPass() || selected.length !== passCount()) return;
-  const cards = [...selected];
+  const cards = [...selected], own = currentHint()?.own;
+  if (own) notes.set('pass', sameSet(own, cards) ? ' The agent agrees.' : ` The agent would pass ${chipsText(own)}.`);
   if (role === 'guest') {
     pending = true; render();
     room.send({ type: 'pass', cards }, hostPeer).catch(() => {
-      pending = false; render();
+      pending = false; notes.delete('pass'); render();
       $('status').textContent = 'Your pass did not reach the host. Try again.';
     });
     return;
@@ -224,10 +234,15 @@ function userPass() {
 
 function userPlay(c) {
   if (!myTurn() || !engine.legalCards().includes(c)) return;
+  const advice = currentHint();
+  if (advice) {
+    const pick = advice.actions[advice.argmax];
+    notes.set(`play:${c}`, pick === c ? ' The agent agrees.' : ` The agent would play the ${name(pick)}.`);
+  }
   if (role === 'guest') {
     pending = true; render();
     room.send({ type: 'move', id: decisionId, card: c }, hostPeer).catch(() => {
-      pending = false; render();
+      pending = false; notes.delete(`play:${c}`); render();
       $('status').textContent = 'The move did not reach the host. Try again.';
     });
     return;
@@ -235,6 +250,130 @@ function userPlay(c) {
   apply(c);
   render();
   void advance();
+}
+
+const sameSet = (a, b) => a.length === b.length && a.every(c => b.includes(c));
+
+// ---- The agent's readouts ----------------------------------------------------------------
+// Two switches: the agent's move (its odds on every card) and the advantage.
+const showOdds = () => $('hints').checked, showWorth = () => $('values').checked;
+const wantsAdvice = () => showOdds() || showWorth();
+// The decision the readouts are about: your pass as chosen so far, or your play.
+const readoutOpen = () => canPass() || myTurn();
+const adviceKey = () => `${role === 'guest' ? hostDeal : generation}:${engine.phase === PASS ? `pass:${selected.join()}` : `play:${decisionId}`}`;
+const readoutsAvailable = () => (role === 'guest' ? hostReadouts : Boolean(writer) && !agentFailed);
+const currentAdvice = () => (engine && wantsAdvice() && readoutOpen() && hint?.key === adviceKey() ? hint : null);
+const currentHint = () => (showOdds() ? currentAdvice() : null);
+const currentWorth = () => (showWorth() ? currentAdvice() : null);
+
+// The value probe reads every seat from the viewer's: the other seats' average
+// points this deal minus its own, so positive is good. Zero-sum over the seats in play.
+const ownValue = values => values[0] - values.slice(0, P()).reduce((a, b) => a + b, 0) / P();
+
+// `seat`'s stream at its pass, as the agent will read it: it is the seat's turn
+// even while the seats before it are still passing, and the cards in `chosen`
+// are on their way. Built on a copy, so the streams stay as they are.
+function passTokens(seat, table = engine) {
+  const sim = Object.assign(Object.create(ObservationWriter.prototype), writer, { streams: writer.streams.map(stream => [...stream]) });
+  if (sim.streams[seat].at(-1)[F_TYPE] !== TYPE_TURN) sim.onEvent(table, { kind: K_TURN, seat, nextSeat: seat, nextPhase: PASS });
+  const start = sim.streams[seat];
+  return chosen => {
+    sim.streams[seat] = [...start];
+    for (const c of chosen) sim.onEvent(table, { kind: K_PASS, seat, card: c, nextSeat: seat, nextPhase: PASS });
+    return sim.streams[seat];
+  };
+}
+
+// Everything the readouts show for `seat`'s decision (the host also runs them
+// for a guest, from the guest's own stream): the odds on its cards, the agent's
+// own pass while passing, and the advantage now. While a seat chooses its pass,
+// the odds are for its next card after the ones `chosen` so far.
+async function assess(seat, chosen = []) {
+  const table = engine, decision = decisionId;
+  if (table.phase === PASS) {
+    const tokens = passTokens(seat, table), hand = [...table.hands[seat]], k = passCount();
+    const still = () => engine === table && table.phase === PASS && !hasPassed(seat);
+    // The agent's own pass: its best card, then its best given that one, and so on.
+    let own = passPlans.get(seat);
+    if (!own) {
+      own = { cards: [] };
+      while (own.cards.length < k) {
+        const actions = hand.filter(c => !own.cards.includes(c));
+        const policy = await agent.policy(tokens(own.cards), 'pass', actions);
+        if (!still()) return null;
+        own.first ??= { actions, policy };
+        own.cards.push(actions[policy.argmax]);
+      }
+      passPlans.set(seat, own);
+    }
+    // With every card chosen, the readout is about the last of them.
+    const full = chosen.length >= k, before = full ? chosen.slice(0, -1) : chosen;
+    let { actions, policy } = own.first;
+    if (before.length) {
+      actions = hand.filter(c => !before.includes(c));
+      policy = await agent.policy(tokens(before), 'pass', actions);
+      if (!still()) return null;
+    }
+    return { head: 'pass', actions, full, own: own.cards, probabilities: policy.probabilities, argmax: policy.argmax, now: ownValue(policy.value) };
+  }
+  const actions = table.legalCards();
+  const policy = await agent.policy(writer.streams[seat], 'play', actions);
+  if (engine !== table || decisionId !== decision) return null;
+  return { head: 'play', actions, probabilities: policy.probabilities, argmax: policy.argmax, now: ownValue(policy.value) };
+}
+
+// The switches load the agent if the computer seats did not need it.
+function ensureAgent() {
+  if (agentReady() || agentFailed || agentLoading) return;
+  agentLoading = agent.load()
+    .catch(() => { agentFailed = true; })
+    .finally(() => { agentLoading = null; showModelState(); render(); });
+}
+
+// Ask the agent about your decision; one request serves both switches. A
+// guest's readout comes from the host, which runs the agent on the guest's own stream.
+async function requestHint() {
+  if (!engine || !wantsAdvice() || !readoutOpen() || !readoutsAvailable()) { askedKey = ''; if (hint) { hint = null; render(); } return; }
+  if (role !== 'guest' && !agentReady()) { ensureAgent(); return; }
+  const key = adviceKey();
+  if (hint?.key === key || askedKey === key) return;
+  askedKey = key;
+  const request = ++hintRequest, chosen = engine.phase === PASS ? [...selected] : [];
+  if (role === 'guest') {
+    room.send({ type: 'advise', request, id: decisionId, selected: chosen }, hostPeer).catch(() => { if (askedKey === key) askedKey = ''; });
+    return;
+  }
+  try {
+    const advice = await assess(me, chosen);
+    if (request !== hintRequest || !advice) return;
+    hint = { ...advice, key };
+    render();
+  } catch (error) {
+    console.error('The agent’s readout failed.', error);
+  }
+}
+
+const percent = p => `${Math.round(p * 100)}%`;
+// Points with their sign, a true minus, and `digits` decimals.
+const points = (v, digits = 0) => {
+  const text = Math.abs(v).toFixed(digits);
+  return Number(text) === 0 ? text : `${v < 0 ? '−' : '+'}${text}`;
+};
+
+// A badge naming the move and its odds, on the card it uses; the agent's own
+// pick is the highlighted one.
+function marks(index, word) {
+  const advice = currentHint();
+  if (!advice || index < 0) return '';
+  const pick = advice.argmax === index;
+  // Cards the agent all but rules out stay unmarked, to keep the hand readable.
+  if (!pick && advice.probabilities[index] < 0.005) return '';
+  return `<span class="prob-badge ${pick ? 'is-pick' : ''}" ${pick ? 'title="The agent’s next card"' : ''}><span class="badge-verb">${word}</span><b>${percent(advice.probabilities[index])}</b></span>`;
+}
+
+function adviceText(advice) {
+  if (advice.head === 'pass') return `The agent would pass ${chipsText(advice.own)}`;
+  return `The agent would play the ${name(advice.actions[advice.argmax])} · ${percent(advice.probabilities[advice.argmax])}`;
 }
 
 // ---- Rendering ---------------------------------------------------------------------------
@@ -254,6 +393,7 @@ function render() {
   renderScores();
   renderLog();
   sync();
+  void requestHint();
 }
 
 function waitingFor() {
@@ -279,7 +419,11 @@ function renderStatus() {
     const doing = engine.current === me ? 'The computer is playing for you' : aiSeats.has(engine.current) ? `${who} is thinking` : `Waiting for ${who}`;
     status = `${doing}…${latest ? ` ${latest}` : ''}`;
   }
+  const advice = currentHint();
+  if (advice) status = adviceText(advice);
+  else if (readoutOpen() && wantsAdvice() && readoutsAvailable()) status += ' The agent is considering…';
   $('status').textContent = status;
+  $('status').classList.toggle('is-advice', Boolean(advice));
 }
 
 const listNames = seats => {
@@ -387,8 +531,12 @@ function renderHand() {
   const passed = engine.phase === PASS ? myPassCards() ?? [] : [];
   const received = new Set(engine.phase === PLAY && engine.trickIndex === 0 ? engine.received[me] : []);
   const hand = handOrder(engine.hands[me].filter(c => !passed.includes(c)));
-  $('human-label').innerHTML = `<span>You</span><span>${plural(hand.length, 'card')}</span><span title="Penalty points taken this deal">♥ ${engine.taken[me]}</span><span title="Score">Σ ${num(totals[me])}</span>${engine.queenTaker === me ? '<span>took Q♠</span>' : ''}${engine.jackTaker === me ? '<span>took J♦</span>' : ''}`;
+  const worth = currentWorth();
+  $('human-label').innerHTML = `<span>You</span><span>${plural(hand.length, 'card')}</span><span title="Penalty points taken this deal">♥ ${engine.taken[me]}</span><span title="Score">Σ ${num(totals[me])}</span>${engine.queenTaker === me ? '<span>took Q♠</span>' : ''}${engine.jackTaker === me ? '<span>took J♦</span>' : ''}${worth ? `<span class="advantage-now" title="The agent’s estimate of the other players’ average points this deal, minus yours: positive when you take fewer">Advantage ${points(worth.now, 1)}</span>` : ''}`;
   $('human-label').classList.toggle('is-current', !engine.done && (engine.phase === PASS ? !hasPassed(me) : engine.current === me));
+  // The cards the agent's move would use are framed: its whole pass, or the card it would play.
+  const odds = currentHint();
+  const advised = new Set(odds ? (odds.head === 'pass' ? odds.own : [odds.actions[odds.argmax]]) : []);
   const focused = document.activeElement?.dataset?.card;
   $('hand').classList.toggle('is-waiting', !passing && !playing && !engine.done);
   $('hand').innerHTML = hand.map(c => {
@@ -396,8 +544,11 @@ function renderHand() {
     const usable = passing ? chosen || selected.length < passCount() : playing && legal.has(c);
     const illegal = playing && !legal.has(c);
     const fresh = received.has(c) ? `<span class="new-badge" title="Passed to you by ${escapeHtml(names[passSource()])}">New</span>` : '';
+    let badge = '';
+    if (odds && passing && !chosen && !odds.full) badge = marks(odds.actions.indexOf(c), 'Pass');
+    else if (odds && playing && legal.has(c)) badge = marks(odds.actions.indexOf(c), 'Play');
     const label = `${name(c)}${chosen ? ', chosen to pass' : ''}${illegal ? ', cannot be played now' : ''}${fresh ? ', passed to you' : ''}`;
-    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${illegal ? 'is-illegal' : ''}" data-card="${c}" aria-label="${label}" ${passing ? `aria-pressed="${chosen}"` : ''} ${usable ? '' : 'disabled'}><img src="${cardAsset(c)}" alt="" draggable="false" />${fresh}</button>`;
+    return `<button type="button" class="rummy-card ${chosen ? 'is-selected' : ''} ${advised.has(c) ? 'is-advised' : ''} ${illegal ? 'is-illegal' : ''}" data-card="${c}" aria-label="${label}" ${passing ? `aria-pressed="${chosen}"` : ''} ${usable ? '' : 'disabled'}><img src="${cardAsset(c)}" alt="" draggable="false" />${fresh}${badge}</button>`;
   }).join('');
   if (focused) $('hand').querySelector(`[data-card="${focused}"]`)?.focus({ preventScroll: true });
   fitHand();
@@ -411,6 +562,9 @@ function fitHand() {
   const width = cards[0].offsetWidth, widest = parseFloat(getComputedStyle(hand).getPropertyValue('--peek-max')) || 0.68;
   const peek = Math.max(0.28, Math.min(widest, (hand.clientWidth - 8 - width) / ((cards.length - 1) * width)));
   hand.style.setProperty('--peek', peek.toFixed(3));
+  hand.classList.remove('is-narrow');
+  const badges = [...hand.querySelectorAll('.rummy-card .prob-badge:not(.is-pick)')];
+  hand.classList.toggle('is-narrow', badges.some(badge => badge.offsetWidth + 3 > peek * width));
 }
 
 function playHelp() {
@@ -437,7 +591,9 @@ function renderActions() {
     if (canPass()) {
       const count = selected.length;
       help = count < k ? `Choose ${plural(k - count, count ? 'more card' : 'card', count ? 'more cards' : 'cards')} to pass ${directionWord(engine.direction)} to ${target}.` : `Pass ${chipsText(selected)} to ${target}?`;
+      const own = currentHint()?.own;
       buttons = `<button class="game-button" type="button" data-clear ${count ? '' : 'disabled'}>Clear</button>`
+        + (own && !sameSet(own, selected) ? '<button class="game-button" type="button" data-agent-pick>Choose the agent’s cards</button>' : '')
         + `<button class="game-button ${count === k ? 'is-default' : ''}" type="button" data-pass ${count === k ? '' : 'disabled'}>Pass ${plural(k, 'card')}</button>`;
     } else if (autoplay() && !hasPassed(me)) help = 'The computer is choosing your pass.';
     else {
@@ -470,12 +626,14 @@ function renderScores() {
 
 function renderLog() {
   $('turn-count').textContent = engine.phase === PLAY || engine.done ? `Trick ${Math.min(engine.trickIndex + 1, engine.handSize)}` : 'Passing';
-  $('activity').innerHTML = logLines().map(line => `<li>${escapeHtml(line)}</li>`).reverse().join('');
+  $('activity').innerHTML = logLines(true).map(line => `<li>${escapeHtml(line)}</li>`).reverse().join('');
 }
 
 // The deal's events in words. Passes show as a seat's whole pass (its cards only
-// for your own); cards passed to you as one line.
-function logLines() {
+// for your own); cards passed to you as one line. With `remarks`, your moves
+// carry whether the agent agreed.
+function logLines(remarks = false) {
+  const remark = key => (remarks ? notes.get(key) ?? '' : '');
   const lines = [], passes = new Map();
   let heartsBroken = false, receivedShown = false;
   for (const ev of log) {
@@ -489,7 +647,7 @@ function logLines() {
       passes.set(ev.seat, cards);
       if (cards.length === passCount()) {
         const to = names[passTarget(ev.seat)];
-        lines.push(ev.seat === me ? `You pass ${chipsText(cards)} to ${to}.` : `${who} passes ${plural(cards.length, 'card')} to ${passTarget(ev.seat) === me ? 'you' : to}.`);
+        lines.push(ev.seat === me ? `You pass ${chipsText(cards)} to ${to}.${remark('pass')}` : `${who} passes ${plural(cards.length, 'card')} to ${passTarget(ev.seat) === me ? 'you' : to}.`);
       }
     } else if (ev.kind === K_RECEIVE) {
       if (ev.seat === me && !receivedShown) {
@@ -503,7 +661,7 @@ function logLines() {
         const taker = ev.winning === me ? 'you take' : `${names[ev.winning]} takes`;
         line += `; ${taker} the trick${ev.points ? ` (${ev.points > 0 ? '+' : '−'}${Math.abs(ev.points)})` : ''}`;
       }
-      lines.push(`${line}.`);
+      lines.push(`${line}.${ev.seat === me ? remark(`play:${ev.card}`) : ''}`);
     }
   }
   if (engine.done && scored) lines.push(dealSummary(history.at(-1)));
@@ -640,6 +798,7 @@ async function describeAgent() {
     if (!response.ok) return;
     manifest = await response.json();
   } catch { return; }
+  published = manifest;
   const { training } = manifest;
   const list = items => (items.length < 2 ? `${items[0]}` : `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`);
   const players = training.players.length > 2 && training.players.every((n, i) => !i || n === training.players[i - 1] + 1)
@@ -728,6 +887,7 @@ function statePacket(seat) {
   });
   return {
     seat, code: room.code, names: playerNames, ai: [...aiSeats], settings, dealNumber, totals, scored, busy,
+    readouts: readoutsAvailable() ? (agentReady() ? 'ready' : 'loading') : '',
     history: history.map(h => ({ ...h, passed: h.passed.map((cards, s) => (s === seat ? cards : [])), received: h.received.map((cards, s) => (s === seat ? cards : [])) })),
     deal: generation, decision: decisionId,
     passed: Array.from({ length: P() }, (_, s) => (engine.phase === PASS ? hasPassed(s) : true)),
@@ -776,6 +936,22 @@ function remoteMove(message, peer) {
   void advance();
 }
 
+// The guest's readouts for its decision, with the cards it has chosen to pass so far.
+async function adviseGuest(message, peer) {
+  const seat = peerSeat.get(peer);
+  if (seat === undefined || !engine || engine.done || !readoutsAvailable()) return;
+  if (!agentReady()) { ensureAgent(); return; }
+  const chosen = Array.isArray(message.selected) ? message.selected : [];
+  const valid = engine.phase === PASS
+    ? !hasPassed(seat) && chosen.length <= passCount() && new Set(chosen).size === chosen.length && chosen.every(c => Number.isInteger(c) && engine.hands[seat].includes(c))
+    : engine.phase === PLAY && engine.current === seat && message.id === decisionId && !chosen.length;
+  if (!valid) return;
+  try {
+    const advice = await assess(seat, chosen);
+    if (advice) room?.send({ type: 'advice', request: message.request, advice }, peer).catch(() => {});
+  } catch (error) { console.error('The guest’s readout failed.', error); }
+}
+
 function applyState({ revision: number, state }) {
   if (number <= applied) return;
   applied = number;
@@ -788,7 +964,10 @@ function applyState({ revision: number, state }) {
   hostDeal = state.deal; decisionId = state.decision; passedSeats = state.passed; myPass = state.myPass ?? []; log = state.log;
   const legal = state.engine.legal;
   engine = { ...state.engine, legalCards: () => [...legal] };
-  if (newDeal) { selected = []; $('result-dialog').hidden = true; }
+  if (newDeal) { selected = []; hint = null; notes = new Map(); $('result-dialog').hidden = true; }
+  // The host's agent has just loaded: ask again.
+  if (state.readouts === 'ready' && hostReadouts !== 'ready') askedKey = '';
+  hostReadouts = ['loading', 'ready'].includes(state.readouts) ? state.readouts : '';
   if (engine.phase !== PASS || passedSeats[me]) selected = [];
   pending = false;
   lobbyPhase = 'playing';
@@ -808,6 +987,7 @@ function onMessage(message, peer) {
       updateHostLobby();
     } else if (message.type === 'pass') remotePass(message, peer);
     else if (message.type === 'move') remoteMove(message, peer);
+    else if (message.type === 'advise') void adviseGuest(message, peer);
     return;
   }
   if (message.type === 'host_hello') {
@@ -823,6 +1003,10 @@ function onMessage(message, peer) {
     $('lobby-status').textContent = 'The host is dealing…';
   } else if (message.type === 'state') {
     applyState(message);
+  } else if (message.type === 'advice') {
+    if (message.request !== hintRequest || !askedKey || !Array.isArray(message.advice?.actions)) return;
+    hint = { ...message.advice, key: askedKey };
+    render();
   } else if (message.type === 'rejected' || message.type === 'closed') {
     void leaveTable(message.message || 'The host closed this table.');
   }
@@ -924,6 +1108,7 @@ async function leaveTable(error = '') {
   const active = room;
   if (role === 'host' && active) await active.send({ type: 'closed', message: 'The host closed this table.' }).catch(() => {});
   generation++; engine = null; log = []; busy = false; pending = false; selected = []; passChoice = new Map();
+  hint = null; askedKey = ''; passPlans = new Map(); notes = new Map(); hostReadouts = '';
   room = null; role = null; lobbyPhase = 'idle'; hostPeer = null; me = 0;
   guests = new Map(); peerSeat = new Map(); seatPeer = new Map(); sent = new Map();
   $('result-dialog').hidden = true; $('game').hidden = true; $('setup').hidden = false;
@@ -973,10 +1158,16 @@ $('action-buttons').addEventListener('click', event => {
   if (!button) return;
   if (button.matches('[data-results]')) { $('result-dialog').hidden = false; render(); $(role === 'guest' ? 'review' : 'next-round').focus(); return; }
   if (button.matches('[data-clear]') && canPass()) { selected = []; render(); }
+  else if (button.matches('[data-agent-pick]') && canPass() && currentHint()?.own) { selected = [...currentHint().own]; render(); }
   else if (button.matches('[data-pass]')) userPass();
 });
 $('autoplay').addEventListener('click', () => { setAutoplay(!autoplay()); selected = []; render(); void advance(); });
 $('speed').addEventListener('input', () => { updateSpeed(); if (engine) render(); });
+$('setup-hints').addEventListener('change', () => { $('hints').checked = $('setup-hints').checked; });
+$('setup-values').addEventListener('change', () => { $('values').checked = $('setup-values').checked; });
+for (const [id, mirror] of [['hints', 'setup-hints'], ['values', 'setup-values']]) {
+  $(id).addEventListener('change', () => { $(mirror).checked = $(id).checked; if (engine) render(); });
+}
 window.addEventListener('resize', () => { if (engine) fitHand(); });
 // On phones the score sheet is a drawer over the table.
 const showScores = open => { $('game').dataset.drawer = open ? 'scores' : ''; $('scores-toggle').setAttribute('aria-expanded', String(open)); };
