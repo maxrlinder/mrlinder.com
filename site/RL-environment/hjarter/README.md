@@ -141,7 +141,9 @@ the main checkout is never touched), removes the previous ONNX file, runs
 `scripts/check.mjs`, and pushes `main`. When `main`'s tip is its own previous
 update, the new commit replaces it (same parent, `--force-with-lease`), so
 history keeps one auto-published model. Anything else at the tip gets a
-normal commit on top. It stops after the cycle that finds the training
+normal commit on top. If the main checkout is on `main` at the old tip, with
+no local changes to the model directory, it moves that checkout's `main` to the
+new commit too. It stops after the cycle that finds the training
 supervisor gone, publishing that last checkpoint first. A failed cycle is
 logged and retried at the next one. `--once --dry-run` runs one cycle
 without committing or pushing.

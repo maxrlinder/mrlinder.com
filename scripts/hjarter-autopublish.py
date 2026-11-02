@@ -130,6 +130,24 @@ def publish(args):
     run('git', 'fetch', '--quiet', 'origin', 'main')
     log(f'pushed {commit[:7]}: {args.run} {manifest["iteration"]} live, '
         f'{"replacing" if replace else "on top of"} {tip[:7]}')
+    sync_checkout(tip, commit)
+
+
+def sync_checkout(old, new):
+    """Move the main checkout's ``main`` to ``new`` if it sat exactly at the old tip.
+
+    The two differ only in the model directory, so ``reset --keep`` touches nothing
+    else; a checkout elsewhere, or with local model changes, is left alone. Kept in
+    step, ``main`` never holds a replaced update that a merge could bring back.
+    """
+    try:
+        branch = run('git', 'symbolic-ref', '--quiet', '--short', 'HEAD')
+    except RuntimeError:
+        return
+    if branch != 'main' or run('git', 'rev-parse', 'main') != old or run('git', 'status', '--porcelain', '--', MODEL):
+        return
+    run('git', 'reset', '--quiet', '--keep', new)
+    log(f'moved the main checkout to {new[:7]}')
 
 
 def main():
