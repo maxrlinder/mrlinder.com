@@ -85,7 +85,7 @@ The page builds the agent's tokens the way it trained (the manifest's
 `training.mode`). Run h1 trains single deals (`mode = "deal"`), whose tokens
 carry no score: the page gives each deal the context of a fresh deal (all
 scores zero, the training's end score), so the agent plays every deal for
-its own points. A whole-game agent (`mode = "game"`) would get the real
+its own points. A whole-game agent (`mode = "game"`, run g1) gets the real
 totals and end score. The rules fields carry the table's real rules; h1
 trains passing two cards only, and at 4 players its checkpoint 10,500 beat
 the rule-based players by +3.8 points per deal passing two, and by +2.9 to
@@ -135,8 +135,9 @@ Without `--checkpoint`, the exporter takes the most recently written
 `runs/hjarter/*/checkpoints/latest.json`, checks the checkpoint against the
 pointer's hash (a live run writes the next one beside it), and writes a
 versioned FP32 actor: the pass and play heads (52 card logits each, masked
-by the page to the legal cards) and the per-seat value probe, read at the
-stream's last token. It verifies every output against native PyTorch on
+by the page to the legal cards) and the per-seat value probe in points this
+deal, read at the stream's last token (a whole-game agent's deal-value head:
+its main value head is the game's final place, which Advantage does not show). It verifies every output against native PyTorch on
 real decision streams (every player count, both heads, both jack rules,
 every passing count, single-deal and whole-game contexts) and then through
 ONNX Runtime, and only then writes `model/manifest.json`, with the training

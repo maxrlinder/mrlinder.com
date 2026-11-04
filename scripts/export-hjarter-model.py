@@ -47,9 +47,16 @@ def export_patches():
         module._bag, DecoderBlock.forward_full, RMSNorm.forward = old
 
 
+def deal_values(actor, hidden):
+    """The per-seat value probe in points this deal: a whole-game agent's deal-value
+    head (its main value head is the game's final place), else its value head."""
+    return actor.deal_values(hidden) if actor.deal_value_head is not None else actor.player_values(hidden)
+
+
 class BrowserActor(nn.Module):
     """The pass and play heads (52 card logits each; the page masks them to the
-    legal cards) and the per-seat value probe, at the stream's last token."""
+    legal cards) and the per-seat value probe in points this deal, at the stream's
+    last token."""
 
     def __init__(self, actor):
         super().__init__()
@@ -58,7 +65,7 @@ class BrowserActor(nn.Module):
     def forward(self, tokens):
         actor = self.actor
         hidden = actor.forward_hidden(tokens)[:, -1]
-        return actor.card_heads['pass'](hidden), actor.card_heads['play'](hidden), actor.player_values(hidden)
+        return actor.card_heads['pass'](hidden), actor.card_heads['play'](hidden), deal_values(actor, hidden)
 
 
 def main():
@@ -124,7 +131,7 @@ def main():
         for tokens in samples:
             hidden = actor.forward_hidden(torch.from_numpy(tokens))[:, -1]
             expected.append([actor.policy_logits(hidden, 'pass').numpy(), actor.policy_logits(hidden, 'play').numpy(),
-                             actor.player_values(hidden).numpy()])
+                             deal_values(actor, hidden).numpy()])
 
     file = out / f'hjarter-{args.checkpoint.parent.parent.name}-{payload["iteration"]}-fp32.onnx'
     outputs = ['pass_logits', 'play_logits', 'value']
