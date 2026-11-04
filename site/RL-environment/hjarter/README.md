@@ -137,8 +137,9 @@ pointer's hash (a live run writes the next one beside it), and writes a
 versioned FP32 actor: the pass and play heads (52 card logits each, masked
 by the page to the legal cards) and the per-seat value probe in points this
 deal, read at the stream's last token (a whole-game agent's deal-value head:
-its main value head is the game's final place, which Advantage does not show). It verifies every output against native PyTorch on
-real decision streams (every player count, both heads, both jack rules,
+its main value head is the game's final place, which Advantage does not
+show). It verifies every output against native PyTorch on real decision
+streams (every player count, both heads, both jack rules,
 every passing count, single-deal and whole-game contexts) and then through
 ONNX Runtime, and only then writes `model/manifest.json`, with the training
 config read from the checkpoint. Remove the previous ONNX file after
@@ -157,12 +158,14 @@ setsid nohup python3 scripts/hjarter-autopublish.py >> tmp/hjarter-autopublish.l
 Every 2 hours (`--every`) it reads the run's (`--run`, default h1)
 `checkpoints/latest.json`. If that checkpoint is newer than the model on
 `origin/main`, it exports it in a detached worktree (`tmp/autopublish`, so
-the main checkout is never touched), removes the previous ONNX file, runs
-`scripts/check.mjs`, and pushes `main`. When `main`'s tip is its own previous
-update, the new commit replaces it (same parent, `--force-with-lease`), so
+the main checkout is never touched), removes the previous ONNX file,
+refreshes the training charts' data (below; if that fails, the charts keep
+their data and the model still goes out), runs `scripts/check.mjs`, and
+pushes `main`. When `main`'s tip is its own previous update (the model and
+the charts' data only), the new commit replaces it (same parent, `--force-with-lease`), so
 history keeps one auto-published model. Anything else at the tip gets a
 normal commit on top. If the main checkout is on `main` at the old tip, with
-no local changes to the model directory, it moves that checkout's `main` to the
+no local changes to the model directory or the charts' data, it moves that checkout's `main` to the
 new commit too. It stops after the cycle that finds the training
 supervisor gone, publishing that last checkpoint first. A failed cycle is
 logged and retried at the next one. `--once --dry-run` runs one cycle
@@ -179,6 +182,34 @@ uv pip install --python ../card_playing_gym/.venv/bin/python --target tmp/export
 
 It pushes over SSH with the machine's key (`--push-url`; `origin` is HTTPS,
 which a detached process has no credentials for).
+
+## Training charts
+
+`training-charts.js` draws the two charts of the "How the agent was trained"
+window from `training-data.js` with the shared `../line-chart.js`, and fills
+the copy's numbers from the same data (the live checkpoint from
+`model/manifest.json`). `python3 scripts/export-hjarter-training-data.py`
+generates the data (standard library only) from the sibling gym checkout.
+The live agent trained in two stages: single deals (h1), then whole games
+to 100 fine-tuned from h1's checkpoint 22,250 (g1; its `metadata.json` names
+the `for-games` release it started from, whose `info.json` names h1). Each
+stage reads its run's `metrics.csv` up to the checkpoint the next stage, or
+the page, took.
+
+* **Stage 1**, a round robin of h1's checkpoints: the reports of `cardgym
+  hjarter evaluate A --opponent B --output` in `runs/hjarter/h1/evals/rr_*/`
+  (A in one seat, B in the others, 3-5 players, jack off and on, every deal
+  with A in every seat), each pair's margin from both seatings, fitted to one
+  rating per checkpoint in points per deal over the untrained network
+  (weighted least squares). The chart leaves out the untrained network.
+* **Stage 2**, every 1,000 updates of g1 against the release it started from:
+  `runs/hjarter/g1/evals/iter_N_vs_h1-games_512[_jack].json`, written by the
+  run's eval watcher (512 seeds of whole games, 3-5 players, jack off and
+  on), up to the live checkpoint. Update 0 is the release itself, at 0.
+
+The autopublisher regenerates the data with each model, so the charts grow
+as the run trains. A run that is not on this machine keeps its section of
+the current `training-data.js`.
 
 `npm run check` also checks the manifest against `tokens.js` (the token
 width and every field's vocabulary) and the ONNX file against the

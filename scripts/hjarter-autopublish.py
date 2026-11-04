@@ -9,9 +9,11 @@ Each cycle:
  1. reads the run's checkpoints/latest.json and checks the checkpoint against its hash;
  2. if it is newer than the model on origin/main, exports it in a detached worktree
     (tmp/autopublish, so the main checkout is never touched) with
-    scripts/export-hjarter-model.py, removes the previous ONNX file and runs
+    scripts/export-hjarter-model.py, removes the previous ONNX file, refreshes the
+    training charts' data with scripts/export-hjarter-training-data.py (if that
+    fails, the charts keep their data and the model still goes out) and runs
     scripts/check.mjs;
- 3. commits the model directory and pushes main. When main's tip is this script's
+ 3. commits the model directory and the charts' data and pushes main. When main's tip is this script's
     own previous update, the new commit replaces it (same parent, pushed with
     --force-with-lease), so history keeps one auto-published model instead of one
     per update (README.md, "Large files"). Anything else at the tip gets a normal
@@ -32,6 +34,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = 'site/RL-environment/hjarter/model'
+DATA = 'site/RL-environment/hjarter/training-data.js'
 TRAILER = 'Auto-published-by: scripts/hjarter-autopublish.py'
 
 
@@ -72,11 +75,11 @@ def sha256(path):
 
 
 def own_update(commit):
-    """Whether ``commit`` is a previous update of this script: its trailer, one parent, model files only."""
+    """Whether ``commit`` is a previous update of this script: its trailer, one parent, model files and chart data only."""
     message = run('git', 'log', '-1', '--format=%B', commit)
     parents = run('git', 'log', '-1', '--format=%P', commit).split()
     files = run('git', 'diff-tree', '--no-commit-id', '--name-only', '-r', commit).splitlines()
-    return TRAILER in message and len(parents) == 1 and all(f.startswith(MODEL + '/') for f in files)
+    return TRAILER in message and len(parents) == 1 and all(f.startswith(MODEL + '/') or f == DATA for f in files)
 
 
 def publish(args):
@@ -112,6 +115,12 @@ def publish(args):
     manifest = json.loads((worktree / MODEL / 'manifest.json').read_text())
     if manifest['file'] != previous['file']:
         (worktree / MODEL / previous['file']).unlink(missing_ok=True)
+    if (worktree / 'scripts/export-hjarter-training-data.py').exists():
+        try:
+            run(str(args.python), 'scripts/export-hjarter-training-data.py', '--source', str(args.gym), cwd=worktree)
+        except RuntimeError as error:
+            run('git', 'checkout', '--quiet', base, '--', DATA, cwd=worktree)
+            log(f'training charts keep their data: {error}')
     run(args.node, 'scripts/check.mjs', cwd=worktree)
     log(f'exported and checked {args.run} {manifest["iteration"]} in {time.monotonic() - started:.0f}s '
         f'({manifest["bytes"] / 1e6:.1f} MB)')
@@ -119,7 +128,7 @@ def publish(args):
         log(f'dry run: would {"replace" if replace else "add"} on {tip[:7]}; nothing committed')
         return
 
-    run('git', 'add', '-A', '--', MODEL, cwd=worktree)
+    run('git', 'add', '-A', '--', MODEL, DATA, cwd=worktree)
     message = (f'Hjärter: checkpoint {manifest["iteration"]:,} of {args.run} is live\n\n'
                f'Replaces checkpoint {previous["iteration"]:,}. {TRAILER}')
     run('git', 'commit', '--quiet', '-m', message, cwd=worktree)
@@ -136,15 +145,15 @@ def publish(args):
 def sync_checkout(old, new):
     """Move the main checkout's ``main`` to ``new`` if it sat exactly at the old tip.
 
-    The two differ only in the model directory, so ``reset --keep`` touches nothing
-    else; a checkout elsewhere, or with local model changes, is left alone. Kept in
+    The two differ only in the model directory and the charts' data, so ``reset --keep``
+    touches nothing else; a checkout elsewhere, or with local changes to those, is left alone. Kept in
     step, ``main`` never holds a replaced update that a merge could bring back.
     """
     try:
         branch = run('git', 'symbolic-ref', '--quiet', '--short', 'HEAD')
     except RuntimeError:
         return
-    if branch != 'main' or run('git', 'rev-parse', 'main') != old or run('git', 'status', '--porcelain', '--', MODEL):
+    if branch != 'main' or run('git', 'rev-parse', 'main') != old or run('git', 'status', '--porcelain', '--', MODEL, DATA):
         return
     run('git', 'reset', '--quiet', '--keep', new)
     log(f'moved the main checkout to {new[:7]}')

@@ -52,6 +52,8 @@ const required = [
   "RL-environment/hjarter/model-client.js",
   "RL-environment/hjarter/model-worker.js",
   "RL-environment/hjarter/model/manifest.json",
+  "RL-environment/hjarter/training-charts.js",
+  "RL-environment/hjarter/training-data.js",
   "RL-environment/line-chart.js",
   "RL-environment/multiplayer.js",
   "RL-environment/difficulty.js",

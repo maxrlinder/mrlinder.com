@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=three-1" />
   <link rel="stylesheet" href="./hjarter.css?v=2" />
   <script type="module" src="./game.js?v=3"></script>
+  <script type="module" src="./training-charts.js?v=1"></script>
 </head>
 <body class="plump-page rummy-page hjarter-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -53,6 +54,7 @@
                 <li><span>Take <b>the moon</b>, all thirteen hearts and Q♠, and everyone else scores 26. The game ends when someone reaches 100; the lowest score wins.</span></li>
               </ol>
               <button class="rules-link" type="button" data-rules>Full rules and scoring →</button>
+              <a class="training-jump" href="#training">How the agent was trained ↓</a>
             </div>
 
             <form class="plump-controls" id="setup-form">
@@ -174,6 +176,151 @@
             </form>
           </div>
         </div>
+
+        <section class="mac-window plump-training-window" id="training" aria-labelledby="training-title">
+          <div class="window-titlebar">
+            <span class="window-control"></span>
+            <strong>How the agent was trained</strong>
+            <span class="window-control window-control-double"></span>
+          </div>
+          <div class="plump-training">
+            <header class="training-intro">
+              <h2 id="training-title">How the agent was trained</h2>
+              <p class="training-lead">
+                The AI you play is a small transformer,
+                <span data-training-parameters>8.7M</span> parameters, that
+                learned Hjärter from scratch by playing against itself:
+                <span data-training-deals>50 million</span> single deals, then
+                <span data-game-games>2.0 million</span> whole games to 100,
+                <span data-training-hours>about 61 hours</span> on one desktop
+                GPU. It only sees what you see: its own hand, the cards it
+                passed and was passed, every card played and the score.
+              </p>
+            </header>
+
+            <div class="training-columns">
+              <article class="training-block">
+                <p class="section-label">01 · Architecture</p>
+                <h3>Every card is a token. Two heads score the 52 cards.</h3>
+                <figure class="policy-flow">
+                  <div class="token-strip" role="img" aria-label="A seat's stream: the deal and its hand, the two cards it passed, the two passed to it, the first trick's cards, then the next decision the model makes.">
+                    <span class="token-group"><span class="token-row"><span class="token">DEAL</span><span class="token">Q♠</span><span class="token is-red">A♥</span><span class="token">…</span></span><small>your hand</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">PASS Q♠</span><span class="token is-red">PASS A♥</span></span><small>your pass</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">GOT 3♣</span><span class="token is-red">GOT 9♥</span></span><small>passed to you</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token">2♣</span><span class="token">9♣</span></span><small>the first trick</small></span>
+                    <span class="token-group"><span class="token-row"><span class="token is-next">?</span></span><small>you</small></span>
+                  </div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b></span>
+                  <div class="flow-box"><b>Transformer</b>12 causal layers over the stream</div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b>its state at “?”</span>
+                  <div class="flow-box"><b>Play head</b>a logit for each of the 52 cards</div>
+                  <span class="flow-arrow"><b aria-hidden="true">↓</b>mask the illegal cards, softmax over the rest</span>
+                  <table class="flow-policy">
+                    <thead><tr><th scope="col">card</th><th scope="col">5♣</th><th scope="col">10♣</th><th scope="col">A♣</th><th scope="col" class="is-masked">7♥</th></tr></thead>
+                    <tbody>
+                      <tr><th scope="row">legal</th><td>✓</td><td>✓</td><td>✓</td><td class="is-masked">✕</td></tr>
+                      <tr><th scope="row">logit</th><td>1.7</td><td>0.6</td><td>−0.9</td><td class="is-masked">−∞</td></tr>
+                      <tr class="flow-bars"><th scope="row">policy</th><td><span class="flow-bar is-pick" style="--p: .71"></span>71%</td><td><span class="flow-bar" style="--p: .24"></span>24%</td><td><span class="flow-bar" style="--p: .05"></span>5%</td><td class="is-masked">0%</td></tr>
+                    </tbody>
+                  </table>
+                </figure>
+                <p>
+                  Each token is one card: dealt to the agent, passed by it,
+                  passed to it, or played by anyone. It also says who acts
+                  next, the trick so far, the points every seat has taken this
+                  deal, and the table's rules: how many cards are passed, and
+                  whether the jack of diamonds counts −10. In whole games every
+                  token carries the score too: the agent's lead over each
+                  player, its place, and how far it and the leader are from
+                  100.
+                </p>
+                <p>
+                  A 12-layer causal transformer reads the stream. Two heads
+                  score the 52 cards, one for the pass (a card at a time) and
+                  one for play. A card's score comes from its rank, its suit
+                  and the card itself, so the queen of spades can be unlike
+                  other spades and other queens. Illegal cards are masked, and
+                  the softmax over the rest is the policy. A move with a single
+                  legal card is played for it.
+                </p>
+              </article>
+
+              <article class="training-block">
+                <p class="section-label">02 · Objective</p>
+                <h3>First the deal, then the game.</h3>
+                <p>
+                  Every seat is the same network, trained with PPO. In single
+                  deals the reward was the deal's points against the table's
+                  mean. The fine-tune plays whole games to 100 and is rewarded
+                  only for the final place, from +1 for the lowest score to −1
+                  for the highest. It sees the score, so it can play a deal
+                  differently when it leads, trails, or the game is about to
+                  end.
+                </p>
+                <p>
+                  An oracle critic that sees every hand sets the baseline
+                  during training only. The agent's own heads estimate two
+                  values: the final place, which it is trained for, and your
+                  points this deal against the table, which the
+                  <em>Advantage</em> switch shows. Side heads predict who holds
+                  each unseen card, every seat's points at the end of the deal
+                  and who wins the trick.
+                </p>
+              </article>
+            </div>
+
+            <ol class="training-lineage is-pair" aria-label="Training lineage">
+              <li>
+                <span class="section-label">Stage 1 · single deals</span>
+                <strong>PPO from scratch</strong>
+                <small>Reward: points against the table's mean</small>
+              </li>
+              <li>
+                <span class="section-label">Stage 2 · whole games to 100</span>
+                <strong>Fine-tuned for the final place</strong>
+                <small>Checkpoint <span data-live-checkpoint>5,250</span> is live</small>
+              </li>
+            </ol>
+
+            <div class="training-multiples is-pair">
+              <figure class="training-chart">
+                <figcaption>
+                  <strong>Stage 1 · checkpoint round robin</strong>
+                  <span>Points per deal over the untrained network. Checkpoints
+                  play each other on duplicate deals, every deal with each in
+                  every seat so luck cancels, at 3–5 players with and without
+                  the jack; the band is a 95% interval. Untrained, the network
+                  lost about <span data-rr-untrained>10</span> points a deal to
+                  the first checkpoint shown.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="round-robin"></div>
+                <details class="chart-table">
+                  <summary>Show as table</summary>
+                  <div data-chart-table="round-robin"></div>
+                </details>
+              </figure>
+              <figure class="training-chart" data-game-only>
+                <figcaption>
+                  <strong>Stage 2 · against the single-deal agent</strong>
+                  <span>Place per game in whole games to 100, from +1 for first
+                  to −1 for last: the checkpoint in one seat, the single-deal
+                  agent it started from in the others, 512 seeded games per
+                  table size and jack rule, each played with the checkpoint in
+                  every seat; the band is a 95% interval. At update
+                  <span data-game-update>5,250</span> it places
+                  <span data-game-live>+0.050 ± 0.011</span> per game better
+                  and wins <span data-game-wins>36.8%, 27.0% and 21.2% of 3-, 4- and 5-player games (a fair share: 33.3%, 25.0%, 20.0%)</span>.</span>
+                </figcaption>
+                <div class="chart-plot" data-chart="games"></div>
+                <details class="chart-table">
+                  <summary>Show as table</summary>
+                  <div data-chart-table="games"></div>
+                </details>
+              </figure>
+            </div>
+            <p class="training-footnote">x-axis: training updates of each stage.</p>
+          </div>
+        </section>
       </section>
 
       <section class="rummy-game hjarter-game" id="game" hidden aria-label="Hjärter table">
