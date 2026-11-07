@@ -38,9 +38,9 @@
     63
   ],
   "maxStream": 76,
-  "iteration": 11250,
-  "run": "h1",
-  "checkpoint": "iter_011250.pt",
+  "iteration": 6000,
+  "run": "g1",
+  "checkpoint": "iter_006000.pt",
   "modelConfig": {
     "d_model": 256,
     "n_layers": 12,
@@ -49,12 +49,13 @@
     "d_ff": 768,
     "per_layer_dim": 64,
     "value_embeddings": "alternating",
-    "card_residual": true
+    "card_residual": true,
+    "deal_value": true
   },
-  "file": "hjarter-h1-11250-fp32.onnx",
-  "bytes": 34169364,
-  "sha256": "cd8b5c7ae4d58e1f74f2de3a4c36140a210a2a54b9a5763e2c766264d2072ab5",
-  "sourceSha256": "99cc3287213c4f10765a18b7861fbdaff3f92f3e30ff42ce6326e83833b06bf9",
+  "file": "hjarter-g1-6000-fp32.onnx",
+  "bytes": 34169702,
+  "sha256": "9ea2ada194d96bca936c414c79d9627af6f76b29f9eb80cf8382026e9a9eb095",
+  "sourceSha256": "a601796ff8b98dfb11ce5c139633e075c8a0e3b06c26bfdf5dadb510c7a80993",
   "precision": "fp32",
   "outputs": [
     "pass_logits",
@@ -63,7 +64,7 @@
   ],
   "valueSeats": 5,
   "training": {
-    "mode": "deal",
+    "mode": "game",
     "players": [
       3,
       4,
@@ -81,9 +82,9 @@
   "validation": {
     "samples": 239,
     "maxAbsoluteError": {
-      "pass_logits": 8.58306884765625e-06,
-      "play_logits": 1.9073486328125e-05,
-      "value": 1.3828277587890625e-05
+      "pass_logits": 1.9073486328125e-05,
+      "play_logits": 4.410743713378906e-05,
+      "value": 1.71661376953125e-05
     }
   }
 }
