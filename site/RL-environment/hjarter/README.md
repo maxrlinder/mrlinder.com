@@ -32,8 +32,9 @@ whoever played it. Also: adjustable pace and auto-play.
 
 Everyone chooses their pass at once; the passes reach the engine in seat
 order, as in the gym, where nobody sees anything of another seat's pass.
-Single-option moves (the opening club, a forced follow) are played
-automatically, as in training.
+A person plays every card themselves, even a single legal one (the opening
+club, a forced follow), unless auto-play has their hand; the computer seats
+play theirs at once. In training, single-option moves never reach the policy.
 
 ## Engine
 

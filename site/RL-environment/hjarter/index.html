@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/RL-environment/rl.css?v=flow-1" />
   <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=three-1" />
   <link rel="stylesheet" href="./hjarter.css?v=2" />
-  <script type="module" src="./game.js?v=3"></script>
+  <script type="module" src="./game.js?v=4"></script>
   <script type="module" src="./training-charts.js?v=1"></script>
 </head>
 <body class="plump-page rummy-page hjarter-page">
@@ -426,7 +426,7 @@
       <h3>Scoring</h3>
       <p>Each heart you take scores 1 and the queen of spades 13: 26 points a deal, and points are bad. Take all thirteen hearts and the Q♠, <b>the moon</b>, and you score 0 while everyone else scores 26. With the jack of diamonds option, whoever takes the J♦ scores −10; it is not a penalty card and does not count towards the moon.</p>
       <p>After the deal in which someone reaches the end score (100 unless you chose otherwise), the game is over and the lowest score wins.</p>
-      <p>A move with only one legal card, like leading the 2♣, is played for you.</p>
+      <p>You play every card yourself, even your only legal one, like leading the 2♣, unless auto-play has your hand.</p>
       <div class="mac-dialog-actions"><button class="game-button is-default" type="button" data-close>Got it</button></div>
     </div>
   </dialog>

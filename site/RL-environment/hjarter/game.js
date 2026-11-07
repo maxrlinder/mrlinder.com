@@ -159,8 +159,9 @@ function apply(c) {
   if (engine.done) setTimeout(finishDeal, 700);
 }
 
-// Play every move that does not wait for a person: the computer seats, passes
-// people have chosen, and single-option moves (they are played for everyone).
+// Play every move that does not wait for a person: the computer seats and passes
+// people have chosen. A person plays every card themselves, even their only legal
+// one, unless auto-play has their hand.
 async function advance() {
   if (role === 'guest' || busy || !engine || engine.done) return;
   const version = generation;
@@ -183,14 +184,14 @@ async function advance() {
         passChoice.delete(seat);
         continue;
       }
-      if (!computerSeat(seat) && !forcedNow()) break;
+      if (!computerSeat(seat)) break;
       render();
       // A new lead waits a little longer, so the finished trick can be seen.
       const delay = engine.trick.length ? moveDelay() : Math.round(moveDelay() * 1.5);
-      const [c] = await Promise.all([chooseFor(seat), pause(computerSeat(seat) ? delay : Math.max(350, delay))]);
+      const [c] = await Promise.all([chooseFor(seat), pause(delay)]);
       if (version !== generation) return;
       // Turning off auto-play during the pause gives the move back.
-      if (engine.current !== seat || (!computerSeat(seat) && !forcedNow())) continue;
+      if (engine.current !== seat || !computerSeat(seat)) continue;
       apply(c);
       render();
     }
@@ -208,7 +209,7 @@ function hasPassed(seat) {
 }
 
 const canPass = () => engine && !engine.done && engine.phase === PASS && !hasPassed(me) && !autoplay() && !pending;
-const myTurn = () => engine && !engine.done && engine.phase === PLAY && engine.current === me && !autoplay() && !pending && engine.legalCards().length > 1;
+const myTurn = () => engine && !engine.done && engine.phase === PLAY && engine.current === me && !autoplay() && !pending;
 // Your pass this deal, chosen or made.
 const myPassCards = () => (role === 'guest' ? myPass : passChoice.get(me) ?? engine.pending[me]);
 const passTarget = (seat = me) => (seat + engine.direction) % P();
@@ -413,7 +414,7 @@ function renderStatus() {
       status = hasPassed(me) || autoplay() ? (left.length ? `Waiting for ${listNames(left)} to pass…` : 'Passing the cards…') : 'Passing…';
     }
   } else if (engine.current === me && !autoplay()) {
-    status = forcedNow() ? `Your only card: the ${name(engine.legalCards()[0])}.` : engine.trick.length ? `Your play. ${latest}` : `Your lead. ${latest}`;
+    status = forcedNow() ? `Your only legal card: the ${name(engine.legalCards()[0])}.` : engine.trick.length ? `Your play. ${latest}` : `Your lead. ${latest}`;
   } else {
     const who = names[engine.current];
     const doing = engine.current === me ? 'The computer is playing for you' : aiSeats.has(engine.current) ? `${who} is thinking` : `Waiting for ${who}`;
@@ -570,11 +571,13 @@ function fitHand() {
 function playHelp() {
   const legal = engine.legalCards();
   if (!engine.trick.length) {
-    if (engine.trickIndex === 0) return `You hold the ${name(engine.lead)}: it leads the first trick.`;
+    if (engine.trickIndex === 0) return `You hold the ${name(engine.lead)}: play it to lead the first trick.`;
+    if (legal.length === 1) return `Your lead: the ${name(legal[0])} is your only legal card.`;
     if (!engine.broken) return legal.some(c => suitOf(c) === HEARTS) ? 'Your lead: you hold only hearts, so you may lead one.' : 'Your lead. Hearts are not broken yet: lead another suit.';
     return 'Your lead: any card.';
   }
   const suit = SUIT_NAMES[engine.led];
+  if (legal.length === 1) return `Your only legal card is the ${name(legal[0])}: play it.`;
   if (legal.every(c => suitOf(c) === engine.led)) return `Follow suit: ${suit} were led.`;
   if (engine.trickIndex === 0 && legal.length < engine.hands[me].length) return `You have no ${suit}. No hearts and no Q♠ in the first trick.`;
   return `You have no ${suit}: play any card.`;
@@ -601,7 +604,6 @@ function renderActions() {
       help = `You pass ${chipsText(myPassCards() ?? [])} to ${target}.${left.length ? ` Waiting for ${listNames(left)}…` : ''}`;
     }
   } else if (engine.current === me && autoplay()) help = 'The computer is playing your hand.';
-  else if (engine.current === me && forcedNow()) help = `Your only legal card, the ${name(engine.legalCards()[0])}, is played for you.`;
   else if (myTurn()) help = playHelp();
   else help = `${names[engine.current]} ${aiSeats.has(engine.current) ? 'is thinking' : 'is playing'}. Your cards stay private.`;
   $('selection-help').textContent = help;
