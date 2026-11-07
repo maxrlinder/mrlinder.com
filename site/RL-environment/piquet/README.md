@@ -62,6 +62,16 @@ predicts your points minus your opponent's this deal instead, shown in tenths.
 seat: for every card you cannot place, its split between your opponent's
 hand, your opponent's discards and the talon.
 
+## Score sheet
+
+As in Plump, every finished deal shows each player's points with V, its
+centered reward (its points minus the other player's), and an AI badge: the
+same deal, from the same cards and the same partie score, played by the agent
+at its best (argmax) in both seats. The total row compares the partie's
+totals with the replays' sum. The replay (`agentReplay`, with the shared
+`../score-compare.js`) starts when the deal is dealt and runs beside it in the
+agent's worker; the host runs it and its guest gets it with the history.
+
 ## Training charts
 
 `training-charts.js` draws the two charts of the "How the agent was trained"

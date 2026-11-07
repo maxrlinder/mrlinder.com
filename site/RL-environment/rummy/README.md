@@ -37,6 +37,16 @@ decision ahead and offers the whole meld.
 of the round minus the other seats' average (the training target, zero-sum),
 for yours now.
 
+## Score sheet
+
+As in Plump, every finished round shows each seat's score with V, its
+centered reward (its score minus the others' average), and an AI badge: the
+same round, from the same deal, played by the agent at its best (argmax) in
+every seat. The total row compares the game's totals with the replays' sum.
+The replay (`agentReplay`, with the shared `../score-compare.js`) starts when
+the round is dealt and runs beside it in the agent's worker; the host runs it
+and its guests get it with the history.
+
 ## Training charts
 
 `training-charts.js` draws the "How the agent was trained" charts with the

@@ -9,6 +9,7 @@ import { PiquetAgent } from './model-client.js?v=3';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
+import { aiBadge, aiTotals, centered, formatValue, startReplay, valueCell } from '../score-compare.js';
 
 const $ = id => document.getElementById(id);
 const agent = new PiquetAgent();
@@ -21,6 +22,9 @@ const PARTIE_DEALS = 6;
 let deal = null, engine = null, busy = false, failure = false, generation = 0, stateId = 0, decisionId = 0;
 let selected = [], difficulty = 50, dealNumber = 0, firstDealer = 0;
 let totals = [0, 0], history = [], scored = false, agentInfo = null, resultShown = -1;
+// The deal replayed by the agent in both seats, for the score sheet (kept with the deal's history),
+// and the partie it belongs to: a new partie leaves the old one's replays unfinished.
+let replay = null, partieNumber = 0;
 // Local remarks on log entries, by entry number: whether the agent agreed with your move.
 let notes = new Map();
 // The agent's readout of your decision, and its read of the hidden cards.
@@ -79,7 +83,7 @@ const lowerFirst = text => text[0].toLowerCase() + text.slice(1);
 // ---- Table flow ---------------------------------------------------------------
 
 function newPartie() {
-  totals = [0, 0]; history = []; dealNumber = 0;
+  totals = [0, 0]; history = []; dealNumber = 0; partieNumber++;
   firstDealer = Math.random() < 0.5 ? 0 : 1;
   startDeal();
 }
@@ -97,8 +101,10 @@ function startDeal() {
   hint = null; reading = null;
   // The cut for deal decides the first dealer; then the deal alternates. Each
   // deal is a fresh context whose tokens carry the score, as in training.
-  deal = new PiquetDeal({ deck: shuffledDeck(), dealer: firstDealer ^ ((dealNumber - 1) % 2), partie: { totals, deal: dealNumber - 1 } });
+  const options = { deck: shuffledDeck(), dealer: firstDealer ^ ((dealNumber - 1) % 2), partie: { totals: [...totals], deal: dealNumber - 1 } };
+  deal = new PiquetDeal({ ...options, deck: [...options.deck] });
   engine = deal.engine;
+  replay = role === 'guest' ? null : agentReplay(options);
   stateId++; decisionId++;
   setAutoplay(false);
   $('game-error').hidden = true; $('result-dialog').hidden = true;
@@ -106,6 +112,22 @@ function startDeal() {
   render();
   window.scrollTo({ top: 0 });
   void advanceBots();
+}
+
+// The deal replayed by the agent at its best in both seats, from the same cards and score:
+// what it would have scored in each seat, for the score sheet.
+function agentReplay(options) {
+  const partie = partieNumber;
+  return startReplay(async () => {
+    if (!agent.manifest) throw new Error('The agent is not loaded.');
+    const sim = new PiquetDeal({ ...options, deck: [...options.deck] });
+    while (!sim.engine.done) {
+      if (partie !== partieNumber) return null;
+      const table = sim.engine, legal = table.legalActions();
+      sim.apply(legal.length === 1 ? legal[0] : await agent.choose(sim.streams[table.current], table.head, legal, 0));
+    }
+    return partie === partieNumber ? [...sim.engine.points] : null;
+  }, () => { if (partie === partieNumber) render(); });
 }
 
 const partieOver = () => dealNumber >= PARTIE_DEALS;
@@ -558,12 +580,22 @@ function renderActions(interactive) {
 
 function renderScores() {
   const head = `<thead><tr><th>Deal</th><th>You</th><th>${names[them]}</th></tr></thead>`;
-  const cell = (v, other) => `<td class="${v > other ? 'is-hit' : ''}">${v}</td>`;
-  const rows = history.map(h => `<tr><td>${h.deal}</td>${cell(h.points[me], h.points[them])}${cell(h.points[them], h.points[me])}</tr>`).join('');
+  // Each deal's points with V (yours minus the other's), and the agent's in the same seat
+  // when it played the deal in both seats.
+  const ai = (record, seat, what) => aiBadge(record, seat, { what });
+  const cell = (points, record, seat, what, hit = false) => {
+    const value = centered(points, seat);
+    return `<td class="${hit ? 'is-hit ' : ''}has-ai-score" title="${escapeHtml(names[seat])}: ${points[seat]}, V ${formatValue(value)}">${valueCell(points[seat], value)}${ai(record, seat, what)}</td>`;
+  };
+  const rows = history.map(h => `<tr><td>${h.deal}</td>${[me, them].map(seat => cell(h.points, h.ai, seat, 'this deal', h.points[seat] > h.points[1 - seat])).join('')}</tr>`).join('');
   const live = engine && !scored ? `<tr class="is-active"><td>${dealNumber}</td><td>${engine.points[me]}</td><td>${engine.points[them]}</td></tr>` : '';
-  $('score-table').innerHTML = `${head}<tbody>${rows}${live}<tr class="score-total-row"><td>Total</td><td>${totals[me]}</td><td>${totals[them]}</td></tr></tbody>`;
+  const aiTotal = aiTotals(history.map(h => h.ai), 2);
+  const total = history.length
+    ? [me, them].map(seat => cell(totals, aiTotal, seat, 'every deal so far')).join('')
+    : `<td>${totals[me]}</td><td>${totals[them]}</td>`;
+  $('score-table').innerHTML = `${head}<tbody>${rows}${live}<tr class="score-total-row"><td>Total</td>${total}</tr></tbody>`;
   $('score-caption').textContent = `Deal ${dealNumber} of ${PARTIE_DEALS}`;
-  $('score-legend').textContent = 'Six deals. The higher total wins 100 plus the difference; a loser under 100 is rubiconed, and the winner scores 100 plus both totals.';
+  $('score-legend').textContent = 'Six deals. The higher total wins 100 plus the difference; a loser under 100 is rubiconed, and the winner scores 100 plus both totals. V: your points minus the other player\'s. AI: the same deal played by the agent at its best in both seats, from the same cards.';
 }
 
 function renderLog() {
@@ -647,7 +679,7 @@ function finishDeal() {
   if (role === 'guest' || scored || !engine?.done) return;
   scored = true;
   totals = totals.map((t, seat) => t + engine.points[seat]);
-  history.push({ deal: dealNumber, points: [...engine.points] });
+  history.push({ deal: dealNumber, points: [...engine.points], ai: replay });
   showResult();
 }
 

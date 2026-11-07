@@ -121,6 +121,17 @@ The switches load the agent if the computer seats did not need it. In
 multiplayer a guest's readouts are requests the host answers from the
 guest's own stream; the host loads its agent on the first.
 
+### Score sheet
+
+As in Plump, every finished deal shows each seat's points with V, its
+centered reward (the others' average points minus its own, positive when it
+took fewer: the single-deal training reward), and an AI badge: the same deal,
+from the same hands and the same score, played by the agent at its best
+(argmax) in every seat, passes included. The total row compares the game's
+totals with the replays' sum. The replay (`agentReplay`, with the shared
+`../score-compare.js`) starts when the deal is dealt and runs beside it in the
+agent's worker; the host runs it and its guests get it with the history.
+
 ## Updating the checkpoint
 
 Use a Python environment with `torch`, `numpy`, `onnx` and `onnxruntime` (for

@@ -8,6 +8,7 @@ import { HjarterAgent } from './model-client.js?v=2';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
+import { aiBadge, aiTotals, centered, formatValue, startReplay, valueCell } from '../score-compare.js';
 
 const $ = id => document.getElementById(id);
 // The table: player count, the rule variants, and how the computer seats play
@@ -26,6 +27,9 @@ let writer = null, difficulty = 50, agentFailed = false, agentLoading = null, pu
 // for each seat this deal, and remarks on your moves in the log.
 let hint = null, hintRequest = 0, askedKey = '', passPlans = new Map(), notes = new Map();
 let dealNumber = 0, firstDealer = 0, totals = [], history = [], scored = false, resultShown = -1;
+// The deal replayed by the agent in every seat, for the score sheet (kept with the deal's history),
+// and the game it belongs to: a new game leaves the old one's replays unfinished.
+let replay = null, gameNumber = 0;
 // Your pass while you choose it, and the passes chosen but not yet reached by the
 // engine (the seats pass in turn, but everyone may choose at once).
 let selected = [], passChoice = new Map();
@@ -84,7 +88,7 @@ function cardsRemoved(players) {
 // ---- Table flow ------------------------------------------------------------------
 
 function newGame() {
-  totals = Array(P()).fill(0); history = []; dealNumber = 0;
+  totals = Array(P()).fill(0); history = []; dealNumber = 0; gameNumber++;
   firstDealer = Math.floor(Math.random() * P());
   startDeal();
 }
@@ -115,16 +119,32 @@ function startDeal() {
   hint = null; askedKey = ''; passPlans = new Map(); notes = new Map();
   writer = agentWriter();
   // The deal moves left each hand; the passing cycle starts to the right.
-  engine = new HjarterEngine({
-    players: P(), rules: settings.rules, deals: 1, dealIndex: dealNumber - 1, dealer: (firstDealer + dealNumber - 1) % P(), scores: totals,
-    listener: (table, event) => { log.push(event); writer?.onEvent(table, event); },
-  });
+  const deal = { players: P(), rules: settings.rules, deals: 1, dealIndex: dealNumber - 1, dealer: (firstDealer + dealNumber - 1) % P(), scores: [...totals] };
+  engine = new HjarterEngine({ ...deal, listener: (table, event) => { log.push(event); writer?.onEvent(table, event); } });
+  replay = role === 'guest' ? null : agentReplay(deal, engine.dealt);
   decisionId++;
   $('result-dialog').hidden = true;
   showGame();
   render();
   window.scrollTo({ top: 0 });
   void advance();
+}
+
+// The deal replayed by the agent at its best in every seat, its passes too, from the same
+// hands and score: what it would have scored in each seat, for the score sheet.
+function agentReplay(deal, dealt) {
+  const game = gameNumber, hands = dealt.map(hand => [...hand]);
+  return startReplay(async () => {
+    if (!agentReady()) throw new Error('The agent is not loaded.');
+    const streams = agentWriter();
+    const table = new HjarterEngine({ ...deal, nextHands: () => hands, listener: (t, event) => streams.onEvent(t, event) });
+    while (!table.done) {
+      if (game !== gameNumber) return null;
+      const legal = table.legalCards();
+      table.apply(legal.length === 1 ? legal[0] : await agent.choose(streams.streams[table.current], table.head, legal, 0));
+    }
+    return game === gameNumber ? [...table.results[0].points] : null;
+  }, () => { if (game === gameNumber) render(); });
 }
 
 const gameOver = () => totals.length > 0 && (Math.max(...totals) >= settings.rules.endScore || dealNumber >= MAX_DEALS);
@@ -611,17 +631,25 @@ function renderActions() {
 function renderScores() {
   const seats = seatsFromMe();
   const head = `<thead><tr><th>Deal</th>${seats.map(seat => `<th title="${escapeHtml(names[seat])}">${escapeHtml(names[seat])}</th>`).join('')}</tr></thead>`;
+  // Each deal's points with V (the others' average minus yours: positive when you took fewer),
+  // and the agent's in the same seat when it played the deal in every seat.
+  const ai = (record, seat, what) => aiBadge(record, seat, { format: num, lower: true, what });
   const rows = history.map(h => `<tr><td>${h.deal}</td>${seats.map(seat => {
     const cls = h.moon === seat ? 'is-hit' : h.points[seat] >= 13 ? 'is-miss' : '';
-    return `<td class="${cls}">${num(h.points[seat])}${h.moon === seat ? ' ☾' : ''}</td>`;
+    const value = centered(h.points, seat, true);
+    return `<td class="${cls} has-ai-score" title="${escapeHtml(names[seat])}: ${num(h.points[seat])}, V ${formatValue(value)}">${valueCell(`${num(h.points[seat])}${h.moon === seat ? ' ☾' : ''}`, value)}${ai(h.ai, seat, 'this deal')}</td>`;
   }).join('')}</tr>`).join('');
   const live = !scored ? `<tr class="is-active"><td>${dealNumber}</td>${seats.map(seat => `<td>${engine.taken[seat]}</td>`).join('')}</tr>` : '';
-  const low = Math.min(...totals);
-  const total = `<tr class="score-total-row"><td>Total</td>${seats.map(seat => `<td class="${history.length && totals[seat] === low ? 'is-leader' : ''}">${num(totals[seat])}</td>`).join('')}</tr>`;
+  const low = Math.min(...totals), aiTotal = aiTotals(history.map(h => h.ai), P());
+  const total = `<tr class="score-total-row"><td>Total</td>${seats.map(seat => {
+    const cls = history.length && totals[seat] === low ? 'is-leader' : '';
+    if (!history.length) return `<td class="${cls}">${num(totals[seat])}</td>`;
+    return `<td class="${cls} has-ai-score">${valueCell(num(totals[seat]), centered(totals, seat, true))}${ai(aiTotal, seat, 'every deal so far')}</td>`;
+  }).join('')}</tr>`;
   $('score-table').innerHTML = `${head}<tbody>${rows}${live}${total}</tbody>`;
   $('score-caption').textContent = `Deal ${dealNumber} · to ${settings.rules.endScore}`;
   const jack = settings.rules.jackOfDiamonds ? ' The J♦ scores −10.' : '';
-  $('score-legend').textContent = `Hearts 1, Q♠ 13; the moon (all of them) gives everyone else 26.${jack} After the deal in which someone reaches ${settings.rules.endScore}, the lowest total wins. ${upperFirst(cardsRemoved(P()))}, ${HAND_SIZES[P()]} cards each.`;
+  $('score-legend').textContent = `Hearts 1, Q♠ 13; the moon (all of them) gives everyone else 26.${jack} After the deal in which someone reaches ${settings.rules.endScore}, the lowest total wins. ${upperFirst(cardsRemoved(P()))}, ${HAND_SIZES[P()]} cards each. V: the others' average points minus yours, positive when you took fewer. AI: the same deal played by the agent at its best in every seat, from the same hands.`;
 }
 
 function renderLog() {
@@ -683,7 +711,7 @@ function finishDeal() {
   totals = [...engine.scores];
   history.push({
     deal: dealNumber, direction: result.direction, taken: result.taken, points: result.points, moon: result.moon,
-    queen: result.queen, jack: result.jack, passed: result.passed, received: result.received,
+    queen: result.queen, jack: result.jack, passed: result.passed, received: result.received, ai: replay,
   });
   showResult();
 }

@@ -4,11 +4,15 @@ import { RummyAgent } from './model-client.js?v=now-1';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
+import { aiBadge, aiTotals, centered, formatValue, startReplay, valueCell } from '../score-compare.js';
 
 const $ = id => document.getElementById(id);
 const agent = new RummyAgent();
 let engine, writer, streams, decision, selected = [], sortBy = 'suit', busy = false, generation = 0, decisionId = 0;
 let totals = [], history = [], round = 0, scored = false, failure = false;
+// The round replayed by the agent in every seat, for the score sheet (kept with the round's history),
+// and the game it belongs to: a new game leaves the old one's replays unfinished.
+let replay = null, gameNumber = 0;
 // The round's events, oldest first; a guest holds only the latest, numbered from logStart.
 let log = [], logStart = 0, lastMove = null;
 // Local remarks on log entries, by entry number: whether the agent agreed with your move.
@@ -111,6 +115,9 @@ function showGame() {
 function startRound() {
   generation++; round++; scored = false; selected = []; log = []; logStart = 0; lastMove = null; notes = new Map(); failure = false; busy = false;
   engine = new RummyEngine({ players, decks }); writer = new ObservationWriter(engine);
+  replay = role === 'guest' ? null : agentReplay({
+    players, decks, hands: engine.hands.map(h => [...h]), stock: [...engine.stock], pile: [...engine.pile], current: engine.current,
+  });
   streams = Array.from({ length: players }, () => []);
   meldOwners = []; laidBy = []; lastActions = Array(players).fill(''); freshMeld = -1; freshDiscard = false; newMelds = new Set();
   setAutoplay(false);
@@ -119,6 +126,27 @@ function startRound() {
   prepareDecision(); render();
   window.scrollTo({ top: 0 });
   void advanceBots();
+}
+
+// The round replayed by the agent at its best in every seat, from the same deal: what it
+// would have scored in each seat, for the score sheet.
+function agentReplay(start) {
+  const game = gameNumber;
+  return startReplay(async () => {
+    if (!agent.manifest) throw new Error('The agent is not loaded.');
+    const sim = new RummyEngine(start), tokens = new ObservationWriter(sim);
+    const seatStreams = Array.from({ length: start.players }, () => []);
+    while (!sim.done) {
+      if (game !== gameNumber) return null;
+      const seat = sim.current, actions = sim.candidates();
+      seatStreams[seat].push(tokens.observe(seat));
+      const index = actions.length === 1 ? 0 : await agent.choose(seatStreams[seat], candidateFeatures(sim, actions), 0);
+      const event = sim.apply(actions[index]);
+      const turn = tokens.record(event);
+      if (turn) seatStreams.forEach((stream, other) => { if (other !== event.actor) stream.push(turn[other]); });
+    }
+    return game === gameNumber ? sim.scores() : null;
+  }, () => { if (game === gameNumber) render(); });
 }
 
 function describe(event) {
@@ -611,10 +639,19 @@ function renderActions(interactive) {
 
 function renderScores() {
   const head = `<thead><tr><th>Rnd</th>${playerNames.map((_, seat) => `<th>${escapeHtml(nameOf(seat))}</th>`).join('')}</tr></thead>`;
-  const cell = v => `<td class="${v > 0 ? 'is-hit' : v < 0 ? 'is-miss' : ''}">${signed(v)}</td>`;
-  const rows = history.map(h => `<tr><td>${h.round}</td>${h.scores.map(cell).join('')}</tr>`).join('');
+  // Each round's score with V (yours against the others' average), and the agent's in the same
+  // seat when it played the round in every seat.
+  const ai = (record, seat, what) => aiBadge(record, seat, { format: signed, what });
+  const cell = (h, seat) => {
+    const v = h.scores[seat], value = centered(h.scores, seat);
+    return `<td class="${v > 0 ? 'is-hit' : v < 0 ? 'is-miss' : ''} has-ai-score" title="${escapeHtml(nameOf(seat))}: ${signed(v)}, V ${formatValue(value)}">${valueCell(signed(v), value)}${ai(h.ai, seat, 'this round')}</td>`;
+  };
+  const rows = history.map(h => `<tr><td>${h.round}</td>${h.scores.map((_, seat) => cell(h, seat)).join('')}</tr>`).join('');
   const live = engine && !scored ? `<tr class="is-active"><td>${round}</td>${engine.points.map(p => `<td>+${p} laid</td>`).join('')}</tr>` : '';
-  const total = `<tr class="score-total-row"><td>Total</td>${totals.map(t => `<td>${t}</td>`).join('')}</tr>`;
+  const aiTotal = aiTotals(history.map(h => h.ai), totals.length);
+  const total = `<tr class="score-total-row"><td>Total</td>${totals.map((t, seat) => (history.length
+    ? `<td class="has-ai-score">${valueCell(t, centered(totals, seat))}${ai(aiTotal, seat, 'every round so far')}</td>`
+    : `<td>${t}</td>`)).join('')}</tr>`;
   $('score-table').innerHTML = `${head}<tbody>${rows}${live}${total}</tbody>`;
   $('score-caption').textContent = `Round ${round}`;
 }
@@ -662,7 +699,7 @@ function finishRound() {
   scored = true;
   const scores = engine.scores();
   totals = totals.map((total, i) => total + scores[i]);
-  history.push({ round, scores });
+  history.push({ round, scores, ai: replay });
   showResult();
 }
 
@@ -916,7 +953,7 @@ async function loadAgent() {
 function newTable(seatNames, ai) {
   players = seatNames.length; decks = Number($('decks').value); difficulty = Number($('difficulty').value);
   playerNames = seatNames; aiSeats = new Set(ai);
-  totals = Array(players).fill(0); history = []; round = 0;
+  totals = Array(players).fill(0); history = []; round = 0; gameNumber++;
   startRound();
 }
 
