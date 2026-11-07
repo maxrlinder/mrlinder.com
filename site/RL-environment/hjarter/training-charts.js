@@ -1,8 +1,10 @@
 /**
- * Charts for the Hjärter "How the agent was trained" window: single deals in a round robin
- * of checkpoints, then whole games against the single-deal agent the fine-tune started from.
+ * Charts for the Hjärter "How the agent was trained" window: a round robin of checkpoints in
+ * each stage. Single deals: one fitted rating per checkpoint over the untrained network. Whole
+ * games: each checkpoint's average place over all its games against the others (or, without a
+ * round robin, every checkpoint against the single-deal agent the fine-tune started from).
  */
-import { HJARTER_TRAINING_DATA as DATA } from "./training-data.js?v=1";
+import { HJARTER_TRAINING_DATA as DATA } from "./training-data.js?v=2";
 import { BLUE, html, mountCharts, paddedDomain, signed, updateLabel } from "../line-chart.js";
 
 const PLAYERS = ["3", "4", "5"];
@@ -13,6 +15,14 @@ const { deal, game } = DATA;
 const ladder = deal.roundRobin.checkpoints.filter((d) => d.iteration > 0);
 const band = (d, value) => [d.iteration, value - 1.96 * d.stderr, value + 1.96 * d.stderr];
 const evals = game?.evals ?? [];
+// Whole games' round robin: each checkpoint's average over all its games, 0 an even result.
+const gameLadder = game?.roundRobin?.checkpoints ?? [];
+const placeBand = (rows, value) => paddedDomain(
+  Math.min(0, ...rows.map((d) => band(d, value(d))[1])),
+  Math.max(0, ...rows.map((d) => band(d, value(d))[2])),
+  0.005,
+  0.02,
+);
 const checkpointLabel = (iteration) => (iteration ? updateLabel(iteration) : "The single-deal agent");
 
 const CHARTS = {
@@ -38,16 +48,33 @@ const CHARTS = {
   },
 };
 
-if (evals.length > 1) {
+if (gameLadder.length > 1) {
+  CHARTS.games = {
+    height: 230,
+    xDomain: [0, gameLadder.at(-1).iteration],
+    yDomain: placeBand(gameLadder, (d) => d.place),
+    yFormat: signed(2),
+    zeroLabel: "even against the others",
+    band: { color: BLUE, points: gameLadder.map((d) => band(d, d.place)) },
+    series: [{ label: "Place / game", color: BLUE, markers: true, points: gameLadder.map((d) => [d.iteration, d.place]) }],
+    endLabels: true,
+    valueFormat: signed(3),
+    tooltip: (index) => {
+      const row = gameLadder[index];
+      return {
+        title: checkpointLabel(row.iteration),
+        rows: [
+          { color: BLUE, label: "Place / game", value: `${signed(3)(row.place)} ± ${(1.96 * row.stderr).toFixed(3)}` },
+          ...PLAYERS.map((p) => ({ label: `${p} players`, value: `${signed(3)(row.players[p].place)}, wins ${percent(row.players[p].wins)}` })),
+        ],
+      };
+    },
+  };
+} else if (evals.length > 1) {
   CHARTS.games = {
     height: 230,
     xDomain: [0, evals.at(-1).iteration],
-    yDomain: paddedDomain(
-      Math.min(0, ...evals.map((d) => band(d, d.placement)[1])),
-      Math.max(0, ...evals.map((d) => band(d, d.placement)[2])),
-      0.005,
-      0.02,
-    ),
+    yDomain: placeBand(evals, (d) => d.placement),
     yFormat: signed(2),
     zeroLabel: "the single-deal agent",
     band: { color: BLUE, points: evals.map((d) => band(d, d.placement)) },
@@ -91,14 +118,18 @@ table(
     ...PLAYERS.map((p) => signed(2)(row.players[p])),
   ]),
 );
+// The rows of the chart drawn: round-robin averages, or head to head (update 0 the anchor, at 0).
 table(
   "games",
   ["Update", "Place / game", ...PLAYERS.map((p) => `Wins, ${p} players`)],
-  evals.map((row) => [
-    row.iteration ? row.iteration.toLocaleString("en-US") : "0 (single-deal agent)",
-    row.iteration ? `${signed(3)(row.placement)} ± ${(1.96 * row.stderr).toFixed(3)}` : "±0",
-    ...PLAYERS.map((p) => percent(row.players[p].wins)),
-  ]),
+  (gameLadder.length > 1 ? gameLadder : evals).map((row) => {
+    const place = row.place ?? row.placement;
+    return [
+      row.iteration ? row.iteration.toLocaleString("en-US") : "0 (single-deal agent)",
+      row.stderr ? `${signed(3)(place)} ± ${(1.96 * row.stderr).toFixed(3)}` : "±0",
+      ...PLAYERS.map((p) => percent(row.players[p].wins)),
+    ];
+  }),
 );
 
 // Copy that tracks the data, so a re-export cannot leave the prose describing older numbers than the charts.
@@ -112,6 +143,17 @@ fill("[data-training-hours]", `about ${Math.round(deal.totals.hours + (game?.tot
 fill("[data-rr-untrained]", String(Math.round(ladder[0].rating)));
 fill("[data-rr-live]", `${signed(1)(ladder.at(-1).rating - ladder[0].rating)}`);
 document.querySelectorAll("[data-game-only]").forEach((node) => { node.hidden = !game; });
+// The caption that matches the chart drawn: the round robin, or the head-to-head series.
+document.querySelectorAll("[data-game-rr]").forEach((node) => { node.hidden = gameLadder.length < 2; });
+document.querySelectorAll("[data-game-h2h]").forEach((node) => { node.hidden = gameLadder.length > 1; });
+if (gameLadder.length > 1) {
+  fill("[data-game-rr-size]", String(gameLadder.length));
+  fill("[data-game-rr-last]", gameLadder.at(-1).iteration.toLocaleString("en-US"));
+  fill("[data-game-rr-seeds]", String(game.roundRobin.seeds));
+  const [first, last] = [gameLadder[0], gameLadder.at(-1)];
+  fill("[data-game-rr-first]", `${signed(3)(first.place)}`);
+  fill("[data-game-rr-live]", `${signed(3)(last.place)}`);
+}
 if (game) {
   fill("[data-game-games]", millions(game.totals.games));
   const last = evals.at(-1);

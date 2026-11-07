@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/RL-environment/rummy/rummy.css?v=three-1" />
   <link rel="stylesheet" href="./hjarter.css?v=2" />
   <script type="module" src="./game.js?v=5"></script>
-  <script type="module" src="./training-charts.js?v=1"></script>
+  <script type="module" src="./training-charts.js?v=2"></script>
 </head>
 <body class="plump-page rummy-page hjarter-page">
   <a class="skip-link" href="#main">Skip to game</a>
@@ -293,8 +293,23 @@
               </figure>
               <figure class="training-chart" data-game-only>
                 <figcaption>
-                  <strong>Stage 2 · against the single-deal agent</strong>
-                  <span>Place per game in whole games to 100, from +1 for first
+                  <strong data-game-rr>Stage 2 · checkpoint round robin</strong>
+                  <span data-game-rr>Each checkpoint's average place per game,
+                  from +1 for first to −1 for last, over all its whole games to
+                  100 against the others: <span data-game-rr-size>10</span>
+                  checkpoints from the single-deal agent (update 0) to update
+                  <span data-game-rr-last>7,000</span>, each in one seat against
+                  each of the others in the rest, at 3–5 players with and
+                  without the jack, <span data-game-rr-seeds>256</span> seeded
+                  games per table, each played with it in every seat; the band
+                  is a 95% interval. The single-deal agent averages
+                  <span data-game-rr-first>−0.03</span>, the last checkpoint
+                  <span data-game-rr-live>+0.03</span>. Head to head, update
+                  <span data-game-update>7,000</span> places
+                  <span data-game-live>+0.06 ± 0.01</span> per game better than
+                  the single-deal agent and wins <span data-game-wins>38%, 28% and 21% of 3-, 4- and 5-player games (a fair share: 33.3%, 25.0%, 20.0%)</span>.</span>
+                  <strong data-game-h2h hidden>Stage 2 · against the single-deal agent</strong>
+                  <span data-game-h2h hidden>Place per game in whole games to 100, from +1 for first
                   to −1 for last: the checkpoint in one seat, the single-deal
                   agent it started from in the others, 512 seeded games per
                   table size and jack rule, each played with the checkpoint in

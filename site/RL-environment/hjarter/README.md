@@ -204,13 +204,18 @@ the page, took.
   with A in every seat), each pair's margin from both seatings, fitted to one
   rating per checkpoint in points per deal over the untrained network
   (weighted least squares). The chart leaves out the untrained network.
-* **Stage 2**, every 1,000 updates of g1 against the release it started from:
-  `runs/hjarter/g1/evals/iter_N_vs_h1-games_512[_jack].json`, written by the
-  run's eval watcher (512 seeds of whole games, 3-5 players, jack off and
-  on), up to the live checkpoint. Update 0 is the release itself, at 0.
+* **Stage 2**, a round robin of g1's checkpoints in whole games to 100:
+  `runs/hjarter/g1/evals/rr_*/iter_A_vs_B[_jack].json` (ten checkpoints, 0
+  to 7,000, 256 seeds), each checkpoint's average place per game over all
+  its games, in one seat against every other checkpoint (no fit: the user
+  asked for the plain average). Update 0 is the release g1 started from. The
+  caption also quotes the latest checkpoint against that release, every
+  1,000 updates from the run's eval watcher
+  (`runs/hjarter/g1/evals/iter_N_vs_h1-games_512[_jack].json`, 512 seeds),
+  and without a round robin the chart draws that series instead.
 
-The autopublisher regenerates the data with each model, so the charts grow
-as the run trains. A run that is not on this machine keeps its section of
+The autopublisher regenerates the data with each model, so the copy's
+numbers follow the run; the round robins grow only when one is run again. A run that is not on this machine keeps its section of
 the current `training-data.js`.
 
 `npm run check` also checks the manifest against `tokens.js` (the token
