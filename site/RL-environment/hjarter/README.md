@@ -16,13 +16,14 @@ Q♠ 13, and the moon gives everyone else 26. The setup screen sets every rule
 the gym varies: the player count, the cards passed (0-3), the jack of
 diamonds (−10) and the end score (50, 100 or 150).
 
-The computer seats play the self-play agent, a checkpoint of a run still
-in training, at an adjustable difficulty (the shared `../difficulty.js`), or
-the gym's rule-based players (`heuristic.js`, a port of
-`cardgym/games/hjarter/heuristic.py`): the textbook game, or random legal
-cards. Auto-play plays your hand with the agent's best card once it is
-loaded, else the rule-based player's. The setup's notice says what the agent
-has trained on, from its manifest. There is no training section yet.
+The computer seats always play the self-play agent, a checkpoint of a run
+still in training, at an adjustable difficulty (the shared
+`../difficulty.js`); there is no other choice of computer player. Auto-play
+plays your hand with the agent's best card. The gym's rule-based player
+(`heuristic.js`, a port of `cardgym/games/hjarter/heuristic.py`) only steps
+in if the agent fails mid-game, and the check replays its choices against
+the gym. The setup's notice says what the agent has trained on, from its
+manifest; the "How the agent was trained" window shows how.
 
 The page reuses Rummy's shell (`../rummy/rummy.css` on top of `../rl.css`):
 toolbar, hand, score drawer and dialogs. `hjarter.css` adds the felt: the

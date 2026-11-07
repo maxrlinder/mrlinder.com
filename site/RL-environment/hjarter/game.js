@@ -2,7 +2,7 @@ import {
   HjarterEngine, PASS, PLAY, K_DEAL, K_TURN, K_PASS, K_RECEIVE, K_PLAY, HEARTS, SPADES, CLUBS, DIAMONDS,
   QUEEN_OF_SPADES, MAX_DEALS, REMOVED, HAND_SIZES, name, isRed, suitOf, rankOf, SUIT_WORDS, RANKS,
 } from './engine.js?v=1';
-import { heuristicCard, randomCard } from './heuristic.js?v=1';
+import { heuristicCard } from './heuristic.js?v=1';
 import { ObservationWriter, MODE_DEAL, MODE_GAME, F_TYPE, TYPE_TURN } from './tokens.js?v=1';
 import { HjarterAgent } from './model-client.js?v=2';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
@@ -12,8 +12,7 @@ import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
 const $ = id => document.getElementById(id);
 // The table: player count, the rule variants, and how the computer seats play
 // (the agent, the rule-based player, or random cards).
-const BOTS = ['agent', 'heuristic', 'random'];
-let settings = { players: 4, rules: { passCards: 2, jackOfDiamonds: false, endScore: 100 }, bots: 'agent' };
+let settings = { players: 4, rules: { passCards: 2, jackOfDiamonds: false, endScore: 100 } };
 // Seats: `me` is the local player. `names` is how this screen calls each seat ("You" for your own).
 let me = 0, playerNames = [], names = [], aiSeats = new Set();
 // A game: deals until someone reaches the end score. Each deal is its own engine,
@@ -135,13 +134,12 @@ const computerSeat = seat => aiSeats.has(seat) || (seat === me && autoplay());
 const forcedNow = () => engine.phase === PLAY && engine.legalCards().length === 1;
 
 // The computer's card for `seat`: the agent's (at the difficulty for its own
-// seats, its best for yours), random, or the rule-based player's.
+// seats, its best for yours), or the rule-based player's if the agent stopped.
 async function chooseFor(seat) {
   const table = engine, legal = table.legalCards();
   if (legal.length === 1) return legal[0];
   const computer = aiSeats.has(seat);
-  if (computer && settings.bots === 'random') return randomCard(table);
-  if (writer && agentReady() && (!computer || settings.bots === 'agent')) {
+  if (writer && agentReady()) {
     try {
       return await agent.choose(writer.streams[seat], table.head, legal, computer ? temperatureFor(difficulty) : 0);
     } catch {
@@ -745,11 +743,8 @@ function readSettings() {
   return {
     players: Number($('players').value),
     rules: { passCards: Number($('pass-cards').value), jackOfDiamonds: $('jack').value === 'on', endScore: Number($('end-score').value) },
-    bots: BOTS.includes($('bots').value) ? $('bots').value : 'agent',
   };
 }
-
-const botsLabel = bots => ({ agent: 'the agent', heuristic: 'rule-based', random: 'random' })[bots];
 
 function showModelState() {
   const ready = agentReady();
@@ -771,7 +766,7 @@ async function loadAgent() {
     showModelState();
     return true;
   } catch (error) {
-    setSetupError(`${error.message} Or choose rule-based computer players.`);
+    setSetupError(`${error.message} Try again, or reload the page.`);
     return false;
   } finally {
     $('loading').hidden = true;
@@ -782,7 +777,7 @@ async function loadAgent() {
 async function startSolo() {
   const table = readSettings();
   difficulty = Number($('difficulty').value);
-  if (table.bots === 'agent' && !(await loadAgent())) return;
+  if (!(await loadAgent())) return;
   settings = table;
   role = null; me = 0;
   playerNames = ['You', ...AI_NAMES.slice(0, P() - 1)]; names = [...playerNames];
@@ -836,12 +831,11 @@ function cleanSettings(value) {
       jackOfDiamonds: rules.jackOfDiamonds === true,
       endScore: [50, 100, 150].includes(rules.endScore) ? rules.endScore : 100,
     },
-    bots: BOTS.includes(value?.bots) ? value.bots : 'agent',
   };
 }
 
 // The deal button says when it loads the agent first.
-const dealLabel = () => ($('bots').value === 'agent' && !agentReady() ? 'Load agent & deal' : 'Deal');
+const dealLabel = () => (agentReady() ? 'Deal' : 'Load agent & deal');
 
 function configureSetup() {
   const multi = playMode() === 'multiplayer', joining = multi && lobbyRole() === 'guest';
@@ -849,7 +843,6 @@ function configureSetup() {
   $('join-code-row').hidden = !joining;
   $('join-code').required = joining;
   $('host-settings').hidden = joining;
-  $('difficulty-control').hidden = $('bots').value !== 'agent';
   if (lobbyPhase === 'idle') $('start').textContent = !multi ? dealLabel() : joining ? 'Join multiplayer table' : 'Create multiplayer table';
   $('start-multiplayer').textContent = dealLabel();
   setSetupError();
@@ -859,7 +852,7 @@ function renderLobby({ hostName, names: friends = [], settings: table, status = 
   const rows = [[hostName, 'Host'], ...friends.map(n => [n, 'Friend'])];
   if (table) for (let seat = rows.length; seat < table.players; seat++) rows.push([AI_NAMES[seat - (friends.length + 1)], 'AI']);
   $('lobby-roster').innerHTML = rows.map(([n, kind]) => `<li><span>${escapeHtml(n)}</span><span>${kind}</span></li>`).join('');
-  $('lobby-rules').textContent = table ? `${rulesSummary(table)} · computer players: ${botsLabel(table.bots)}` : '';
+  $('lobby-rules').textContent = table ? `${rulesSummary(table)} · computer players: the agent` : '';
   $('lobby-status').textContent = status;
 }
 
@@ -1078,7 +1071,7 @@ async function startHosted() {
   const table = readSettings();
   if (guests.size > table.players - 1) { updateHostLobby(); return; }
   difficulty = Number($('difficulty').value);
-  if (table.bots === 'agent' && !agentReady()) {
+  if (!agentReady()) {
     lobbyPhase = 'starting';
     room.send({ type: 'starting' }).catch(() => {});
     const loaded = await loadAgent();
@@ -1126,8 +1119,7 @@ $('setup-form').addEventListener('submit', event => {
   if (playMode() === 'solo') startSolo(); else void openLobby();
 });
 document.querySelectorAll('input[name="playMode"], input[name="multiplayerRole"]').forEach(input => input.addEventListener('change', configureSetup));
-for (const id of ['players', 'pass-cards', 'jack', 'end-score', 'bots']) $(id).addEventListener('change', updateHostLobby);
-$('bots').addEventListener('change', () => { if (lobbyPhase === 'idle' || lobbyPhase === 'lobby') configureSetup(); });
+for (const id of ['players', 'pass-cards', 'jack', 'end-score']) $(id).addEventListener('change', updateHostLobby);
 $('difficulty').addEventListener('input', () => {
   snapDifficulty($('difficulty'));
   difficulty = Number($('difficulty').value);
