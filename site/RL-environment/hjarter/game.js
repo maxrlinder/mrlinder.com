@@ -123,6 +123,8 @@ function startDeal() {
   engine = new HjarterEngine({ ...deal, listener: (table, event) => { log.push(event); writer?.onEvent(table, event); } });
   replay = role === 'guest' ? null : agentReplay(deal, engine.dealt);
   decisionId++;
+  // Auto-play lasts to the end of the deal it was turned on in (as in Rummy, Piquet and Plump).
+  setAutoplay(false);
   $('result-dialog').hidden = true;
   showGame();
   render();

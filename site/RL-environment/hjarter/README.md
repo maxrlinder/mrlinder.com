@@ -19,7 +19,8 @@ diamonds (−10) and the end score (50, 100 or 150).
 The computer seats always play the self-play agent, a checkpoint of a run
 still in training, at an adjustable difficulty (the shared
 `../difficulty.js`); there is no other choice of computer player. Auto-play
-plays your hand with the agent's best card. The gym's rule-based player
+plays your hand with the agent's best card until the end of the deal (the
+next deal starts with it off, as in Rummy, Piquet and Plump). The gym's rule-based player
 (`heuristic.js`, a port of `cardgym/games/hjarter/heuristic.py`) only steps
 in if the agent fails mid-game, and the check replays its choices against
 the gym. The setup's notice says what the agent has trained on, from its
