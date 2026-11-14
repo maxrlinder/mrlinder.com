@@ -10,7 +10,9 @@ run's metrics.csv up to the checkpoint the next stage, or the page, took.
 Each stage's chart is a round robin of its run's checkpoints: the JSON reports
 of `cardgym hjarter evaluate A --opponent B --output` in the run's
 evals/rr_*/iter_A_vs_B[_jack].json (A in one seat, B in the others, 3-5
-players, jack off and on). Single deals fit them to one rating per checkpoint
+players, jack off and on), from the newest round robin (the largest N in
+rr_N) and any earlier one that shares at least two checkpoints with it.
+Single deals fit them to one rating per checkpoint
 in points per deal over the untrained network; whole games give each
 checkpoint its average place over all its games (in one seat against every
 other checkpoint). The game stage also carries every checkpoint against the
@@ -75,14 +77,44 @@ def ratings(iterations, margins):
     return {iterations[0]: (0.0, 0.0), **{it: (solution[i], math.sqrt(inverse[i][i])) for it, i in index.items()}}
 
 
+def round_robin_reports(evals, until=None):
+    """(A, B, jack) -> the report's players, from evals/rr_N/iter_A_vs_B[_jack].json (pairs up to ``until``).
+
+    The newest round robin (the largest N) counts, and with it any earlier one that shares at least
+    two checkpoints with those already taken. Joined through one checkpoint alone (the untrained
+    network, which every checkpoint beats by about the same), an earlier round robin's ratings sit
+    on a scale of their own and zigzag against the newest's. A later round robin's report of the
+    same pairing replaces an earlier one's.
+    """
+    sweeps = {}
+    for directory in evals.glob('rr_*'):
+        number = re.fullmatch(r'rr_(\d+)', directory.name)
+        paths = {}
+        for path in directory.glob('iter_*_vs_*.json'):
+            match = re.fullmatch(r'iter_(\d+)_vs_(\d+)(_jack)?\.json', path.name)
+            if match and number and (until is None or max(int(match[1]), int(match[2])) <= until):
+                paths[int(match[1]), int(match[2]), bool(match[3])] = path
+        if paths:
+            sweeps[int(number[1])] = paths
+    if not sweeps:
+        return {}
+    members = lambda n: {a for a, _, _ in sweeps[n]} | {b for _, b, _ in sweeps[n]}  # noqa: E731
+    taken, checkpoints = {max(sweeps)}, members(max(sweeps))
+    while joining := [n for n in sweeps if n not in taken and len(members(n) & checkpoints) >= 2]:
+        taken.update(joining)
+        checkpoints.update(*map(members, joining))
+    for n in sorted(set(sweeps) - taken):
+        print(f'{evals.parent.name}: rr_{n} left out of the round robin, it shares fewer than two checkpoints with rr_{max(sweeps)}')
+    reports = {}
+    for n in sorted(taken):
+        for key, path in sweeps[n].items():
+            reports[key] = json.loads(path.read_text())['players']
+    return reports
+
+
 def round_robin(evals):
     """One rating per checkpoint from every pair's margin, both seatings, over all and per player count."""
-    reports = {}
-    for path in sorted(evals.glob('rr_*/iter_*_vs_*.json')):
-        match = re.fullmatch(r'iter_(\d+)_vs_(\d+)(_jack)?\.json', path.name)
-        if match:
-            # A later round robin's report of the same pairing replaces an earlier one's.
-            reports[int(match[1]), int(match[2]), bool(match[3])] = json.loads(path.read_text())['players']
+    reports = round_robin_reports(evals)
     iterations = sorted({a for a, _, _ in reports} | {b for _, b, _ in reports})
 
     def margins(players):
@@ -116,12 +148,7 @@ def round_robin(evals):
 def game_round_robin(evals, until):
     """Each checkpoint's average over all its games in the round robin, in one seat against every
     other checkpoint, 3-5 players, both jack rules (only pairs up to ``until``); None without one."""
-    reports = {}
-    for path in sorted(evals.glob('rr_*/iter_*_vs_*.json')):
-        match = re.fullmatch(r'iter_(\d+)_vs_(\d+)(_jack)?\.json', path.name)
-        if match and max(int(match[1]), int(match[2])) <= until:
-            # A later round robin's report of the same pairing replaces an earlier one's.
-            reports[int(match[1]), int(match[2]), bool(match[3])] = json.loads(path.read_text())['players']
+    reports = round_robin_reports(evals, until)
     iterations = sorted({a for a, _, _ in reports} | {b for _, b, _ in reports})
     if len(iterations) < 2:
         return None

@@ -216,6 +216,10 @@ the page, took.
   with A in every seat), each pair's margin from both seatings, fitted to one
   rating per checkpoint in points per deal over the untrained network
   (weighted least squares). The chart leaves out the untrained network.
+  Only the newest round robin (the largest N in `rr_N`) counts, with any
+  earlier one that shares at least two checkpoints with it: joined through
+  the untrained network alone, an earlier one's ratings would sit on a scale
+  of their own and zigzag against the newest's.
 * **Stage 2**, a round robin of g1's checkpoints in whole games to 100:
   `runs/hjarter/g1/evals/rr_*/iter_A_vs_B[_jack].json` (ten checkpoints, 0
   to 7,000, 256 seeds), each checkpoint's average place per game over all
