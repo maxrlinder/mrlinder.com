@@ -38,9 +38,9 @@
     63
   ],
   "maxStream": 76,
-  "iteration": 11250,
+  "iteration": 34250,
   "run": "h1",
-  "checkpoint": "iter_011250.pt",
+  "checkpoint": "iter_034250.pt",
   "modelConfig": {
     "d_model": 256,
     "n_layers": 12,
@@ -51,10 +51,10 @@
     "value_embeddings": "alternating",
     "card_residual": true
   },
-  "file": "hjarter-h1-11250-fp32.onnx",
+  "file": "hjarter-h1-34250-fp32.onnx",
   "bytes": 34169364,
-  "sha256": "cd8b5c7ae4d58e1f74f2de3a4c36140a210a2a54b9a5763e2c766264d2072ab5",
-  "sourceSha256": "99cc3287213c4f10765a18b7861fbdaff3f92f3e30ff42ce6326e83833b06bf9",
+  "sha256": "877e0609100b6e1706870094794c8e90e15663f019a7c6738be434ee730ef6b6",
+  "sourceSha256": "944048cf4ef17171db063ff49a519f20ca74a3319d690169967b6bb34f6fd508",
   "precision": "fp32",
   "outputs": [
     "pass_logits",
@@ -81,9 +81,9 @@
   "validation": {
     "samples": 239,
     "maxAbsoluteError": {
-      "pass_logits": 8.58306884765625e-06,
-      "play_logits": 1.9073486328125e-05,
-      "value": 1.3828277587890625e-05
+      "pass_logits": 2.384185791015625e-05,
+      "play_logits": 8.678436279296875e-05,
+      "value": 3.1948089599609375e-05
     }
   }
 }
