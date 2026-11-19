@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { HjarterEngine, NONE, PASS, PLAY } from '../site/RL-environment/hjarter/engine.js?v=1';
 import { heuristicCard } from '../site/RL-environment/hjarter/heuristic.js?v=1';
-import { FIELD_VOCAB, WIDTH, ObservationWriter, distanceCode, leadCode } from '../site/RL-environment/hjarter/tokens.js?v=1';
+import { FIELD_VOCAB, WIDTH, ObservationWriter, distanceCode, leadCode, F_JACK, F_PLAYERS, F_RULE_JACK, F_TAKEN } from '../site/RL-environment/hjarter/tokens.js?v=1';
+import { MAX_PLAYERS } from '../site/RL-environment/hjarter/engine.js?v=1';
+import { boundValue, dealBounds, tokenBounds } from '../site/RL-environment/hjarter/bounds.js?v=1';
 
 // Games played by cardgym's engine (scripts/export-hjarter-fixtures.py), replayed
 // here: every decision's seat, phase and legal cards, the rule-based player's
@@ -89,4 +91,34 @@ for (const [index, game] of games.entries()) {
   deals += game.results.length;
 }
 assert.deepEqual([...phases].sort(), [PASS, PLAY]);
-console.log(`Hjärter engine matches cardgym: ${games.length} games, ${deals} deals, ${decisions} decisions, ${events} events, ${moons} moons, ${jacks} J♦ taken; ${streams} token streams, ${streamTokens} tokens. Agent ${manifest.run} · ${manifest.iteration}.`);
+
+// The value bounds (bounds.js) match cardgym's (scripts/fixtures/hjarter-bounds.json) on every
+// state the fixture streams reach, every token reads its own, and once a deal is over they
+// are its scored return exactly, which is then what Advantage shows whatever the head said.
+const near = (got, want, where) => got.forEach(([lo, hi], s) =>
+  assert.ok(Math.abs(lo - want[s][0]) < 1e-6 && Math.abs(hi - want[s][1]) < 1e-6, `${where}: ${JSON.stringify(got)} vs ${JSON.stringify(want)}`));
+const boundTable = new Map();
+for (const state of JSON.parse(await readFile(new URL('./fixtures/hjarter-bounds.json', import.meta.url)))) {
+  const key = [state.players, Number(state.jackRule), state.jackTaker, ...state.taken].join();
+  boundTable.set(key, state.bounds);
+  near(dealBounds(state.taken, state.jackRule, state.jackTaker), state.bounds, `Bounds ${key}`);
+}
+let boundTokens = 0, decided = 0;
+for (const game of games) {
+  for (const deal of game.streams ?? []) for (const rows of deal) for (const row of rows) {
+    const players = row[F_PLAYERS];
+    const key = [players, row[F_RULE_JACK], row[F_JACK] === MAX_PLAYERS ? -1 : row[F_JACK], ...row.slice(F_TAKEN, F_TAKEN + players)].join();
+    assert.ok(boundTable.has(key), `A token's state is missing from the bounds fixture: ${key}`);
+    near(tokenBounds(row), boundTable.get(key), `Token bounds ${key}`);
+    boundTokens++;
+  }
+  for (const result of game.results) {
+    const players = result.points.length, total = result.points.reduce((a, b) => a + b, 0);
+    const returns = result.points.map(p => (total - p) / (players - 1) - p);
+    const final = dealBounds(result.taken, game.rules.jackOfDiamonds, result.jack);
+    near(final, returns.map(r => [r, r]), `A finished deal's bounds (game ${games.indexOf(game)})`);
+    returns.forEach((r, s) => assert.ok(Math.abs(boundValue(40, final[s]) - r) < 1e-9));
+    decided++;
+  }
+}
+console.log(`Hjärter engine matches cardgym: ${games.length} games, ${deals} deals, ${decisions} decisions, ${events} events, ${moons} moons, ${jacks} J♦ taken; ${streams} token streams, ${streamTokens} tokens, ${boundTable.size} bounded states (${boundTokens} tokens, ${decided} decided deals). Agent ${manifest.run} · ${manifest.iteration}.`);

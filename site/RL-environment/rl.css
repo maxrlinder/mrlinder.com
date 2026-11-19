@@ -1379,6 +1379,7 @@
 .human-label.is-current { background: var(--ink); color: var(--paper); }
 /* Your advantage now: the value head's estimate of your lead over the table. */
 .human-label .advantage-now { margin: -3px -10px -3px 0; padding: 3px 8px; border-left: 1px solid var(--ink); background: var(--yellow); color: var(--ink); font-weight: bold; }
+.human-label .advantage-now .advantage-range { margin-left: 6px; font-size: 0.8em; font-weight: normal; opacity: 0.75; white-space: nowrap; }
 
 /* A move's advantage once made, on its badge; the best move's in green. Moves
    the agent all but never makes are greyed: the value head extrapolates there. */

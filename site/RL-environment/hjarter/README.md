@@ -117,6 +117,19 @@ card you have chosen, on a copy of your stream, exactly as the engine will.
 every seat from yours, as the other seats' average points this deal minus
 its own, so your advantage is your seat's value minus the seats' mean,
 positive when you are expected to take fewer points than the table.
+As in training, that reading is then kept inside what your deal can still
+end at (`bounds.js`, a port of cardgym's `hjarter/bounds.py`): from the
+points each seat has taken, the jack rule and J♦'s taker, the deal ends
+either without a moon (the points left go anywhere) or, while every point
+taken is one seat's, in that seat's moon. Who holds which card is ignored,
+so the interval is wide early (a moon is still possible for anyone) and
+narrows as points fall; once the last card is out it is the deal's score.
+The value is mapped with a sigmoid onto the interval, scaled to slope 1 at
+its middle (`mid + h·tanh((v − mid)/h)`), so a reading well inside passes
+unchanged and none can leave it. The label shows the interval after the
+value. `scripts/check-hjarter.mjs` holds `bounds.js` to cardgym's numbers
+on every state of the fixture games (`scripts/fixtures/hjarter-bounds.json`,
+written by `scripts/export-hjarter-fixtures.py`).
 
 The switches load the agent if the computer seats did not need it. In
 multiplayer a guest's readouts are requests the host answers from the

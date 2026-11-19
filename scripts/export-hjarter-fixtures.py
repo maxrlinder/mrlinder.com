@@ -156,6 +156,26 @@ def main() -> None:
     }
     path = ROOT / 'scripts/fixtures/hjarter-games.json'
     path.write_text(json.dumps({'tokens': tokens, 'games': games}, separators=(',', ':')) + '\n')
+
+    # The value bounds (cardgym hjarter/bounds.py) of every state the fixture streams reach,
+    # keyed as bounds.js reads a token: players, the jack rule, J♦'s taker, the points taken.
+    from cardgym.games.hjarter.bounds import deal_bounds
+    from cardgym.games.hjarter.tokens import F_JACK, F_PLAYERS, F_RULE_JACK, F_TAKEN, SEAT_NA
+    states = {}
+    for game in games:
+        for deal in game.get('streams', []):
+            for rows in deal:
+                for row in rows:
+                    count = row[F_PLAYERS]
+                    taker = -1 if row[F_JACK] == SEAT_NA else row[F_JACK]
+                    key = (count, row[F_RULE_JACK], taker, tuple(row[F_TAKEN : F_TAKEN + count]))
+                    states[key] = deal_bounds(list(key[3]), bool(key[1]), taker)
+    bounds_path = ROOT / 'scripts/fixtures/hjarter-bounds.json'
+    bounds_path.write_text(json.dumps([
+        {'players': k[0], 'jackRule': bool(k[1]), 'jackTaker': k[2], 'taken': list(k[3]), 'bounds': [[round(lo, 6), round(hi, 6)] for lo, hi in v]}
+        for k, v in sorted(states.items())
+    ], separators=(',', ':')) + '\n')
+    print(f'{len(states)} bounded states -> {bounds_path.relative_to(ROOT)}')
     deals = sum(len(game['results']) for game in games)
     decisions = sum(len(game['decisions']) for game in games)
     streams = sum(len(deal) for game in games for deal in game.get('streams', []))

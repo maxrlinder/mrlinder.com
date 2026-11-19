@@ -49,6 +49,7 @@ const required = [
   "RL-environment/hjarter/engine.js",
   "RL-environment/hjarter/heuristic.js",
   "RL-environment/hjarter/tokens.js",
+  "RL-environment/hjarter/bounds.js",
   "RL-environment/hjarter/model-client.js",
   "RL-environment/hjarter/model-worker.js",
   "RL-environment/hjarter/model/manifest.json",

@@ -4,6 +4,7 @@ import {
 } from './engine.js?v=1';
 import { heuristicCard } from './heuristic.js?v=1';
 import { ObservationWriter, MODE_DEAL, MODE_GAME, F_TYPE, TYPE_TURN } from './tokens.js?v=1';
+import { boundValue, tokenBounds } from './bounds.js?v=1';
 import { HjarterAgent } from './model-client.js?v=2';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
@@ -289,7 +290,13 @@ const currentWorth = () => (showWorth() ? currentAdvice() : null);
 
 // The value probe reads every seat from the viewer's: the other seats' average
 // points this deal minus its own, so positive is good. Zero-sum over the seats in play.
+// As in training, the reading is mapped into what is still possible this deal
+// (bounds.js): `range` is that interval, read off the seat's last token.
 const ownValue = values => values[0] - values.slice(0, P()).reduce((a, b) => a + b, 0) / P();
+function advantage(values, seat) {
+  const range = tokenBounds(writer.streams[seat].at(-1))[0];
+  return { now: boundValue(ownValue(values), range), range };
+}
 
 // `seat`'s stream at its pass, as the agent will read it: it is the seat's turn
 // even while the seats before it are still passing, and the cards in `chosen`
@@ -335,12 +342,12 @@ async function assess(seat, chosen = []) {
       policy = await agent.policy(tokens(before), 'pass', actions);
       if (!still()) return null;
     }
-    return { head: 'pass', actions, full, own: own.cards, probabilities: policy.probabilities, argmax: policy.argmax, now: ownValue(policy.value) };
+    return { head: 'pass', actions, full, own: own.cards, probabilities: policy.probabilities, argmax: policy.argmax, ...advantage(policy.value, seat) };
   }
   const actions = table.legalCards();
   const policy = await agent.policy(writer.streams[seat], 'play', actions);
   if (engine !== table || decisionId !== decision) return null;
-  return { head: 'play', actions, probabilities: policy.probabilities, argmax: policy.argmax, now: ownValue(policy.value) };
+  return { head: 'play', actions, probabilities: policy.probabilities, argmax: policy.argmax, ...advantage(policy.value, seat) };
 }
 
 // The switches load the agent if the computer seats did not need it.
@@ -553,7 +560,8 @@ function renderHand() {
   const received = new Set(engine.phase === PLAY && engine.trickIndex === 0 ? engine.received[me] : []);
   const hand = handOrder(engine.hands[me].filter(c => !passed.includes(c)));
   const worth = currentWorth();
-  $('human-label').innerHTML = `<span>You</span><span>${plural(hand.length, 'card')}</span><span title="Penalty points taken this deal">♥ ${engine.taken[me]}</span><span title="Score">Σ ${num(totals[me])}</span>${engine.queenTaker === me ? '<span>took Q♠</span>' : ''}${engine.jackTaker === me ? '<span>took J♦</span>' : ''}${worth ? `<span class="advantage-now" title="The agent’s estimate of the other players’ average points this deal, minus yours: positive when you take fewer">Advantage ${points(worth.now, 1)}</span>` : ''}`;
+  const range = Array.isArray(worth?.range) && worth.range.length === 2 && worth.range.every(Number.isFinite) ? worth.range : null;
+  $('human-label').innerHTML = `<span>You</span><span>${plural(hand.length, 'card')}</span><span title="Penalty points taken this deal">♥ ${engine.taken[me]}</span><span title="Score">Σ ${num(totals[me])}</span>${engine.queenTaker === me ? '<span>took Q♠</span>' : ''}${engine.jackTaker === me ? '<span>took J♦</span>' : ''}${worth ? `<span class="advantage-now" title="The agent’s estimate of the other players’ average points this deal, minus yours: positive when you take fewer. It stays within what is still possible this deal${range ? `: ${points(range[0], 1)} to ${points(range[1], 1)}` : ''}">Advantage ${points(worth.now, 1)}${range ? `<small class="advantage-range">${points(range[0], 1)} … ${points(range[1], 1)}</small>` : ''}</span>` : ''}`;
   $('human-label').classList.toggle('is-current', !engine.done && (engine.phase === PASS ? !hasPassed(me) : engine.current === me));
   // The cards the agent's move would use are framed: its whole pass, or the card it would play.
   const odds = currentHint();
