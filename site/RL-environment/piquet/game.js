@@ -6,6 +6,7 @@ import {
   V_UNKNOWN, V_MINE, V_MINE_LEGAL, V_SELECTED, V_DISCARDED, V_SEEN_TALON, V_OPP, V_OPP_MAYBE, V_PLAYED_ME, V_PLAYED_OPP, V_TRICK_ME, V_TRICK_OPP,
 } from './engine.js?v=2';
 import { PiquetAgent } from './model-client.js?v=3';
+import { boundValue, seatBounds } from './bounds.js?v=1';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
 import { AI_NAMES, savePlayerName, savedPlayerName } from '../players.js';
@@ -239,6 +240,12 @@ const currentWorth = () => showWorth() && currentAdvice() ? hint : null;
 // it), or with a single-deal model your points minus your opponent's this deal.
 const ownValue = values => (values[0] - values[1]) / 2;
 const partieValue = () => agentInfo?.valueTarget !== 'deal';
+// As in training, the reading is mapped into what the deal or partie can still end
+// at (bounds.js, public information only): `range` is that interval, for `seat`.
+function advantage(values, seat, table) {
+  const range = seatBounds(table, { partie: partieValue(), deals: PARTIE_DEALS })[seat];
+  return { now: boundValue(ownValue(values), range), range };
+}
 // Payoffs run to hundreds: whole points. Deal margins: tenths.
 const worthDigits = () => (partieValue() ? 0 : 1);
 const worthMeaning = () => (partieValue()
@@ -280,7 +287,7 @@ async function assess(seat = me, chosen = selected) {
     if (asked !== stateId) return null;
     plan = { cards: full ? [...chosen] : [...chosen, ...extra] };
   }
-  return { id: asked, head, actions, full, plan, probabilities: policy.probabilities, argmax: policy.argmax, now: ownValue(policy.value) };
+  return { id: asked, head, actions, full, plan, probabilities: policy.probabilities, argmax: policy.argmax, ...advantage(policy.value, seat, sim.engine) };
 }
 
 async function requestHint() {
@@ -497,7 +504,8 @@ function renderTrick() {
 
 function renderHand(interactive) {
   const worth = interactive && currentWorth();
-  $('human-label').innerHTML = `<span>You · ${roleOf(me)}</span><span>${plural(popcount(engine.hands[me]), 'card')}</span><span>${plural(engine.tricks[me], 'trick')}</span><span>${engine.points[me]} pts</span><span>Σ ${totals[me]}</span>${worth ? `<span class="advantage-now" title="${upperFirst(worthMeaning())}">Advantage ${points(worth.now, worthDigits())}</span>` : ''}`;
+  const range = Array.isArray(worth?.range) && worth.range.length === 2 && worth.range.every(Number.isFinite) ? worth.range : null;
+  $('human-label').innerHTML = `<span>You · ${roleOf(me)}</span><span>${plural(popcount(engine.hands[me]), 'card')}</span><span>${plural(engine.tricks[me], 'trick')}</span><span>${engine.points[me]} pts</span><span>Σ ${totals[me]}</span>${worth ? `<span class="advantage-now" title="${upperFirst(worthMeaning())}. It stays within what is still possible${range ? `: ${points(range[0], worthDigits())} to ${points(range[1], worthDigits())}` : ''}">Advantage ${points(worth.now, worthDigits())}${range ? `<small class="advantage-range">${points(range[0], worthDigits())} … ${points(range[1], worthDigits())}</small>` : ''}</span>` : ''}`;
   $('human-label').classList.toggle('is-current', !engine.done && engine.current === me);
   const exchanging = interactive && engine.phase === EXCHANGE, playing = interactive && engine.phase === PLAY;
   const legal = new Set(interactive ? engine.legalActions() : []);

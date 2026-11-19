@@ -35,7 +35,16 @@ decision ahead and offers the whole meld.
 
 **Advantage** reads the actor's value head: a seat's expected points at the end
 of the round minus the other seats' average (the training target, zero-sum),
-for yours now.
+for yours now. As in training, the reading is kept inside what the round can
+still end at (`bounds.js`, a port of cardgym's `rummy/bounds.py`), from public
+information only: your lead now, plus or minus every card off the table (it
+ends in a hand, melded, or in the stock) and 10 for each low ace a lay-off
+could lift. Hands stay hidden until the round ends, so the interval stays wide;
+it never tells you more than the table does. The value is mapped with a
+sigmoid onto the interval, slope 1 at its middle (`mid + h·tanh((v − mid)/h)`),
+and the label shows the interval after it. `scripts/check-bounds.mjs` holds
+`bounds.js` to cardgym on the states of played rounds
+(`scripts/export-bounds-fixtures.py`).
 
 ## Score sheet
 

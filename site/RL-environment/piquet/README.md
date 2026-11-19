@@ -57,6 +57,16 @@ Its zero-sum part, (v₀ − v₁) / 2, is the training target: what the partie 
 expected to score for you, the Rubicon payoff (positive when you win it),
 shown in whole points. A single-deal model (manifest `valueTarget: "deal"`)
 predicts your points minus your opponent's this deal instead, shown in tenths.
+As in training, the reading is kept inside what can still happen (`bounds.js`,
+a port of cardgym's `piquet/bounds.py`), from public information: the points
+each player can still add this deal (carte blanche, the declarations not yet
+settled, repique or pique while still open, a point per trick left and the
+last trick, capot while the opponent has no trick, else the cards while seven
+tricks are in reach), and for a partie up to 205 a deal for each deal to come,
+through the Rubicon payoff, whose extremes lie at the corners, on the 99/100
+line, or either side of a tie. The value is mapped with a sigmoid onto the
+interval, slope 1 at its middle; the label shows the interval after it.
+`scripts/check-bounds.mjs` holds `bounds.js` to cardgym.
 
 **The agent's card read** (in the score sheet) shows the belief head from your
 seat: for every card you cannot place, its split between your opponent's

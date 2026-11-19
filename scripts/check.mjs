@@ -18,11 +18,13 @@ const required = [
   "RL-environment/plump/index.html",
   "RL-environment/rl.css",
   "RL-environment/plump/game.js",
+  "RL-environment/plump/bounds.js",
   "RL-environment/rummy/index.html",
   "RL-environment/rummy/rummy.css",
   "RL-environment/rummy/rummy.svg",
   "RL-environment/rummy-logo.svg",
   "RL-environment/rummy/game.js",
+  "RL-environment/rummy/bounds.js",
   "RL-environment/rummy/engine.js",
   "RL-environment/rummy/rules-data.js",
   "RL-environment/rummy/model-client.js",
@@ -35,6 +37,7 @@ const required = [
   "RL-environment/piquet/piquet.svg",
   "RL-environment/piquet-logo.svg",
   "RL-environment/piquet/game.js",
+  "RL-environment/piquet/bounds.js",
   "RL-environment/piquet/engine.js",
   "RL-environment/piquet/model-client.js",
   "RL-environment/piquet/model-worker.js",
@@ -137,3 +140,4 @@ await import("./check-plump-tokens.mjs");
 await import("./check-rummy.mjs");
 await import("./check-piquet.mjs");
 await import("./check-hjarter.mjs");
+await import("./check-bounds.mjs");

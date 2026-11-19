@@ -1,5 +1,6 @@
 import { RummyEngine, ObservationWriter, candidateFeatures, name, RANKS, SUITS, DRAW, STOCK, TAKE, MELD_GROUP, MELD_RUN, LAYOFF_GROUP, LAYOFF_RUN, DISCARD, NO_CARD, EVENT_STOCK, EVENT_TAKE, EVENT_MELD, EVENT_LAYOFF } from './engine.js?v=mp-4';
 import { RULES } from './rules-data.js';
+import { boundValue, roundBounds } from './bounds.js?v=1';
 import { RummyAgent } from './model-client.js?v=now-1';
 import { PeerRoom, generateRoomCode, normalizeRoomCode, validRoomCode } from '../multiplayer.js';
 import { difficultyLabel, snapDifficulty, temperatureFor } from '../difficulty.js';
@@ -276,13 +277,20 @@ async function followUps(seat, move) {
 // viewer's; zero-sum over the seats in play.
 const ownValue = (values, n) => values[0] - values.slice(0, n).reduce((a, b) => a + b, 0) / n;
 
+// As in training, the reading is mapped into what the round can still end at
+// (bounds.js, public information only): `range` is that interval, for `seat`.
+function advantage(values, seat) {
+  const range = roundBounds(engine)[seat];
+  return { now: boundValue(ownValue(values, engine.players), range), range };
+}
+
 // Everything the readouts show for `seat`'s decision: policy, the meld it would grow, the advantage now.
 async function assess(seat, asked) {
   const policy = await agent.policy(streams[seat], candidateFeatures(engine, asked.actions));
   if (asked !== decision) return null;
   const chain = await followUps(seat, asked.actions[policy.argmax]);
   if (asked !== decision) return null;
-  return { id: asked.id, probabilities: policy.probabilities, argmax: policy.argmax, chain, now: ownValue(policy.value, engine.players) };
+  return { id: asked.id, probabilities: policy.probabilities, argmax: policy.argmax, chain, ...advantage(policy.value, seat) };
 }
 
 // The agent's next move, with the cards it would add to its new meld straight after.
@@ -554,7 +562,8 @@ function renderHand(interactive) {
   const label = $('human-label');
   const penalty = engine.penalties()[me];
   const worth = interactive && currentWorth();
-  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>${worth ? `<span class="advantage-now" title="The agent’s estimate of your points at the end of the round, minus the other players’ average">Advantage ${points(worth.now, 1)}</span>` : ''}`;
+  const range = Array.isArray(worth?.range) && worth.range.length === 2 && worth.range.every(Number.isFinite) ? worth.range : null;
+  label.innerHTML = `<span>You</span><span>${plural(engine.count(me), 'card')}</span><span>+${engine.points[me]} laid</span><span>${penalty ? `−${penalty}` : 0} in hand</span><span>Σ ${totals[me] || 0}</span>${worth ? `<span class="advantage-now" title="The agent’s estimate of your points at the end of the round, minus the other players’ average. It stays within what is still possible this round${range ? `: ${points(range[0], 1)} to ${points(range[1], 1)}` : ''}">Advantage ${points(worth.now, 1)}${range ? `<small class="advantage-range">${points(range[0], 1)} … ${points(range[1], 1)}</small>` : ''}</span>` : ''}`;
   label.classList.toggle('is-current', !engine.done && engine.current === me);
   const cards = engine.hands[me].flatMap((n, c) => Array.from({ length: n }, (_, copy) => ({ card: c, id: `${c}:${copy}` })));
   if (sortBy === 'rank') cards.sort((a, b) => a.card % 13 - b.card % 13 || a.card - b.card);
@@ -901,7 +910,7 @@ function onMessage(message, peer) {
     applyState(message);
     if (first) sendHintPreference();
   } else if (message.type === 'hint') {
-    hint = { id: message.id, probabilities: message.probabilities, argmax: message.argmax, chain: Array.isArray(message.chain) ? message.chain : [], now: message.now };
+    hint = { id: message.id, probabilities: message.probabilities, argmax: message.argmax, chain: Array.isArray(message.chain) ? message.chain : [], now: message.now, range: message.range };
     render();
   } else if (message.type === 'rejected' || message.type === 'closed') {
     void leaveTable(message.message || 'The host closed this table.');

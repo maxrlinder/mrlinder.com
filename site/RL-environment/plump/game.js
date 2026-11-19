@@ -12,6 +12,7 @@ import {
 } from "../multiplayer.js";
 import { difficultyLabel, snapDifficulty, temperatureFor } from "../difficulty.js";
 import { AI_NAMES, savePlayerName, savedPlayerName } from "../players.js";
+import { boundValue, viewerBounds } from "./bounds.js?v=1";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -1116,10 +1117,18 @@ const wantsInsights = () =>
 // Your advantage now (the actor's value head: your expected points this round
 // minus the other players' average): the host's reading for a guest, else the
 // latest belief readout.
+// As in training, every value shown is mapped into what the round can still end at
+// (bounds.js): `range` is that interval for your seat.
 function currentAdvantage() {
   if (!dom.valueToggle.checked) return null;
-  return humanAdvantage ?? currentBeliefs()?.playerValues[0] ?? null;
+  const raw = humanAdvantage ?? currentBeliefs()?.playerValues[0] ?? null;
+  if (raw === null) return null;
+  const range = viewerBounds(game.round, game.numPlayers, localPlayer)[0];
+  return { now: boundValue(raw, range), range };
 }
+
+// Seat `relative`'s value (your frame) inside what the round can still end at.
+const boundedValue = (values, relative) => boundValue(values[relative], viewerBounds(game.round, game.numPlayers, localPlayer)[relative]);
 
 function renderHumanHand() {
   const hand = sortHand(game.round.hands[localPlayer]);
@@ -1128,7 +1137,7 @@ function renderHumanHand() {
   const bid = playerBid(localPlayer);
   dom.humanLabel.classList.toggle("is-current", game.round.currentPlayer === localPlayer);
   const advantage = ["bidding", "playing"].includes(game.round.phase) ? currentAdvantage() : null;
-  dom.humanLabel.innerHTML = `<span>You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[localPlayer]} · total ${game.scores[localPlayer]}</span>${advantage === null ? "" : `<span class="advantage-now" title="The agent’s estimate of your points this round, minus the other players’ average">Advantage ${formatRelativeScoreValue(advantage)}</span>`}`;
+  dom.humanLabel.innerHTML = `<span>You · bid ${bid ?? "—"} · tricks ${game.round.tricksWon[localPlayer]} · total ${game.scores[localPlayer]}</span>${advantage === null ? "" : `<span class="advantage-now" title="The agent’s estimate of your points this round, minus the other players’ average. It stays within what is still possible this round: ${formatRelativeScoreValue(advantage.range[0])} to ${formatRelativeScoreValue(advantage.range[1])}">Advantage ${formatRelativeScoreValue(advantage.now)}<small class="advantage-range">${formatRelativeScoreValue(advantage.range[0])} … ${formatRelativeScoreValue(advantage.range[1])}</small></span>`}`;
   const activeCards = new Set(hand.map(cardKey));
 
   $$('[data-play-card]', dom.humanHand).forEach((button) => {
@@ -1448,7 +1457,7 @@ function renderIntel() {
       : renderRankBounds(rankBoundaryProbabilities(player));
     return `
       <section class="belief-player" aria-label="${escapeHtml(playerName(player))} actor belief readout">
-        <header><strong>${escapeHtml(playerName(player))}</strong><span>Actor EV ${signedValue(humanPrediction.playerValues[relativePlayer])}</span></header>
+        <header><strong>${escapeHtml(playerName(player))}</strong><span>Actor EV ${signedValue(boundedValue(humanPrediction.playerValues, relativePlayer))}</span></header>
         <div class="belief-line"><b>Final tricks · top 3</b><span class="belief-values">${renderProbabilityBadges(topTricks)}</span></div>
         <div class="belief-line"><b>Next trick winner</b><span class="belief-values"><span class="belief-prob"><strong>${nextWinner}</strong></span></span></div>
         <div class="belief-line"><b>${player === localPlayer ? "Known suits" : "Suit presence"}</b><span class="belief-values">${renderSuitBadges(suitPresenceProbabilities(player))}</span></div>

@@ -314,7 +314,10 @@
                     The “expected” score comes from an oracle critic, a second
                     transformer that sees every hand, used only in training. The
                     actor’s own value head estimates your points against the
-                    table: the <em>Advantage</em> switch shows it. Side heads
+                    table: the <em>Advantage</em> switch shows it, kept within
+                    what the round can still end at (a seat before its bid can
+                    still score anything; after it, only a hit while the bid is
+                    within reach, or a miss). Side heads
                     predict opponents’ suits, card ranges and trick counts: the
                     <em>Actor beliefs</em>.
                   </p>
