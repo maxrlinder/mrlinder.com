@@ -135,8 +135,10 @@ def main():
 
     file = out / f'hjarter-{args.checkpoint.parent.parent.name}-{payload["iteration"]}-fp32.onnx'
     outputs = ['pass_logits', 'play_logits', 'value']
-    # Logits to within 5e-5; values are tens of points.
-    tolerance = dict(pass_logits=5e-5, play_logits=5e-5, value=2e-3)
+    # Logits to within 2e-4 (they reach about +-16, where float32 rounding through the
+    # trunk differs by ~5e-5 between the two graphs; 2e-4 moves a probability by 0.02%);
+    # values are tens of points.
+    tolerance = dict(pass_logits=2e-4, play_logits=2e-4, value=2e-3)
     with torch.inference_mode(), export_patches():
         for tokens, wanted in zip(samples, expected):
             for name, actual, target in zip(outputs, wrapper(torch.from_numpy(tokens)), wanted):
